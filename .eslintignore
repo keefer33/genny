@@ -1,0 +1,10 @@
+node_modules
+build
+dist
+coverage
+.eslintrc.cjs
+**/*.css
+**/*.svg
+/oldfiles/
+/oldfiles/**
+oldfiles
