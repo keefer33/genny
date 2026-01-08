@@ -3,7 +3,6 @@ import {
   Badge,
   Card,
   Group,
-  Loader,
   Progress,
   Stack,
   Text,
@@ -11,7 +10,7 @@ import {
   Button,
   useMantineColorScheme,
 } from "@mantine/core";
-import { RiCheckLine, RiErrorWarningLine, RiTimeLine, RiDeleteBinLine } from "@remixicon/react";
+import { RiErrorWarningLine, RiTimeLine, RiDeleteBinLine } from "@remixicon/react";
 import { useEffect } from "react";
 import useAppStore from "~/lib/stores/appStore";
 import useGenerateStore, { type GenerationFile } from "~/lib/stores/generateStore";
@@ -53,12 +52,6 @@ export function GenerationsFileCard({
     if (status === "completed") return "green";
     if (status === "failed") return "red";
     return "gray";
-  };
-
-  const getStatusIcon = (status: string) => {
-    if (isProcessing) return <Loader size={16} />;
-    if (status === "completed") return <RiCheckLine size={16} />;
-    return <RiErrorWarningLine size={16} />;
   };
 
   const getStatusLabel = (status: string) => {

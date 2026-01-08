@@ -733,8 +733,19 @@ const useFilesFoldersStoreBase = create<FilesFoldersState>((set, get) => ({
         selectedGenerationType || undefined
       );
     } catch (error) {
+      console.error("Error fetching files:", error);
       // Fallback if generateStore is not available
-      await get().loadUserFiles(page, 12, undefined, undefined, undefined, undefined, undefined, undefined, undefined);
+      await get().loadUserFiles(
+        page,
+        12,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined
+      );
     }
   },
 
@@ -760,6 +771,7 @@ const useFilesFoldersStoreBase = create<FilesFoldersState>((set, get) => ({
         selectedGenerationType || undefined
       );
     } catch (error) {
+      console.error("Error updating files:", error);
       // Fallback if generateStore is not available
       await get().loadUserFiles(
         get().paginationData.currentPage,
