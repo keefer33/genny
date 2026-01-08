@@ -31,16 +31,15 @@ export default function Generations() {
   const [bulkLoading, setBulkLoading] = useState(false);
 
   const { getUser, getApi, isMobile } = useAppStore();
-  const { models } = useGenerateStore();
   const {
     generations,
     loadingGenerations,
     pagination,
     loadGenerations,
     selectedFilterModelId,
-    deleteGeneration,
+    models,
   } = useGenerateStore();
-  const { fileTypeFilter, selectedTags } = useFilesFoldersStore();
+  const { fileTypeFilter, selectedTags, deleteFile } = useFilesFoldersStore();
   const { loadTags } = useTagStore();
   const { height: viewportHeight } = useViewportSize();
 
@@ -164,7 +163,12 @@ export default function Generations() {
       }
 
       const deletePromises = allSelectedGenerations.map((gen) => {
-        return deleteGeneration(gen.id);
+        console.log(gen);
+        return deleteFile(
+          gen.user_generation_files[0].user_files.file_name,
+          gen.user_generation_files[0].user_files.id,
+          userId
+        );
       });
 
       const results = await Promise.all(deletePromises);
