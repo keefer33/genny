@@ -21,6 +21,7 @@ import { useAuth } from "./lib/hooks/useAuth";
 import { createClient } from "@supabase/supabase-js";
 import type { Model } from "./lib/stores/generateStore";
 import { Notifications } from "@mantine/notifications";
+import { PWAInstallPrompt } from "./shared/PWAInstallPrompt";
 
 // Function to fetch all models from Supabase
 async function getModels(supabaseClient: any): Promise<Model[]> {
@@ -135,6 +136,8 @@ export const links: Route.LinksFunction = () => [
     rel: "preconnect",
     href: "https://accounts.google.com/gsi/client",
   },
+  { rel: "manifest", href: "/manifest.json" },
+  { rel: "apple-touch-icon", href: "/icons/icon-192x192.png" },
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -168,7 +171,18 @@ export function Layout({ children }: { children: React.ReactNode }) {
     <html lang="en">
       <head>
         <meta charSet="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
+        <meta
+          name="description"
+          content="A modern generative AI application for creating stunning images and videos using the latest AI models"
+        />
+        <meta name="theme-color" content="#00b8d4" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="Genny" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="msapplication-TileColor" content="#00b8d4" />
+        <meta name="msapplication-config" content="/browserconfig.xml" />
         <Meta />
         <Links />
         <link rel="stylesheet" href={mantine} />
@@ -177,7 +191,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <script src="https://accounts.google.com/gsi/client" async></script>
       </head>
       <body>
-        <DynamicThemeProvider>{appLoading ? <PageLoader /> : children}</DynamicThemeProvider>
+        <DynamicThemeProvider>
+          {appLoading ? <PageLoader /> : children}
+          <PWAInstallPrompt />
+        </DynamicThemeProvider>
         <ScrollRestoration />
         <Scripts />
       </body>

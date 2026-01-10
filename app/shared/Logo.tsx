@@ -1,9 +1,8 @@
-import { Group, Text, useMantineTheme } from "@mantine/core";
-import { RiRobotLine } from "@remixicon/react";
+import { Group, Text, useMantineTheme, Image, Box } from "@mantine/core";
 import useAppStore from "~/lib/stores/appStore";
 
 export default function Logo({
-  size = 28,
+  size = 48,
   fontSize = "28px",
   fontSizeSmall = "16px",
 }: {
@@ -25,7 +24,9 @@ export default function Logo({
 
   return (
     <Group gap="0">
-      <RiRobotLine size={size} color={theme.colors[themeColor][6]} />
+      <Box>
+        <Image src="https://aifile.link/IESJ5E.png" alt="Genny Bot" width={size} height={size} />
+      </Box>
       <Group gap={0} align="baseline">
         <Text
           size={themeSettings.fontSize}
