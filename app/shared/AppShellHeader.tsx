@@ -18,7 +18,7 @@ export function AppShellHeader({ mobileOpened, toggleMobile }: AppShellHeaderPro
       <Group p="sm" justify="space-between" align="center">
         <Group>
           <Burger opened={mobileOpened} onClick={toggleMobile} size="sm" hiddenFrom="md" />
-          <Logo size={24} />
+          <Logo size={48} />
         </Group>
         <Group align="center">
           <TokensBadge tokens={getCurrentUserTokens()} />
