@@ -134,6 +134,7 @@ interface AppStoreState {
   updateUserTokens: (tokens: number) => Promise<any>;
   getUserTokens: () => Promise<number>;
   getCurrentUserTokens: () => number;
+  checkApiHealth: () => Promise<boolean>;
 }
 
 const useAppStoreBase = create<AppStoreState>((set, get) => ({
@@ -504,6 +505,26 @@ const useAppStoreBase = create<AppStoreState>((set, get) => ({
     } catch (error) {
       console.error("Error updating user tokens:", error);
       return { success: false, error: "Failed to update tokens" };
+    }
+  },
+
+  checkApiHealth: async (): Promise<boolean> => {
+    try {
+      const response = await fetch(`${endpoint}/health`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        return data.status === "OK";
+      }
+      return false;
+    } catch (error) {
+      console.error("API health check failed:", error);
+      return false;
     }
   },
 }));

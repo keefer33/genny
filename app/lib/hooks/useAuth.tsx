@@ -2,7 +2,8 @@ import { useEffect, useRef } from "react";
 import useAppStore from "../stores/appStore";
 
 export function useAuth() {
-  const { setUser, setAppLoading, setApi, getApi, userProfile, setUserTokens } = useAppStore();
+  const { setUser, setAppLoading, setApi, getApi, userProfile, setUserTokens, checkApiHealth } =
+    useAppStore();
 
   // Keep channel ref to avoid duplicate subscriptions and for cleanup
   const channelRef = useRef<any>(null);
@@ -54,6 +55,18 @@ export function useAuth() {
     const {
       data: { subscription },
     } = getApi().auth.onAuthStateChange(async (event, session) => {
+      console.log("session", session);
+      // Check API health whenever auth state changes
+      // Skip check if already on health error page
+      if (window.location.pathname !== "/api-health-error") {
+        const isHealthy = await checkApiHealth();
+        if (!isHealthy) {
+          // Redirect to API health error page if API is unhealthy
+          window.location.href = "/api-health-error";
+          return;
+        }
+      }
+
       if (session?.user) {
         userProfile(session); // your existing profile fetcher/populator
 

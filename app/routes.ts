@@ -1,6 +1,7 @@
 import { type RouteConfig, layout, route } from "@react-router/dev/routes";
 
 export default [
+  route("/api-health-error", "pages/root/ApiHealthError.tsx"),
   layout("shared/GenerateLayout.tsx", [
     route("/", "pages/root/Home.tsx"),
     route("/generate", "pages/generate/Generate.tsx"),
