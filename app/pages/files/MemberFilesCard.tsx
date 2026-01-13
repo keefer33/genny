@@ -1,5 +1,4 @@
 import {
-  Anchor,
   Badge,
   Box,
   Button,
@@ -10,28 +9,22 @@ import {
   Image,
   Modal,
   Stack,
-  Table,
-  Text,
   TextInput,
   useMantineTheme,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import {
-  RiDeleteBinLine,
-  RiDownloadLine,
-  RiEditLine,
   RiFileLine,
   RiFilePdf2Fill,
   RiFileTextLine,
   RiImageLine,
   RiPlayLine,
 } from "@remixicon/react";
-import dayjs from "dayjs";
 import { useEffect, useState } from "react";
 import useFilesFoldersStore from "~/lib/stores/filesFoldersStore";
-import { formatDate, formatFileSize, getFileExtension, isTextFile } from "~/lib/utils";
+import { getFileExtension, isTextFile } from "~/lib/utils";
 import useAppStore from "~/lib/stores/appStore";
-import FileTagModal from "~/pages/files/components/FileTagModal";
+import FileDetailModal from "~/shared/FileDetailModal";
 
 interface UserTag {
   id: string;
@@ -60,18 +53,6 @@ interface FileData {
     payload: {
       prompt: string;
     };
-  };
-}
-
-interface UserFileTag {
-  file_id: string;
-  tag_id: string;
-  created_at: string;
-  user_tags: {
-    id: string;
-    created_at: string;
-    user_id: string;
-    tag_name: string;
   };
 }
 
@@ -326,14 +307,16 @@ export default function MemberFilesCard({
             <Group gap="xs" justify="space-between" align="center">
               <Box>{getFileTypeBadge()}</Box>
 
-              {onSelect && (
-                <Checkbox
-                  checked={selected}
-                  onChange={(event) => onSelect(event.currentTarget.checked)}
-                  size="sm"
-                  style={{ zIndex: 4 }}
-                />
-              )}
+              <Group gap="xs">
+                {onSelect && (
+                  <Checkbox
+                    checked={selected}
+                    onChange={(event) => onSelect(event.currentTarget.checked)}
+                    size="sm"
+                    style={{ zIndex: 4 }}
+                  />
+                )}
+              </Group>
             </Group>
           </Box>
 
@@ -369,176 +352,16 @@ export default function MemberFilesCard({
         </Card.Section>
       </Card>
 
-      <Modal
+      <FileDetailModal
         opened={opened}
         onClose={close}
-        title={currentFile.file_name}
-        size="xl"
-        fullScreen
-        styles={{
-          body: { padding: 0 },
-          header: { padding: "1rem" },
-        }}
-      >
-        <Stack gap="lg" p="md">
-          {/* File Preview Section */}
-          <Box>
-            {currentFile.file_type.startsWith("image/") ? (
-              <Image
-                src={currentFile.file_path}
-                alt={currentFile.file_name}
-                style={{ maxHeight: "60vh", width: "100%", objectFit: "contain" }}
-                radius="md"
-              />
-            ) : currentFile.file_type.startsWith("video/") ? (
-              <video
-                src={currentFile.file_path}
-                style={{
-                  width: "100%",
-                  maxHeight: "60vh",
-                  objectFit: "contain",
-                  borderRadius: "8px",
-                }}
-                controls
-                preload="metadata"
-              >
-                Your browser does not support the video tag.
-              </video>
-            ) : (
-              <Center
-                h={400}
-                style={{ backgroundColor: "var(--mantine-color-gray-0)", borderRadius: "8px" }}
-              >
-                <Stack align="center" gap="md">
-                  <Box>{getFileIcon(120)}</Box>
-                  <Text size="lg" fw={500}>
-                    {currentFile.file_name}
-                  </Text>
-                </Stack>
-              </Center>
-            )}
-          </Box>
-
-          {/* File Information */}
-          <Card withBorder radius="md" p="md">
-            <Stack gap="md">
-              <Group justify="space-between" align="flex-start">
-                <Stack gap="xs">
-                  <Text size="xl" fw={600}>
-                    {currentFile.file_name}
-                  </Text>
-                  <Group gap="xs">
-                    {getFileTypeBadge()}
-                    <Text size="sm" c="dimmed">
-                      {formatFileSize(currentFile.file_size)}
-                    </Text>
-                    <Text size="sm" c="dimmed">
-                      {formatDate(currentFile.created_at)}
-                    </Text>
-                  </Group>
-                </Stack>
-
-                {/* Action Buttons */}
-                <Group gap="sm">
-                  <Button
-                    leftSection={<RiDownloadLine size={16} />}
-                    onClick={handleDownload}
-                    variant="light"
-                  >
-                    Download
-                  </Button>
-                  <Button
-                    leftSection={<RiEditLine size={16} />}
-                    onClick={handleEdit}
-                    variant="light"
-                    color="blue"
-                  >
-                    Rename
-                  </Button>
-                  <Button
-                    leftSection={<RiDeleteBinLine size={16} />}
-                    onClick={handleDelete}
-                    variant="light"
-                    color="red"
-                    loading={deleting}
-                  >
-                    Delete
-                  </Button>
-                </Group>
-              </Group>
-
-              {/* Tags Section */}
-              <Box>
-                <Group gap="xs" justify="space-between" align="center" mb="xs">
-                  <Text size="sm" fw={500}>
-                    Tags
-                  </Text>
-                  <FileTagModal
-                    fileId={currentFile.id}
-                    fileTags={currentFile.user_file_tags || []}
-                    onTagsUpdated={handleTagsUpdated}
-                  />
-                </Group>
-                <Group gap="xs">
-                  {currentFile.user_file_tags && currentFile.user_file_tags.length > 0 ? (
-                    currentFile.user_file_tags.map((fileTag) => (
-                      <Badge key={fileTag.tag_id} color="blue" variant="light" size="sm">
-                        {fileTag.user_tags.tag_name}
-                      </Badge>
-                    ))
-                  ) : (
-                    <Text size="sm" c="dimmed">
-                      No tags assigned
-                    </Text>
-                  )}
-                </Group>
-              </Box>
-
-              {/* File Details Table */}
-              <Table variant="vertical" layout="fixed" withTableBorder>
-                <Table.Tbody>
-                  <Table.Tr>
-                    <Table.Th w={160}>File Name</Table.Th>
-                    <Table.Td>
-                      <Anchor href={currentFile.file_path} target="_blank">
-                        {currentFile.file_name}
-                      </Anchor>
-                    </Table.Td>
-                  </Table.Tr>
-                  <Table.Tr>
-                    <Table.Th>Date Created</Table.Th>
-                    <Table.Td>{`${dayjs(currentFile.created_at).format("MM/DD/YYYY h:mm A")}`}</Table.Td>
-                  </Table.Tr>
-                  <Table.Tr>
-                    <Table.Th>File Size</Table.Th>
-                    <Table.Td>{formatFileSize(currentFile.file_size)}</Table.Td>
-                  </Table.Tr>
-                  <Table.Tr>
-                    <Table.Th>File Type</Table.Th>
-                    <Table.Td>{currentFile.file_type.toUpperCase()}</Table.Td>
-                  </Table.Tr>
-                  <Table.Tr>
-                    <Table.Th>File Path</Table.Th>
-                    <Table.Td>
-                      <Text size="sm" style={{ wordBreak: "break-all" }}>
-                        {currentFile.file_path}
-                      </Text>
-                    </Table.Td>
-                  </Table.Tr>
-                  <Table.Tr>
-                    <Table.Th>Prompt</Table.Th>
-                    <Table.Td>
-                      <Text size="sm" style={{ wordBreak: "break-all" }}>
-                        {currentFile.generated_info?.payload?.prompt}
-                      </Text>
-                    </Table.Td>
-                  </Table.Tr>
-                </Table.Tbody>
-              </Table>
-            </Stack>
-          </Card>
-        </Stack>
-      </Modal>
+        file={currentFile}
+        onDownload={handleDownload}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+        deleting={deleting}
+        onTagsUpdated={handleTagsUpdated}
+      />
 
       <Modal opened={editOpened} onClose={closeEdit} title="Edit File Name" size="md">
         <Stack gap="md">

@@ -4,8 +4,8 @@
   "description": "A modern generative AI application for creating stunning images and videos using the latest AI models",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "c1c6c7",
+  "background_color": "#c1c6c7",
+  "theme_color": "#c1c6c7",
   "orientation": "portrait-primary",
   "scope": "/",
   "icons": [

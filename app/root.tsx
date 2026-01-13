@@ -26,8 +26,10 @@ import { PWAInstallPrompt } from "./shared/PWAInstallPrompt";
 // Function to fetch all models from Supabase
 async function getModels(supabaseClient: any): Promise<Model[]> {
   try {
-    const { data, error } = await supabaseClient.from("models").select(
-      `
+    const { data, error } = await supabaseClient
+      .from("models")
+      .select(
+        `
         *,
         brands (
           id,
@@ -36,7 +38,8 @@ async function getModels(supabaseClient: any): Promise<Model[]> {
         ),
         api(schema,pricing)
       `
-    );
+      )
+      .neq("status", false);
 
     if (error) {
       console.error("Error fetching models:", error);
