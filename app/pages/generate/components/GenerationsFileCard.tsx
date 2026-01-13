@@ -16,6 +16,7 @@ import useAppStore from "~/lib/stores/appStore";
 import useGenerateStore, { type GenerationFile } from "~/lib/stores/generateStore";
 import MemberFilesCard from "~/pages/files/MemberFilesCard";
 import { TokensBadge } from "~/shared/TokensBadge";
+import FileShare from "~/shared/FileShare";
 
 interface GenerationsFileCardProps {
   file: GenerationFile;
@@ -107,10 +108,28 @@ export function GenerationsFileCard({
           }
         })}
       <Stack p="md">
-        <Group gap="sm">
+        <Group gap="sm" justify="space-between">
           <Text size="sm" fw={500}>
             {file.models?.name || "Unknown Model"}
           </Text>
+          {file.status === "completed" &&
+            file.user_generation_files &&
+            file.user_generation_files.length > 0 &&
+            file.user_generation_files[0]?.user_files?.file_path && (
+              <FileShare
+                fileUrl={file.user_generation_files[0].user_files.file_path}
+                fileName={file.user_generation_files[0].user_files.file_name}
+                fileType={
+                  file.user_generation_files[0].user_files.file_type.startsWith("image/")
+                    ? "image"
+                    : file.user_generation_files[0].user_files.file_type.startsWith("video/")
+                      ? "video"
+                      : "other"
+                }
+                variant="icon"
+                size="sm"
+              />
+            )}
         </Group>
         <Group gap="sm">
           <Group gap="xs" justify="space-between">

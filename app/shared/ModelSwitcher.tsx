@@ -10,7 +10,7 @@ import {
   Card,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { RiArrowDownSLine, RiImageLine, RiVideoLine } from "@remixicon/react";
+import { RiArrowDownSLine, RiImageLine, RiVideoLine, RiToolsLine } from "@remixicon/react";
 import { useNavigate } from "react-router";
 import { useMantineColorScheme } from "@mantine/core";
 import useGenerateStore from "~/lib/stores/generateStore";
@@ -33,6 +33,11 @@ const GENERATION_TYPE_INFO = {
     name: "Video",
     icon: RiVideoLine,
     color: "green.3",
+  },
+  tools: {
+    name: "Tools",
+    icon: RiToolsLine,
+    color: "orange",
   },
 };
 
