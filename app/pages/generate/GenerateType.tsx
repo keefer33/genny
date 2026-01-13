@@ -13,7 +13,7 @@ import {
   Center,
   Avatar,
 } from "@mantine/core";
-import { RiImageLine, RiVideoLine, RiTimeLine } from "@remixicon/react";
+import { RiImageLine, RiVideoLine, RiTimeLine, RiToolsLine } from "@remixicon/react";
 import { useParams, useNavigate } from "react-router";
 import useGenerateStore from "~/lib/stores/generateStore";
 import { PageTitle } from "~/shared/PageTitle";
@@ -30,6 +30,12 @@ const GENERATION_TYPE_INFO = {
     icon: RiVideoLine,
     color: "purple",
     description: "Choose from our collection of AI video generation models",
+  },
+  tools: {
+    name: "Tools",
+    icon: RiToolsLine,
+    color: "orange",
+    description: "Choose from our collection of AI tools and utilities",
   },
 };
 

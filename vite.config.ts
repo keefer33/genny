@@ -15,9 +15,10 @@ export default defineConfig({
       manifest: {
         name: "Genny.bot - AI Content Generation",
         short_name: "Genny",
-        description: "A modern generative AI application for creating stunning images and videos using the latest AI models",
-        theme_color: "#00b8d4",
-        background_color: "#ffffff",
+        description:
+          "A modern generative AI application for creating stunning images and videos using the latest AI models",
+        theme_color: "#c1c6c7",
+        background_color: "#c1c6c7",
         display: "standalone",
         orientation: "portrait-primary",
         scope: "/",
