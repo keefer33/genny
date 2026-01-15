@@ -10,11 +10,10 @@ import { usePaymentModal } from "./PaymentModal";
 
 export default function GenerateLayout() {
   const matches = useMatches();
-  const { setPage, getPage } = useAppStore();
+  const { setPage, page, isMobile } = useAppStore();
   const { colorScheme } = useMantineColorScheme();
   const [mobileOpened, { toggle: toggleMobile }] = useDisclosure();
   const [desktopCollapsed, setDesktopCollapsed] = useState(false);
-  const { isMobile } = useAppStore();
   const { PaymentModalComponent } = usePaymentModal();
   const toggleDesktop = () => {
     setDesktopCollapsed(!desktopCollapsed);
@@ -23,14 +22,14 @@ export default function GenerateLayout() {
   useEffect(() => {
     const currentMatch = matches[matches.length - 1];
     setPage(currentMatch.id);
-  }, [matches]);
+  }, [matches, setPage]);
 
   return (
     <AppShell
       layout="alt"
-      header={{ height: isMobile ? (mobileUI.pages[getPage() ?? ""]?.header?.height ?? 60) : 60 }}
+      header={{ height: isMobile ? (mobileUI.pages[page ?? ""]?.header?.height ?? 60) : 60 }}
       {...(isMobile && {
-        footer: { height: mobileUI.pages[getPage() ?? ""]?.footer?.height ?? 0 },
+        footer: { height: mobileUI.pages[page ?? ""]?.footer?.height ?? 0 },
       })}
       navbar={{
         width: desktopCollapsed ? 50 : 200,
@@ -55,7 +54,7 @@ export default function GenerateLayout() {
       </AppShell.Main>
 
       {isMobile && (
-        <AppShell.Footer>{mobileUI.pages[getPage() ?? ""]?.footer?.component}</AppShell.Footer>
+        <AppShell.Footer>{mobileUI.pages[page ?? ""]?.footer?.component}</AppShell.Footer>
       )}
 
       {/* Global Payment Modal */}

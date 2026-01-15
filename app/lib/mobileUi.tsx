@@ -11,7 +11,7 @@ export const mobileUI = {
   pages: {
     "pages/generate/GenerateModel": {
       header: {
-        height: 100,
+        height: 120,
         component: <MobileHeaderGenerate />,
       },
       footer: {
@@ -21,7 +21,7 @@ export const mobileUI = {
     },
     "pages/generations/Generations": {
       header: {
-        height: 100,
+        height: 120,
         component: <MobileHeaderGenerations />,
       },
       footer: {
@@ -31,7 +31,7 @@ export const mobileUI = {
     },
     "pages/files/MemberFiles": {
       header: {
-        height: 110,
+        height: 120,
         component: <MobileHeaderFiles />,
       },
       footer: {
