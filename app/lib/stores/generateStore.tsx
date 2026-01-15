@@ -740,27 +740,29 @@ const useGenerateStoreBase = create<GenerateStoreState>((set, get) => ({
     let tokensCost: number = 0;
 
     switch (pricing.type) {
+      case "per":
+        tokensCost = pricing.tokens;
+        break;
       case "perMulti":
         if (formValues.num_images || formValues.max_images) {
           tokensCost = pricing.tokens * (formValues.num_images || formValues.max_images);
         }
         break;
-      case "duration":
+      case "singleField":
         tokensCost = pricing.tokens[formValues[pricing.field]] || 0;
         break;
-      case "durationResolution":
+      case "multiFields":
         if (formValues[pricing.tokens.field]) {
           const value = pricing.tokens?.values[formValues[pricing.tokens.field]];
           tokensCost = value?.price * formValues[value?.field];
         }
         break;
-      case "durationSize":
-        if (formValues.size && formValues.n_frames) {
-          tokensCost = pricing.tokens[formValues.size][formValues.n_frames];
+      case "twoFieldLookup":
+        if (formValues[pricing.tokens.field1] && formValues[pricing.tokens.field2]) {
+          const field1Value = formValues[pricing.tokens.field1];
+          const field2Value = String(formValues[pricing.tokens.field2]); // Convert to string for lookup
+          tokensCost = pricing.tokens.prices[field1Value]?.[field2Value] || 0;
         }
-        break;
-      case "per":
-        tokensCost = pricing.tokens;
         break;
       default:
         tokensCost = 0;
