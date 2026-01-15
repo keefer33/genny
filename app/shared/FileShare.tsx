@@ -21,7 +21,6 @@ import {
   RiLinksLine,
   RiShareForwardLine,
 } from "@remixicon/react";
-import { notifications } from "@mantine/notifications";
 
 interface FileShareProps {
   fileUrl: string;
@@ -36,7 +35,7 @@ export default function FileShare({
   fileName,
   fileType = "other",
   variant = "button",
-  size = "md",
+  size = "lg",
 }: FileShareProps) {
   const [opened, { open, close }] = useDisclosure(false);
   const shareText = `Check out this ${fileType === "image" ? "image" : fileType === "video" ? "video" : "file"}: ${fileName}`;
@@ -70,33 +69,32 @@ export default function FileShare({
               text: shareText,
               files: [file],
             });
-            notifications.show({
-              title: "Shared successfully",
-              message: "File shared successfully",
-              color: "green",
-            });
+            // Native share dialog provides its own feedback, no need for notification
+            return; // Exit early on success
+          }
+        } catch (error: any) {
+          // If file sharing fails, fall through to URL sharing
+          if (error.name === "AbortError") {
+            // User cancelled, don't show modal
             return;
           }
-        } catch {
-          // Fallback to URL sharing
           console.log("File sharing not supported, falling back to URL");
         }
       }
 
       // Share URL
       await navigator.share(shareData);
-      notifications.show({
-        title: "Shared successfully",
-        message: "File shared successfully",
-        color: "green",
-      });
+      // Native share dialog provides its own feedback, no need for notification
+      return; // Don't open modal after successful share
     } catch (error: any) {
       // User cancelled or error occurred
-      if (error.name !== "AbortError") {
-        console.error("Error sharing:", error);
-        // Fallback to modal
-        open();
+      if (error.name === "AbortError") {
+        // User cancelled native share, don't open modal
+        return;
       }
+      console.error("Error sharing:", error);
+      // Only open modal if there was an actual error (not cancellation)
+      open();
     }
   };
 
@@ -135,8 +133,8 @@ export default function FileShare({
   const shareButton =
     variant === "icon" ? (
       <Tooltip label="Share">
-        <ActionIcon variant="light" size={size} onClick={handleNativeShare}>
-          <RiShareLine size={18} />
+        <ActionIcon variant="transparent" size={size} onClick={handleNativeShare}>
+          <RiShareLine size={24} />
         </ActionIcon>
       </Tooltip>
     ) : (

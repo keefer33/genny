@@ -11,7 +11,7 @@ interface AppShellHeaderProps {
 }
 
 export function AppShellHeader({ mobileOpened, toggleMobile }: AppShellHeaderProps) {
-  const { isMobile, getPage, getCurrentUserTokens } = useAppStore();
+  const { isMobile, page, getCurrentUserTokens } = useAppStore();
 
   return (
     <>
@@ -24,7 +24,7 @@ export function AppShellHeader({ mobileOpened, toggleMobile }: AppShellHeaderPro
           <TokensBadge tokens={getCurrentUserTokens()} />
         </Group>
       </Group>
-      {isMobile && mobileUI.pages[getPage() ?? ""]?.header?.component}
+      {isMobile && mobileUI.pages[page ?? ""]?.header?.component}
     </>
   );
 }

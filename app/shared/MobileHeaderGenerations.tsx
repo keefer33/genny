@@ -13,7 +13,7 @@ export const MobileHeaderGenerations = () => {
     useDisclosure(false);
   const { selectedFilterModelId, models } = useGenerateStore();
   const { fileTypeFilter, selectedTags } = useFilesFoldersStore();
-  
+
   // Get available models from store (all models, not just from loaded generations)
   const availableModels = useMemo(() => {
     return models.map((model) => ({
@@ -30,7 +30,7 @@ export const MobileHeaderGenerations = () => {
 
   return (
     <>
-      <Group gap="xs" justify="space-between" align="center" p="xs">
+      <Group gap="xs" justify="space-between" align="center" px="sm">
         <Title order={3}>Generations</Title>
         <Button leftSection={<RiFilterLine size={16} />} variant="light" onClick={openFiltersModal}>
           Filters

@@ -14,7 +14,7 @@ export const MobileHeaderFiles = () => {
   const { selectedTags, selectedUploadType, handleFileUpdate } = useFilesFoldersStore();
 
   return (
-    <Group justify="space-between" align="center" p="xs">
+    <Group justify="space-between" align="center" px="xs">
       <FileUpload onUploadComplete={handleFileUpdate} />
 
       <Button leftSection={<RiFilterLine size={16} />} variant="light" onClick={openFiltersModal}>

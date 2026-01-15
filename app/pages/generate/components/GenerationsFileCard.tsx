@@ -127,7 +127,7 @@ export function GenerationsFileCard({
                       : "other"
                 }
                 variant="icon"
-                size="sm"
+                size="lg"
               />
             )}
         </Group>
