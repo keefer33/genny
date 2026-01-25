@@ -757,13 +757,25 @@ const useGenerateStoreBase = create<GenerateStoreState>((set, get) => ({
           tokensCost = value?.price * formValues[value?.field];
         }
         break;
-      case "twoFieldLookup":
-        if (formValues[pricing.tokens.field1] && formValues[pricing.tokens.field2]) {
-          const field1Value = formValues[pricing.tokens.field1];
-          const field2Value = String(formValues[pricing.tokens.field2]); // Convert to string for lookup
-          tokensCost = pricing.tokens.prices[field1Value]?.[field2Value] || 0;
+      case "twoFieldLookup": {
+        // Check if both fields exist (including false values)
+        const field1Value = formValues[pricing.tokens.field1];
+        const field2Value = formValues[pricing.tokens.field2];
+
+        if (
+          field1Value !== undefined &&
+          field1Value !== null &&
+          field2Value !== undefined &&
+          field2Value !== null
+        ) {
+          // Convert values to strings for lookup (handles booleans, numbers, and strings)
+          const field1Key = String(field1Value);
+          const field2Key = String(field2Value);
+
+          tokensCost = pricing.tokens.prices[field1Key]?.[field2Key] || 0;
         }
         break;
+      }
       default:
         tokensCost = 0;
     }
