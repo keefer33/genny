@@ -3,7 +3,7 @@ import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-
 import { Badge, Button, Card, Group, Modal, Stack, Text, useMantineTheme } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { RiVisaLine, RiCoinsLine } from "@remixicon/react";
-import React, { useState } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import useAppStore from "~/lib/stores/appStore";
 import useBillingStore from "~/lib/stores/billingStore";
 import { TOKEN_PACKAGES, formatPrice, formatTokens } from "~/lib/tokenUtils";
@@ -166,7 +166,7 @@ export default function PaymentModal({
   packageInfo,
   title,
   description,
-  autoOpen = false,
+  autoOpen: _autoOpen = false,
   showPackageSelection = false,
 }: PaymentModalProps) {
   const {
@@ -179,14 +179,16 @@ export default function PaymentModal({
     createPaymentIntent,
   } = useBillingStore();
   const theme = useMantineTheme();
+  const hasInitiatedPaymentRef = useRef(false);
 
   // Auto-create payment intent when modal opens
-  const handleModalOpen = async () => {
+  const handleModalOpen = useCallback(async () => {
     const pkg = selectedPackage || packageInfo;
-    if (!pkg) {
+    if (!pkg || paymentLoading || clientSecret || hasInitiatedPaymentRef.current) {
       return;
     }
 
+    hasInitiatedPaymentRef.current = true;
     setPaymentLoading(true);
     try {
       const result = await createPaymentIntent(pkg.amount);
@@ -214,26 +216,50 @@ export default function PaymentModal({
     } finally {
       setPaymentLoading(false);
     }
-  };
+  }, [
+    selectedPackage,
+    packageInfo,
+    paymentLoading,
+    clientSecret,
+    createPaymentIntent,
+    onClose,
+    setPaymentLoading,
+    setClientSecret,
+  ]);
 
   // Reset client secret when modal closes
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
+    hasInitiatedPaymentRef.current = false;
     setClientSecret(null);
     onClose();
-  };
+  }, [onClose, setClientSecret]);
 
-  const handleSuccess = () => {
+  const handleSuccess = useCallback(() => {
+    hasInitiatedPaymentRef.current = false;
     setClientSecret(null);
     onSuccess?.();
     onClose();
-  };
+  }, [onSuccess, onClose, setClientSecret]);
 
-  // Auto-open effect
+  // Auto-open effect - only run when modal opens and we have a package
   React.useEffect(() => {
-    if (opened && (packageInfo || selectedPackage)) {
+    const currentPackage = selectedPackage || packageInfo;
+    const packageId = currentPackage?.id;
+
+    if (
+      opened &&
+      packageId &&
+      !clientSecret &&
+      !paymentLoading &&
+      !hasInitiatedPaymentRef.current
+    ) {
       handleModalOpen();
     }
-  }, [opened, packageInfo, selectedPackage]);
+    // Reset ref when modal closes
+    if (!opened) {
+      hasInitiatedPaymentRef.current = false;
+    }
+  }, [opened, selectedPackage?.id, packageInfo?.id, handleModalOpen, clientSecret, paymentLoading]);
 
   const modalTitle =
     title || (showPackageSelection ? "Purchase Tokens" : `Purchase ${packageInfo?.tokens} tokens`);
