@@ -12,9 +12,11 @@ import {
   Table,
   Text,
 } from "@mantine/core";
+import { notifications } from "@mantine/notifications";
 import {
   RiDeleteBinLine,
   RiDownloadLine,
+  RiFileCopyLine,
   RiFileLine,
   RiFilePdf2Fill,
   RiFileTextLine,
@@ -291,16 +293,47 @@ export default function FileDetailModal({
                     </Text>
                   </Table.Td>
                 </Table.Tr>
-                <Table.Tr>
-                  <Table.Th>Prompt</Table.Th>
-                  <Table.Td>
-                    <Text size="sm" style={{ wordBreak: "break-all" }}>
-                      {file.generated_info?.payload?.prompt}
-                    </Text>
-                  </Table.Td>
-                </Table.Tr>
               </Table.Tbody>
             </Table>
+
+            {/* Prompt Section */}
+            {file.generated_info?.payload?.prompt && (
+              <Box>
+                <Group gap="xs" justify="space-between" align="center" mb="xs">
+                  <Text size="sm" fw={500}>
+                    Prompt
+                  </Text>
+                  <Button
+                    size="xs"
+                    variant="light"
+                    leftSection={<RiFileCopyLine size={14} />}
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(
+                          file.generated_info?.payload?.prompt || ""
+                        );
+                        notifications.show({
+                          title: "Copied",
+                          message: "Prompt copied to clipboard",
+                          color: "green",
+                        });
+                      } catch {
+                        notifications.show({
+                          title: "Error",
+                          message: "Failed to copy prompt",
+                          color: "red",
+                        });
+                      }
+                    }}
+                  >
+                    Copy
+                  </Button>
+                </Group>
+                <Text size="sm" style={{ wordBreak: "break-word" }}>
+                  {file.generated_info.payload.prompt}
+                </Text>
+              </Box>
+            )}
           </Stack>
         </Card>
       </Stack>
