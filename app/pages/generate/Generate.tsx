@@ -13,7 +13,6 @@ import {
 } from "@mantine/core";
 import { RiImageLine, RiVideoLine } from "@remixicon/react";
 import { useNavigate } from "react-router";
-import { PageTitle } from "~/shared/PageTitle";
 
 const GENERATION_TYPES = [
   {
@@ -21,7 +20,6 @@ const GENERATION_TYPES = [
     name: "Image Generation",
     description: "Generate stunning AI images from text prompts",
     icon: RiImageLine,
-    color: "blue",
     features: ["High Quality", "Multiple Styles", "Fast Processing"],
   },
   {
@@ -29,7 +27,6 @@ const GENERATION_TYPES = [
     name: "Video Generation",
     description: "Create AI videos from text descriptions",
     icon: RiVideoLine,
-    color: "purple",
     features: ["Dynamic Content", "Smooth Motion", "Creative Control"],
   },
 ];
@@ -37,20 +34,16 @@ const GENERATION_TYPES = [
 export default function Generate() {
   const navigate = useNavigate();
   const theme = useMantineTheme();
+  const primaryColor = theme.primaryColor;
 
   const handleTypeSelect = (typeId: string) => {
     navigate(`/generate/${typeId}`);
   };
 
   return (
-    <Container size="lg">
-      <PageTitle
-        title="AI Content Generation"
-        text="Choose what type of content you'd like to generate"
-        settings={{ py: "xs" }}
-      />
+    <Container size="lg" py="xl">
       <Stack gap="xl">
-        <Grid>
+        <Grid gutter="xl">
           {GENERATION_TYPES.map((type) => {
             const IconComponent = type.icon;
             return (
@@ -75,10 +68,13 @@ export default function Generate() {
                 >
                   <Stack gap="md">
                     <Group justify="space-between" align="flex-start">
-                      <ThemeIcon color={type.color} variant="light" size="xl">
+                      <ThemeIcon color={primaryColor} variant="light" size="xl">
                         <IconComponent size={24} />
                       </ThemeIcon>
-                      <Badge color={type.color} variant="light" size="lg">
+                      <Badge
+                        color={type.name === "Image Generation" ? "green" : "orange"}
+                        size="lg"
+                      >
                         {type.name}
                       </Badge>
                     </Group>
@@ -94,7 +90,7 @@ export default function Generate() {
 
                     <Group gap="xs" wrap="wrap">
                       {type.features.map((feature, index) => (
-                        <Badge key={index} variant="light" size="sm" color={type.color}>
+                        <Badge key={index} variant="light" size="sm" color={primaryColor}>
                           {feature}
                         </Badge>
                       ))}
@@ -103,7 +99,7 @@ export default function Generate() {
                     <Button
                       fullWidth
                       variant="light"
-                      color={type.color}
+                      color={primaryColor}
                       leftSection={<IconComponent size={16} />}
                     >
                       Start Generating
