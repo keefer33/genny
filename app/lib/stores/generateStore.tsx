@@ -739,6 +739,39 @@ const useGenerateStoreBase = create<GenerateStoreState>((set, get) => ({
     const pricing = get().selectedModel?.api?.pricing || {};
     let tokensCost: number = 0;
 
+    // Recursive helper function for multiFields lookup
+    const lookupMultiFields = (config: any, formValues: any): number => {
+      // If we've reached a tokens value, return it
+      if (config.tokens !== undefined) {
+        return config.tokens;
+      }
+
+      // If we have a field and values, continue the lookup
+      if (config.field && config.values) {
+        const fieldValue = formValues[config.field];
+
+        // Handle undefined, null, or missing values
+        if (fieldValue === undefined || fieldValue === null) {
+          return 0;
+        }
+
+        // Convert value to string for lookup (handles booleans, numbers, and strings)
+        const fieldKey = String(fieldValue);
+        const nextConfig = config.values[fieldKey];
+
+        // If no matching value found, return 0
+        if (!nextConfig) {
+          return 0;
+        }
+
+        // Recursively continue the lookup
+        return lookupMultiFields(nextConfig, formValues);
+      }
+
+      // If structure is invalid, return 0
+      return 0;
+    };
+
     switch (pricing.type) {
       case "per":
         tokensCost = pricing.tokens;
@@ -752,9 +785,8 @@ const useGenerateStoreBase = create<GenerateStoreState>((set, get) => ({
         tokensCost = pricing.tokens[formValues[pricing.field]] || 0;
         break;
       case "multiFields":
-        if (formValues[pricing.tokens.field]) {
-          const value = pricing.tokens?.values[formValues[pricing.tokens.field]];
-          tokensCost = value?.price * formValues[value?.field];
+        if (pricing.tokens) {
+          tokensCost = lookupMultiFields(pricing.tokens, formValues);
         }
         break;
       case "twoFieldLookup": {

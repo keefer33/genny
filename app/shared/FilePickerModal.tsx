@@ -23,13 +23,22 @@ export function FilePickerModal({
   const { resetFilters } = useFilesFoldersStore();
   const { isMobile } = useAppStore();
 
-  // Reset filters when modal opens to ensure clean state
+  // Reset filters and set file type filter when modal opens or allowedTypes changes
   useEffect(() => {
     if (opened) {
+      // Reset all filters first
       resetFilters();
-      // Set file type filter if locked to specific type
+      // Set file type filter based on allowedTypes
       if (allowedTypes === "images" || allowedTypes === "videos") {
-        useFilesFoldersStore.getState().setFileTypeFilter(allowedTypes);
+        // Use setTimeout to ensure resetFilters completes first
+        setTimeout(() => {
+          useFilesFoldersStore.getState().setFileTypeFilter(allowedTypes);
+        }, 0);
+      } else {
+        // If allowedTypes is "all", ensure filter is also "all"
+        setTimeout(() => {
+          useFilesFoldersStore.getState().setFileTypeFilter("all");
+        }, 0);
       }
     }
   }, [opened, allowedTypes, resetFilters]);
