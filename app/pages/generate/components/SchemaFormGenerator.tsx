@@ -27,6 +27,7 @@ import { EnhancePromptButton } from "./EnhancePromptButton";
 import { UserGenerationsPicker } from "./UserGenerationsPicker";
 import type { GenerationFile } from "~/lib/stores/generateStore";
 import useAppStore from "~/lib/stores/appStore";
+import useFilesFoldersStore from "~/lib/stores/filesFoldersStore";
 import { FilePreviewModal } from "~/pages/files/components/FilePreviewModal";
 
 interface ToolSchema {
@@ -497,6 +498,7 @@ function FilePickerPreview({
   onFileSelect,
   allowedTypes = "all",
   title,
+  autoOpen = false,
 }: {
   fileUrl: string;
   placeholder: string;
@@ -505,9 +507,30 @@ function FilePickerPreview({
   onFileSelect: (fileUrl: string, file?: any) => void;
   allowedTypes?: "images" | "videos" | "all";
   title?: string;
+  autoOpen?: boolean;
 }) {
   const { getUser, getApi } = useAppStore();
   const [opened, { open, close }] = useDisclosure(false);
+
+  // Auto-open modal when autoOpen prop is true
+  useEffect(() => {
+    if (autoOpen && !fileUrl) {
+      open();
+    }
+  }, [autoOpen, fileUrl, open]);
+
+  // Update file type filter when allowedTypes changes (even if modal is already open)
+  useEffect(() => {
+    if (allowedTypes === "images" || allowedTypes === "videos") {
+      useFilesFoldersStore.getState().setFileTypeFilter(allowedTypes);
+    } else {
+      // Only reset to "all" if currently showing a locked filter
+      const currentFilter = useFilesFoldersStore.getState().fileTypeFilter;
+      if (currentFilter === "images" || currentFilter === "videos") {
+        useFilesFoldersStore.getState().setFileTypeFilter("all");
+      }
+    }
+  }, [allowedTypes]);
   const [previewOpened, { open: openPreview, close: closePreview }] = useDisclosure(false);
   const [selectedFile, setSelectedFile] = useState<any>(null);
   const [loadingFile, setLoadingFile] = useState(false);
@@ -1055,6 +1078,7 @@ function StringArrayItem({
   fieldSchema,
   updateItem,
   removeItem,
+  autoOpen = false,
 }: {
   item: string;
   index: number;
@@ -1062,6 +1086,7 @@ function StringArrayItem({
   fieldSchema: any;
   updateItem: (index: number, value: string) => void;
   removeItem: (index: number) => void;
+  autoOpen?: boolean;
 }) {
   if (fieldSchema.display === "filePicker") {
     // Get allowed types from fieldSchema.types, default to "all"
@@ -1076,17 +1101,16 @@ function StringArrayItem({
       removeItem(index);
     };
 
-    const [_opened, { open }] = useDisclosure(false);
-
     return (
       <FilePickerPreview
         fileUrl={item || ""}
         placeholder={`Select ${fieldSchema.title || fieldName} ${index + 1}`}
-        onSelect={open}
+        onSelect={() => {}}
         onClear={handleClear}
         onFileSelect={handleFileSelect}
         allowedTypes={allowedTypes}
         title={`Select ${fieldSchema.title || fieldName} ${index + 1}`}
+        autoOpen={autoOpen}
       />
     );
   }
@@ -1140,6 +1164,9 @@ function StringArrayRenderer({
   // Get current array value or initialize empty array
   const currentArray = getNestedValue(form.values, fullFieldName) || [];
 
+  // State to track which item index should auto-open its modal
+  const [autoOpenIndex, setAutoOpenIndex] = useState<number | null>(null);
+
   // Check for maxItems in different possible locations
   const maxItems =
     fieldSchema.maxItems ||
@@ -1148,18 +1175,32 @@ function StringArrayRenderer({
     (fieldSchema.items && fieldSchema.items.maxItems) ||
     null;
 
+  // Check if this is a file picker array
+  const isFilePicker =
+    fieldSchema.items?.display === "filePicker" || fieldSchema.display === "filePicker";
+
   const addItem = () => {
     // Check if we've reached the maximum number of items
     if (maxItems && currentArray.length >= maxItems) {
       return;
     }
 
+    const newIndex = currentArray.length;
     const newArray = [...currentArray, ""];
 
     // Create a deep copy of form values and set the nested value
     const updatedValues = JSON.parse(JSON.stringify(form.values));
     setNestedValue(updatedValues, fullFieldName, newArray);
     form.setValues(updatedValues);
+
+    // If it's a file picker, set the auto-open index to trigger modal opening
+    if (isFilePicker) {
+      setAutoOpenIndex(newIndex);
+      // Reset after a delay to allow the component to render and modal to open
+      setTimeout(() => {
+        setAutoOpenIndex(null);
+      }, 200);
+    }
   };
 
   const removeItem = (index: number) => {
@@ -1223,6 +1264,7 @@ function StringArrayRenderer({
             fieldSchema={fieldSchema}
             updateItem={updateItem}
             removeItem={removeItem}
+            autoOpen={autoOpenIndex === index}
           />
         ))}
       </Group>
@@ -1478,7 +1520,8 @@ function NestedFieldRenderer({
         } else {
           const inputProps = form.getInputProps(fullFieldName);
           const currentValue = inputProps.value || "";
-          const maxLength = fieldSchema.max;
+          // Support both maxLength (JSON Schema) and max (alternative format)
+          const maxLength = fieldSchema.maxLength || fieldSchema.max;
           const currentLength = currentValue.length;
           const isMaxReached = maxLength && currentLength >= maxLength;
 
