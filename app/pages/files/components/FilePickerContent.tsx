@@ -55,9 +55,18 @@ export function FilePickerContent({
   const isFileTypeLocked = allowedTypes === "images" || allowedTypes === "videos";
 
   useEffect(() => {
+    // Always update file type filter when allowedTypes changes
     if (isFileTypeLocked) {
       // Set file type filter to match allowedTypes
       useFilesFoldersStore.getState().setFileTypeFilter(allowedTypes);
+    } else {
+      // If not locked, ensure filter is set to "all" (unless user has manually changed it)
+      const currentFilter = useFilesFoldersStore.getState().fileTypeFilter;
+      // Only reset to "all" if it's currently set to a locked type (images or videos)
+      // This allows users to manually filter when allowedTypes is "all"
+      if (currentFilter === "images" || currentFilter === "videos") {
+        useFilesFoldersStore.getState().setFileTypeFilter("all");
+      }
     }
   }, [allowedTypes, isFileTypeLocked]);
 

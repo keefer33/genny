@@ -8,11 +8,13 @@ import {
   UnstyledButton,
   Stack,
   Card,
+  Tabs,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
+import { useState, useEffect } from "react";
 import { RiArrowDownSLine, RiImageLine, RiVideoLine, RiToolsLine } from "@remixicon/react";
 import { useNavigate } from "react-router";
-import { useMantineColorScheme } from "@mantine/core";
+import { useMantineColorScheme, useMantineTheme } from "@mantine/core";
 import useGenerateStore from "~/lib/stores/generateStore";
 import useAppStore from "~/lib/stores/appStore";
 import type { Model } from "~/lib/stores/generateStore";
@@ -27,7 +29,7 @@ const GENERATION_TYPE_INFO = {
   image: {
     name: "Image",
     icon: RiImageLine,
-    color: "blue",
+    color: "primary.7",
   },
   video: {
     name: "Video",
@@ -80,11 +82,52 @@ export function ModelSwitcher({
   const [opened, { open, close }] = useDisclosure(false);
   const navigate = useNavigate();
   const { colorScheme } = useMantineColorScheme();
+  const theme = useMantineTheme();
   const { isMobile } = useAppStore();
 
   // Get state from generateStore
   const { models, selectedModel, resetGenerateState, setModelLoading, setLoadingGenerations } =
     useGenerateStore();
+
+  // Track the active tab for badge styling
+  const getInitialTab = () => {
+    // Priority: selectedModel's generation_type > generationType prop > first available type
+    if (selectedModel?.generation_type) {
+      const modelsOfType = models.filter(
+        (model) => model && model.generation_type === selectedModel.generation_type
+      );
+      if (modelsOfType.length > 0) {
+        return selectedModel.generation_type;
+      }
+    }
+    if (generationType) {
+      const modelsOfType = models.filter(
+        (model) => model && model.generation_type === generationType
+      );
+      if (modelsOfType.length > 0) {
+        return generationType;
+      }
+    }
+    const availableTypes = Object.keys(GENERATION_TYPE_INFO).filter((type) => {
+      const modelsOfType = models.filter((model) => model && model.generation_type === type);
+      return modelsOfType.length > 0;
+    });
+    return availableTypes[0] || Object.keys(GENERATION_TYPE_INFO)[0];
+  };
+
+  const [activeTab, setActiveTab] = useState<string>(getInitialTab);
+
+  // Update activeTab only when selectedModel changes (not on every render)
+  useEffect(() => {
+    if (selectedModel?.generation_type) {
+      const modelsOfType = models.filter(
+        (model) => model && model.generation_type === selectedModel.generation_type
+      );
+      if (modelsOfType.length > 0) {
+        setActiveTab(selectedModel.generation_type);
+      }
+    }
+  }, [selectedModel?.generation_type, models]);
 
   const typeInfo = GENERATION_TYPE_INFO[generationType as keyof typeof GENERATION_TYPE_INFO];
 
@@ -150,7 +193,7 @@ export function ModelSwitcher({
           </Group>
           <Group gap="sm">
             {selectedModel && (
-              <Badge size="xs" variant="light" color={typeInfo?.color}>
+              <Badge size="xs" variant="light" color={theme.primaryColor}>
                 {selectedModel.generation_type}
               </Badge>
             )}
@@ -172,9 +215,8 @@ export function ModelSwitcher({
           </Group>
         }
         size="lg"
-        padding="2"
         fullScreen={isMobile}
-        centered={!isMobile}
+        //centered={!isMobile}
       >
         <>
           {models.length === 0 ? (
@@ -182,8 +224,66 @@ export function ModelSwitcher({
               No models available
             </Text>
           ) : (
-            <Stack gap="md" p="xs">
-              {/* Group models by generation type */}
+            <Tabs
+              variant="pills"
+              color={theme.primaryColor}
+              value={activeTab}
+              onChange={setActiveTab}
+            >
+              <Tabs.List>
+                {(() => {
+                  const entries: Array<[string, { name: string; icon: any; color: string }]> =
+                    showAllTypes
+                      ? Object.entries(GENERATION_TYPE_INFO)
+                      : generationType && typeInfo
+                        ? [[generationType, typeInfo]]
+                        : [];
+
+                  return entries
+                    .filter(([type]) => {
+                      // Only show tabs that have models
+                      const modelsOfType = models.filter(
+                        (model) => model && model.generation_type === type
+                      );
+                      return modelsOfType.length > 0;
+                    })
+                    .map(([type, typeInfo]) => {
+                      const modelsOfType = models.filter(
+                        (model) => model && model.generation_type === type
+                      );
+                      const IconComponent = typeInfo.icon;
+
+                      const isSelected = activeTab === type;
+
+                      return (
+                        <Tabs.Tab
+                          key={type}
+                          value={type}
+                          leftSection={<IconComponent size={16} />}
+                          rightSection={
+                            <Badge
+                              size="xs"
+                              variant={isSelected ? "filled" : "light"}
+                              color={isSelected ? "white" : theme.primaryColor}
+                              style={
+                                isSelected
+                                  ? {
+                                      color: theme.colors[theme.primaryColor][6],
+                                    }
+                                  : undefined
+                              }
+                            >
+                              {modelsOfType.length}
+                            </Badge>
+                          }
+                        >
+                          {typeInfo.name}
+                        </Tabs.Tab>
+                      );
+                    });
+                })()}
+              </Tabs.List>
+
               {(() => {
                 const entries: Array<[string, { name: string; icon: any; color: string }]> =
                   showAllTypes
@@ -192,8 +292,7 @@ export function ModelSwitcher({
                       ? [[generationType, typeInfo]]
                       : [];
 
-                return entries.map(([type, typeInfo]) => {
-                  // Models are already sorted by generation_type and brand_id from root.tsx
+                return entries.map(([type]) => {
                   const modelsOfType = models.filter(
                     (model) => model && model.generation_type === type
                   );
@@ -201,28 +300,12 @@ export function ModelSwitcher({
                   if (modelsOfType.length === 0) return null;
 
                   return (
-                    <div key={type}>
-                      <Group gap="xs" mb="md">
-                        <ThemeIcon variant="light" size="md" color={typeInfo.color}>
-                          <typeInfo.icon size={18} />
-                        </ThemeIcon>
-                        <Text size="md" fw={600}>
-                          {typeInfo.name} Models
-                        </Text>
-                        <Badge size="sm" variant="light" color={typeInfo.color}>
-                          {modelsOfType.length}
-                        </Badge>
-                      </Group>
-
-                      <Stack gap="xs">
+                    <Tabs.Panel key={type} value={type}>
+                      <Stack gap="sm" pt="xs">
                         {modelsOfType.map((model) => {
                           if (!model || !model.id) return null;
 
                           const isCurrentModel = model.id === selectedModel?.id;
-                          const modelTypeInfo =
-                            GENERATION_TYPE_INFO[
-                              model.generation_type as keyof typeof GENERATION_TYPE_INFO
-                            ];
 
                           return (
                             <Card
@@ -259,7 +342,7 @@ export function ModelSwitcher({
                                     </Group>
                                   )}
                                   {isCurrentModel && (
-                                    <Badge size="sm" variant="filled" color={modelTypeInfo?.color}>
+                                    <Badge size="sm" variant="filled" color={theme.primaryColor}>
                                       Current
                                     </Badge>
                                   )}
@@ -269,11 +352,11 @@ export function ModelSwitcher({
                           );
                         })}
                       </Stack>
-                    </div>
+                    </Tabs.Panel>
                   );
                 });
               })()}
-            </Stack>
+            </Tabs>
           )}
         </>
       </Modal>

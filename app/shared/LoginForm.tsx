@@ -155,7 +155,7 @@ export default function LoginForm() {
         setGoogleLoaded(true);
         // Initialize Google Sign-In
         window.google.accounts.id.initialize({
-          client_id: "453624149585-duiae6uv6l09q086u9o9u1109jbgnied.apps.googleusercontent.com",
+          client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
           callback: window.handleSignInWithGoogle,
           nonce: hashedNonce,
           auto_select: true,
