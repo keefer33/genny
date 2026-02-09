@@ -25,7 +25,7 @@ export default function Logo({
   return (
     <Group gap="0">
       <Box>
-        <Image src="https://aifile.link/IESJ5E.png" alt="Genny Bot" width={size} height={size} />
+        <Image src="https://aifile.link/ERaEOT.png" alt="Genny Bot" width={size} height={size} />
       </Box>
       <Group gap={0} align="baseline">
         <Text
