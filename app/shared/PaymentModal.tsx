@@ -67,7 +67,7 @@ function PaymentForm({
 
   const handlePaymentSuccess = async (paymentIntent: any) => {
     try {
-      const session = getUser();
+      const apiKey = useAppStore.getState().getAuthApiKey();
       // Call API to update user tokens
       const response = await fetch(
         `${import.meta.env.VITE_NODE_ENV === "development" ? import.meta.env.VITE_LOCAL_API_URL : import.meta.env.VITE_API_URL}/stripe/confirm-payment`,
@@ -75,7 +75,7 @@ function PaymentForm({
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${session?.access_token || ""}`,
+            Authorization: `Bearer ${apiKey || ""}`,
           },
           body: JSON.stringify({
             paymentIntentId: paymentIntent.id,

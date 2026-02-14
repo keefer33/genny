@@ -19,7 +19,7 @@ export function RandomPromptButton({
   const [isStreaming, setIsStreaming] = useState(false);
   const form = useFormContext();
   const abortControllerRef = useRef<AbortController | null>(null);
-  const { getUser } = useAppStore();
+  const { getAuthApiKey } = useAppStore();
 
   const enhanceRandomPrompt = async () => {
     setIsStreaming(true);
@@ -36,7 +36,7 @@ export function RandomPromptButton({
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${getUser()?.access_token || ""}`,
+            Authorization: `Bearer ${getAuthApiKey() || ""}`,
           },
           body: JSON.stringify({
             prompt: "random",
