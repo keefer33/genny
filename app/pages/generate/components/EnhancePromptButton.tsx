@@ -19,7 +19,7 @@ export function EnhancePromptButton({
   const [isStreaming, setIsStreaming] = useState(false);
   const form = useFormContext();
   const abortControllerRef = useRef<AbortController | null>(null);
-  const { getUser } = useAppStore();
+  const { getAuthApiKey } = useAppStore();
   const enhancePrompt = async () => {
     // Get the current prompt value from the form
     const currentPrompt = form.getInputProps(fieldName).value || "";
@@ -47,7 +47,7 @@ export function EnhancePromptButton({
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${getUser()?.access_token || ""}`,
+            Authorization: `Bearer ${getAuthApiKey() || ""}`,
           },
           body: JSON.stringify({
             prompt: currentPrompt,

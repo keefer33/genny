@@ -192,6 +192,7 @@ const useGenerateStoreBase = create<GenerateStoreState>((set, get) => ({
   // Generate content
   generateContent: async (modelId, values) => {
     const session = useAppStore.getState().getUser();
+    const apiKey = useAppStore.getState().getAuthApiKey();
     set({ generating: true });
     get().calculateTokens(values);
     try {
@@ -199,7 +200,7 @@ const useGenerateStoreBase = create<GenerateStoreState>((set, get) => ({
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${session?.access_token || ""}`,
+          Authorization: `Bearer ${apiKey || ""}`,
         },
         body: JSON.stringify({
           model_id: modelId,

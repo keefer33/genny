@@ -133,11 +133,12 @@ const useBillingStore = create<BillingStoreState>((set, get) => ({
   createPaymentIntent: async (amount: number) => {
     try {
       const session = useAppStore.getState().getUser();
+      const apiKey = useAppStore.getState().getAuthApiKey();
       const response = await fetch(`${endpoint}/stripe/create-payment-intent`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${session?.access_token || ""}`,
+          Authorization: `Bearer ${apiKey || ""}`,
         },
         body: JSON.stringify({ amount }),
       });

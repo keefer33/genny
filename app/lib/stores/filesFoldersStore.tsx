@@ -182,7 +182,6 @@ const useFilesFoldersStoreBase = create<FilesFoldersState>((set, get) => ({
   // File operations
   uploadFile: async (file: File, userId: string) => {
     set({ uploading: true, error: null, gridLoading: false });
-    const session = useAppStore.getState().getUser();
     try {
       // Get the file extension
       const fileExtension = file.name.split(".").pop()?.toLowerCase() || "";
@@ -235,10 +234,11 @@ const useFilesFoldersStoreBase = create<FilesFoldersState>((set, get) => ({
       const formData = new FormData();
       formData.append("file", file);
 
+      const apiKey = useAppStore.getState().getAuthApiKey();
       const response = await fetch(`${endpoint}/zipline/upload`, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${session?.access_token || ""}`,
+          Authorization: `Bearer ${apiKey || ""}`,
           // Don't set Content-Type header - browser will set it with boundary
         },
         body: formData,
@@ -312,13 +312,13 @@ const useFilesFoldersStoreBase = create<FilesFoldersState>((set, get) => ({
 
   deleteFile: async (fileName: string, fileId: string, userId: string) => {
     set({ loading: true, error: null, gridLoading: false });
-    const session = useAppStore.getState().getUser();
     try {
+      const apiKey = useAppStore.getState().getAuthApiKey();
       await fetch(`${endpoint}/zipline/user/files/delete`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${session?.access_token || ""}`,
+          Authorization: `Bearer ${apiKey || ""}`,
         },
         body: JSON.stringify({ idOrName: fileName }),
       });
