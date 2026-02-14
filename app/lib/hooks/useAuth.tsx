@@ -2,21 +2,25 @@ import { useEffect, useRef } from "react";
 import useAppStore from "../stores/appStore";
 
 export function useAuth() {
-  const { setUser, setAppLoading, setApi, getApi, userProfile, setUserTokens, checkApiHealth } =
-    useAppStore();
+  const {
+    setUser,
+    setAppLoading,
+    setApi,
+    getApi,
+    userProfile,
+    setUserTokens,
+    setAuthRealtimeChannel,
+    checkApiHealth,
+  } = useAppStore();
 
-  // Keep channel ref to avoid duplicate subscriptions and for cleanup
   const channelRef = useRef<any>(null);
 
-  // Helper to subscribe to the user's private profile topic
   const subscribeToBalance = async (userId: string) => {
     const supabase = getApi();
     const topic = `user:${userId}:profile`;
 
-    // If already subscribed, skip
     if (channelRef.current?.state === "subscribed") return;
 
-    // Ensure Realtime connection has the latest JWT
     const { data } = await supabase.auth.getSession();
     const accessToken = data.session?.access_token;
     if (accessToken) {
@@ -27,6 +31,7 @@ export function useAuth() {
       config: { private: true },
     });
     channelRef.current = channel;
+    setAuthRealtimeChannel(channel);
 
     channel
       .on("broadcast", { event: "UPDATE" }, (payload: any) => {
@@ -39,12 +44,12 @@ export function useAuth() {
       });
   };
 
-  // Helper to cleanup channel
   const cleanupChannel = () => {
     const supabase = getApi();
     if (channelRef.current) {
       supabase.removeChannel(channelRef.current);
       channelRef.current = null;
+      setAuthRealtimeChannel(null);
     }
   };
 
@@ -55,7 +60,6 @@ export function useAuth() {
     const {
       data: { subscription },
     } = getApi().auth.onAuthStateChange(async (event, session) => {
-      console.log("session", session);
       // Check API health whenever auth state changes
       // Skip check if already on health error page
       if (window.location.pathname !== "/api-health-error") {
@@ -95,39 +99,9 @@ export function useAuth() {
     };
   }, []);
 
-  // Utilities
-  const signOut = async () => {
-    try {
-      const { error } = await getApi().auth.signOut({ scope: "global" });
-      if (error) throw error;
-    } catch (error) {
-      console.error("Error signing out:", error);
-      throw error;
-    } finally {
-      cleanupChannel();
-    }
-  };
-
-  const getCurrentSession = async () => {
-    try {
-      const {
-        data: { session },
-        error,
-      } = await getApi().auth.getSession();
-      if (error) {
-        console.error("Error getting session:", error);
-        return null;
-      }
-      return session;
-    } catch (error) {
-      console.error("Error getting session:", error);
-      return null;
-    }
-  };
-
   return {
-    signOut,
-    getCurrentSession,
+    signOut: () => useAppStore.getState().signOut(),
+    getCurrentSession: () => useAppStore.getState().getCurrentSession(),
   };
 }
 

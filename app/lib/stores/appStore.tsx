@@ -107,7 +107,9 @@ interface AppStoreState {
   isMobile: boolean;
   page: string | undefined;
   userTokens: number;
-
+  authApiKey: string | null;
+  setAuthApiKey: (authApiKey: string | null) => void;
+  getAuthApiKey: () => string | null;
   setUserTokens: (tokens: number) => void;
   setLoading: (loading: boolean) => void;
   setThemeColor: (color: string) => void;
@@ -131,10 +133,14 @@ interface AppStoreState {
     bio: string;
     username: string;
   }) => Promise<{ success: boolean; error?: string }>;
+  createToken: (sessionData: any) => Promise<any>;
   updateUserTokens: (tokens: number) => Promise<any>;
   getUserTokens: () => Promise<number>;
   getCurrentUserTokens: () => number;
   checkApiHealth: () => Promise<boolean>;
+  getCurrentSession: () => Promise<Session | null>;
+  setAuthRealtimeChannel: (channel: any) => void;
+  authRealtimeChannel: any;
 }
 
 const useAppStoreBase = create<AppStoreState>((set, get) => ({
@@ -148,6 +154,11 @@ const useAppStoreBase = create<AppStoreState>((set, get) => ({
   isMobile: false,
   page: undefined,
   userTokens: 0,
+  authApiKey: null,
+  authRealtimeChannel: null as any,
+  setAuthApiKey: (authApiKey: string | null) => set({ authApiKey }),
+  setAuthRealtimeChannel: (channel: any) => set({ authRealtimeChannel: channel }),
+  getAuthApiKey: () => get().authApiKey,
   setUserTokens: (tokens: number) => set({ userTokens: tokens }),
   setThemeColor: (themeColor) => set({ themeColor }),
   setApi: () =>
@@ -369,6 +380,7 @@ const useAppStoreBase = create<AppStoreState>((set, get) => ({
     // Sync Zipline username if it changed (best-effort)
     try {
       if (values.username !== (session.profile?.username || "")) {
+        const apiKey = get().getAuthApiKey();
         const zipRes = await axios.patch(
           `${endpoint}/zipline/user/update`,
           {
@@ -377,7 +389,7 @@ const useAppStoreBase = create<AppStoreState>((set, get) => ({
           {
             headers: {
               "Content-Type": "application/json",
-              Authorization: `Bearer ${session?.access_token || ""}`,
+              Authorization: `Bearer ${apiKey || ""}`,
             },
           }
         );
@@ -386,7 +398,8 @@ const useAppStoreBase = create<AppStoreState>((set, get) => ({
           return { success: false, error: zipData?.error || "Failed to sync username to Zipline" };
         }
       }
-    } catch (_e) {
+    } catch (error: any) {
+      console.error("Error syncing username to Zipline:", error);
       return { success: false, error: "Failed to sync username to Zipline" };
     }
 
@@ -422,6 +435,13 @@ const useAppStoreBase = create<AppStoreState>((set, get) => ({
 
     set({ userTokens: data?.token_balance || 0 });
     get().setUser({ ...sessionData, profile: data });
+    const tokenResult = await get().createToken(sessionData);
+    if (!tokenResult.success) {
+      get().setUser(null);
+      set({ authApiKey: null });
+      return { success: false, error: tokenResult.error || "Failed to sign in" };
+    }
+    set({ authApiKey: tokenResult.token });
     get().setAppLoading(false);
     return { success: true, profile: data };
   },
@@ -453,7 +473,12 @@ const useAppStoreBase = create<AppStoreState>((set, get) => ({
           return { success: false, error: data.error || "Failed to create user" };
         }
         get().setUser({ ...sessionData, profile: data.data });
-
+        const tokenResult = await get().createToken(sessionData);
+        if (!tokenResult.success) {
+          get().setUser(null);
+          set({ authApiKey: null });
+          return { success: false, error: tokenResult.error || "Failed to sign in" };
+        }
         return { success: true, profile: data.data };
       }
     } else {
@@ -461,8 +486,68 @@ const useAppStoreBase = create<AppStoreState>((set, get) => ({
     }
   },
 
+  createToken: async (sessionData: any) => {
+    try {
+      const res = await axios.post(
+        `${endpoint}/user/create-token`,
+        {},
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${sessionData?.access_token || ""}`,
+          },
+          validateStatus: () => true,
+        }
+      );
+      const data = res.data;
+      if (!data?.success || !data?.data?.token) {
+        const message = data?.message || data?.error || "Failed to create token";
+        set({ authApiKey: null });
+        return { success: false, error: message };
+      }
+      set({ authApiKey: data.data.token });
+      return { success: true, token: data.data.token };
+    } catch (err: any) {
+      const message =
+        err?.response?.data?.message ??
+        err?.response?.data?.error ??
+        err?.message ??
+        "Failed to create token";
+      set({ authApiKey: null });
+      return { success: false, error: message };
+    }
+  },
+
+  getCurrentSession: async () => {
+    try {
+      const api = get().getApi();
+      const {
+        data: { session },
+        error,
+      } = await api.auth.getSession();
+      if (error) {
+        console.error("Error getting session:", error);
+        return null;
+      }
+      return session as Session | null;
+    } catch (error) {
+      console.error("Error getting session:", error);
+      return null;
+    }
+  },
+
   signOut: async () => {
-    const { error } = await get().getApi().auth.signOut({ scope: "global" });
+    const api = get().getApi();
+    const ch = get().authRealtimeChannel;
+    if (ch) {
+      try {
+        api.removeChannel(ch);
+      } catch (e) {
+        console.error("Error removing auth Realtime channel:", e);
+      }
+    }
+    set({ authRealtimeChannel: null, user: null, authApiKey: null });
+    const { error } = await api.auth.signOut({ scope: "global" });
     if (error) {
       console.error("Error signing out:", error);
       throw error;

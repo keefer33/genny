@@ -43,7 +43,7 @@ export function PromptEnhancer({
   const [copied, setCopied] = useState(false);
   const form = useFormContext();
   const abortControllerRef = useRef<AbortController | null>(null);
-  const { getUser } = useAppStore();
+  const { getAuthApiKey } = useAppStore();
   // Update original prompt when promptText prop changes
   useEffect(() => {
     setOriginalPrompt(promptText);
@@ -73,7 +73,7 @@ export function PromptEnhancer({
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${getUser()?.access_token || ""}`,
+            Authorization: `Bearer ${getAuthApiKey() || ""}`,
           },
           body: JSON.stringify({
             prompt: "random",
@@ -143,7 +143,7 @@ export function PromptEnhancer({
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${getUser()?.access_token || ""}`,
+            Authorization: `Bearer ${getAuthApiKey() || ""}`,
           },
           body: JSON.stringify({
             prompt: originalPrompt,
