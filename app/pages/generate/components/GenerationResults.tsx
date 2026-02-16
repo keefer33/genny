@@ -15,6 +15,8 @@ import { useEffect } from "react";
 import useAppStore from "~/lib/stores/appStore";
 import useGenerateStore from "~/lib/stores/generateStore";
 import { GenerationsFileCard } from "~/pages/generate/components/GenerationsFileCard";
+import { LoginCTA } from "~/shared/LoginCTA";
+import { PromotionCard } from "~/shared/PromotionCard";
 
 export function GenerationResults() {
   const { getUser, getApi } = useAppStore();
@@ -27,16 +29,32 @@ export function GenerationResults() {
     totalGenerations,
     loadGenerations,
     handlePageChange,
+    setSelectedFilterModelId,
   } = useGenerateStore();
 
   const user = getUser();
   const userId = user?.user?.id;
   const supabase = getApi();
 
-  // Load generations for the selected model
+  if (!userId) {
+    return (
+      <Center h={400}>
+        <Stack gap="md">
+          <LoginCTA
+            title="Login to View Generations"
+            subtitle="Sign in to access and manage your generated results."
+          />
+          <PromotionCard />
+        </Stack>
+      </Center>
+    );
+  }
+
+  // Load generations for the selected model when model or task changes
   useEffect(() => {
     if (userId && supabase && selectedModel?.id) {
-      loadGenerations(1, selectedModel?.id);
+      setSelectedFilterModelId(selectedModel.id);
+      loadGenerations(1, selectedModel.id);
     }
   }, [selectedModel?.id, currentTaskId]);
 
@@ -107,7 +125,7 @@ export function GenerationResults() {
         </Stack>
       </AppShell.Section>
       <AppShell.Section grow component={ScrollArea}>
-        <SimpleGrid cols={{ base: 1, sm: 2, md: 3, lg: 4 }} spacing="md">
+        <SimpleGrid cols={{ base: 1, sm: 2, md: 1, lg: 2, xl: 3 }} spacing="md">
           {generations.map((file) => (
             <GenerationsFileCard key={file.id} file={file} onFileUpdate={handleFileUpdate} />
           ))}

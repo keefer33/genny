@@ -40,7 +40,6 @@ export function GenerationsFileCard({
   // Check if file is in a processing state (pending or processing)
   const isProcessing = file.status === "pending" || file.status === "processing";
   const isFailed = file.status === "failed" || file.status === "error";
-
   const handleDelete = async () => {
     const success = await deleteGeneration(file.id);
     if (success && onFileUpdate) {
@@ -140,7 +139,7 @@ export function GenerationsFileCard({
             </Group>
 
             <Group>
-              {file.cost && (
+              {file.cost !== null && (
                 <Group gap={4}>
                   <Text size="xs" c="dimmed">
                     <TokensBadge size="xs" tokens={file.cost} />

@@ -3,6 +3,7 @@ import createUniversalSelectors from "./universalSelectors";
 import useAppStore from "./appStore";
 import { endpoint } from "../utils";
 import { showNotification } from "../notificationUtils";
+import axios from "axios";
 
 export interface Model {
   id: string;
@@ -12,6 +13,7 @@ export interface Model {
   tags: string[];
   slug: string;
   generation_type: string;
+  meta?: { tags?: string[] };
   config: {
     api: string;
     cost_per_generation?: number;
@@ -244,6 +246,10 @@ const useGenerateStoreBase = create<GenerateStoreState>((set, get) => ({
     const to = from + limit - 1;
 
     set({ loadingGenerations: true });
+    // Clear previous generations when loading page 1 so we don't show stale data after model switch
+    if (page === 1) {
+      set({ generations: [] });
+    }
     try {
       // If filtering by file type or tags, we need to filter by the files within generations
       if (fileTypeFilter && fileTypeFilter !== "all") {
@@ -736,83 +742,28 @@ const useGenerateStoreBase = create<GenerateStoreState>((set, get) => ({
   },
 
   // Calculate tokens based on form values
-  calculateTokens: (formValues) => {
+  calculateTokens: async (formValues) => {
     const pricing = get().selectedModel?.api?.pricing || {};
-    let tokensCost: number = 0;
-
-    // Recursive helper function for multiFields lookup
-    const lookupMultiFields = (config: any, formValues: any): number => {
-      // If we've reached a tokens value, return it
-      if (config.tokens !== undefined) {
-        return config.tokens;
-      }
-
-      // If we have a field and values, continue the lookup
-      if (config.field && config.values) {
-        const fieldValue = formValues[config.field];
-
-        // Handle undefined, null, or missing values
-        if (fieldValue === undefined || fieldValue === null) {
-          return 0;
+    try {
+      const response = await axios.post(
+        `${endpoint}/generations/calculate-tokens`,
+        {
+          formValues,
+          pricing,
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${useAppStore.getState().getAuthApiKey() || ""}`,
+          },
         }
-
-        // Convert value to string for lookup (handles booleans, numbers, and strings)
-        const fieldKey = String(fieldValue);
-        const nextConfig = config.values[fieldKey];
-
-        // If no matching value found, return 0
-        if (!nextConfig) {
-          return 0;
-        }
-
-        // Recursively continue the lookup
-        return lookupMultiFields(nextConfig, formValues);
-      }
-
-      // If structure is invalid, return 0
-      return 0;
-    };
-
-    switch (pricing.type) {
-      case "per":
-        tokensCost = pricing.tokens;
-        break;
-      case "perMulti":
-        if (formValues.num_images || formValues.max_images) {
-          tokensCost = pricing.tokens * (formValues.num_images || formValues.max_images);
-        }
-        break;
-      case "singleField":
-        tokensCost = pricing.tokens[formValues[pricing.field]] || 0;
-        break;
-      case "multiFields":
-        if (pricing.tokens) {
-          tokensCost = lookupMultiFields(pricing.tokens, formValues);
-        }
-        break;
-      case "twoFieldLookup": {
-        // Check if both fields exist (including false values)
-        const field1Value = formValues[pricing.tokens.field1];
-        const field2Value = formValues[pricing.tokens.field2];
-
-        if (
-          field1Value !== undefined &&
-          field1Value !== null &&
-          field2Value !== undefined &&
-          field2Value !== null
-        ) {
-          // Convert values to strings for lookup (handles booleans, numbers, and strings)
-          const field1Key = String(field1Value);
-          const field2Key = String(field2Value);
-
-          tokensCost = pricing.tokens.prices[field1Key]?.[field2Key] || 0;
-        }
-        break;
-      }
-      default:
-        tokensCost = 0;
+      );
+      const tokensCost = response?.data?.data?.tokensCost ?? 0;
+      set({ tokensCost });
+    } catch (err) {
+      console.error("Error calculating tokens:", err);
+      set({ tokensCost: 0 });
     }
-    set({ tokensCost });
   },
 
   // Reset state

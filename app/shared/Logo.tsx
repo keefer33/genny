@@ -1,4 +1,5 @@
 import { Group, Text, useMantineTheme, Image, Box } from "@mantine/core";
+import { Link } from "react-router";
 import useAppStore from "~/lib/stores/appStore";
 
 export default function Logo({
@@ -23,34 +24,36 @@ export default function Logo({
   };
 
   return (
-    <Group gap="0">
-      <Box>
-        <Image src="https://aifile.link/ERaEOT.png" alt="Genny Bot" width={size} height={size} />
-      </Box>
-      <Group gap={0} align="baseline">
-        <Text
-          size={themeSettings.fontSize}
-          fw={themeSettings.fontWeight}
-          style={{
-            fontFamily: themeSettings.fontFamily,
-            color: theme.colors[themeColor][6],
-            letterSpacing: themeSettings.letterSpacing,
-          }}
-        >
-          genny
-        </Text>
-        <Text
-          size={themeSettings.fontSizeSmall}
-          fw={themeSettings.fontWeightSmall}
-          c="dimmed"
-          style={{
-            fontFamily: themeSettings.fontFamily,
-            letterSpacing: themeSettings.letterSpacingSmall,
-          }}
-        >
-          .bot
-        </Text>
+    <Link to="/" style={{ textDecoration: "none", color: "inherit" }}>
+      <Group gap="0">
+        <Box>
+          <Image src="https://aifile.link/ERaEOT.png" alt="Genny Bot" width={size} height={size} />
+        </Box>
+        <Group gap={0} align="baseline">
+          <Text
+            size={themeSettings.fontSize}
+            fw={themeSettings.fontWeight}
+            style={{
+              fontFamily: themeSettings.fontFamily,
+              color: theme.colors[themeColor][6],
+              letterSpacing: themeSettings.letterSpacing,
+            }}
+          >
+            genny
+          </Text>
+          <Text
+            size={themeSettings.fontSizeSmall}
+            fw={themeSettings.fontWeightSmall}
+            c="dimmed"
+            style={{
+              fontFamily: themeSettings.fontFamily,
+              letterSpacing: themeSettings.letterSpacingSmall,
+            }}
+          >
+            .bot
+          </Text>
+        </Group>
       </Group>
-    </Group>
+    </Link>
   );
 }

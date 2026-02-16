@@ -98,9 +98,38 @@ export default function GenerateModel() {
     return values;
   };
 
+  // Keys that should NOT trigger token calculation (textarea/filePicker from schema)
+  const getNoTriggerKeysFromSchema = (schema: any): Set<string> => {
+    const keys = new Set<string>();
+    if (!schema) return keys;
+    const properties = schema?.inputSchema?.properties || schema?.properties || {};
+    const collect = (props: Record<string, any>, prefix = "") => {
+      Object.entries(props || {}).forEach(([key, fieldSchema]) => {
+        const fullKey = prefix ? `${prefix}.${key}` : key;
+        const display = fieldSchema?.display;
+        if (display === "textarea" || display === "filePicker") {
+          keys.add(fullKey);
+        }
+        if (fieldSchema?.type === "object" && fieldSchema?.properties) {
+          collect(fieldSchema.properties, fullKey);
+        }
+      });
+    };
+    collect(properties);
+    return keys;
+  };
+
   const form = useForm({
-    onValuesChange(values) {
-      calculateTokens(values);
+    onValuesChange(values, previous) {
+      const changedKeys = Object.keys(values).filter(
+        (k) => JSON.stringify(previous[k]) !== JSON.stringify(values[k])
+      );
+      const schema = getSelectedModel()?.api?.schema || getSelectedModel()?.schema;
+      const noTriggerKeys = getNoTriggerKeysFromSchema(schema);
+      const hasTriggerChange = changedKeys.some((k) => !noTriggerKeys.has(k));
+      if (hasTriggerChange && user?.user?.id) {
+        calculateTokens(values);
+      }
     },
   });
 
@@ -120,7 +149,7 @@ export default function GenerateModel() {
       // Reinitialize form with new defaults
       form.setInitialValues(defaultValues);
       form.reset();
-      calculateTokens(defaultValues);
+      //calculateTokens(defaultValues);
     }
   }, [getSelectedModel()?.id]);
 
@@ -185,7 +214,7 @@ export default function GenerateModel() {
 
   // Calculate available height for ScrollArea
   // Subtract: header (60px) + navbar header (60px) + padding/margins (~120px) + submit button area (~80px)
-  const availableHeightForm = viewportHeight - 330;
+  const availableHeightForm = user?.user?.id ? viewportHeight - 330 : viewportHeight - 360;
   const availableHeightResults = viewportHeight - 170;
   // Mobile Layout
   if (isMobile) {
@@ -211,7 +240,7 @@ export default function GenerateModel() {
                       bg={colorScheme === "dark" ? "dark.8" : "white"}
                     >
                       {/* Submit button */}
-                      {user?.user?.id ? <GenerateButton /> : <LoginCTA variant="default" />}
+                      {user?.user?.id ? <GenerateButton /> : <LoginCTA />}
                     </Box>
                   </Stack>
                 </form>
@@ -230,7 +259,7 @@ export default function GenerateModel() {
     <Container fluid py="0">
       <Grid gutter="xl">
         {/* Form Column */}
-        <Grid.Col span={4}>
+        <Grid.Col span={{ base: 12, sm: 6, md: 6, lg: 6, xl: 4 }}>
           <LoadingComponent />
           {getSelectedModel() && !modelLoading && (
             <Stack gap="md" pt="xs">
@@ -250,7 +279,7 @@ export default function GenerateModel() {
                       </ScrollArea>
 
                       {/* Submit button */}
-                      {user?.user?.id ? <GenerateButton /> : <LoginCTA variant="default" />}
+                      {user?.user?.id ? <GenerateButton /> : <LoginCTA />}
                     </Stack>
                   </Card>
                 </form>
@@ -260,7 +289,7 @@ export default function GenerateModel() {
         </Grid.Col>
 
         {/* Results Column */}
-        <Grid.Col span={8}>
+        <Grid.Col span={{ base: 12, sm: 6, md: 6, lg: 6, xl: 8 }}>
           <ScrollArea h={availableHeightResults}>
             <Box pr="md">
               <GenerationResults />
