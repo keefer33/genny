@@ -1,47 +1,30 @@
 import {
+  ActionIcon,
   Avatar,
   Badge,
+  Box,
   Group,
   Modal,
+  Stack,
   Text,
   ThemeIcon,
   UnstyledButton,
-  Stack,
-  Card,
-  Tabs,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { useState, useEffect } from "react";
-import { RiArrowDownSLine, RiImageLine, RiVideoLine, RiToolsLine } from "@remixicon/react";
+import { RiArrowDownSLine, RiCloseLine, RiImageLine } from "@remixicon/react";
 import { useNavigate } from "react-router";
 import { useMantineColorScheme, useMantineTheme } from "@mantine/core";
 import useGenerateStore from "~/lib/stores/generateStore";
 import useAppStore from "~/lib/stores/appStore";
 import type { Model } from "~/lib/stores/generateStore";
+import { ModelCard } from "~/shared/ModelCard";
+import { ModelFiltersPanel, useModelFilters } from "~/shared/ModelFilters";
 
 interface ModelSwitcherProps {
   generationType?: string;
   _autoLoad?: boolean;
   showAllTypes?: boolean;
 }
-
-const GENERATION_TYPE_INFO = {
-  image: {
-    name: "Image",
-    icon: RiImageLine,
-    color: "primary.7",
-  },
-  video: {
-    name: "Video",
-    icon: RiVideoLine,
-    color: "green.3",
-  },
-  tools: {
-    name: "Tools",
-    icon: RiToolsLine,
-    color: "orange",
-  },
-};
 
 // Get brand logo from brands table or fallback to emoji
 const getBrandLogo = (model: Model) => {
@@ -77,7 +60,7 @@ const renderLogo = (model: Model, size: "sm" | "md" | "lg" = "md") => {
 export function ModelSwitcher({
   generationType,
   _autoLoad = true,
-  showAllTypes = true,
+  showAllTypes: _showAllTypes = true,
 }: ModelSwitcherProps) {
   const [opened, { open, close }] = useDisclosure(false);
   const navigate = useNavigate();
@@ -86,53 +69,34 @@ export function ModelSwitcher({
   const { isMobile } = useAppStore();
 
   // Get state from generateStore
-  const { models, selectedModel, resetGenerateState, setModelLoading, setLoadingGenerations } =
-    useGenerateStore();
+  const {
+    models,
+    selectedModel,
+    resetGenerateState,
+    setModelLoading,
+    setLoadingGenerations,
+    setSelectedModel,
+    setSelectedFilterModelId,
+    setGenerations,
+  } = useGenerateStore();
 
-  // Track the active tab for badge styling
-  const getInitialTab = () => {
-    // Priority: selectedModel's generation_type > generationType prop > first available type
-    if (selectedModel?.generation_type) {
-      const modelsOfType = models.filter(
-        (model) => model && model.generation_type === selectedModel.generation_type
-      );
-      if (modelsOfType.length > 0) {
-        return selectedModel.generation_type;
-      }
-    }
-    if (generationType) {
-      const modelsOfType = models.filter(
-        (model) => model && model.generation_type === generationType
-      );
-      if (modelsOfType.length > 0) {
-        return generationType;
-      }
-    }
-    const availableTypes = Object.keys(GENERATION_TYPE_INFO).filter((type) => {
-      const modelsOfType = models.filter((model) => model && model.generation_type === type);
-      return modelsOfType.length > 0;
-    });
-    return availableTypes[0] || Object.keys(GENERATION_TYPE_INFO)[0];
-  };
-
-  const [activeTab, setActiveTab] = useState<string>(getInitialTab);
-
-  // Update activeTab only when selectedModel changes (not on every render)
-  useEffect(() => {
-    if (selectedModel?.generation_type) {
-      const modelsOfType = models.filter(
-        (model) => model && model.generation_type === selectedModel.generation_type
-      );
-      if (modelsOfType.length > 0) {
-        setActiveTab(selectedModel.generation_type);
-      }
-    }
-  }, [selectedModel?.generation_type, models]);
-
-  const typeInfo = GENERATION_TYPE_INFO[generationType as keyof typeof GENERATION_TYPE_INFO];
+  const {
+    filterType,
+    setFilterType,
+    filterTags,
+    setFilterTags,
+    filterBrands,
+    setFilterBrands,
+    allTags,
+    allBrands,
+    filteredModels,
+  } = useModelFilters(models, { initialFilterType: generationType ?? "" });
 
   const handleModelSwitch = (model: Model) => {
     resetGenerateState();
+    setSelectedModel(model);
+    setSelectedFilterModelId(model.id);
+    setGenerations([]);
     setModelLoading(true);
     setLoadingGenerations(true);
     navigate(`/generate/${model.generation_type}/${model.slug}`, { replace: true });
@@ -207,156 +171,72 @@ export function ModelSwitcher({
       <Modal
         opened={opened}
         onClose={close}
-        title={
-          <Group gap="xs" p="xs">
-            <Text size="lg" fw={600}>
-              Select AI Model
-            </Text>
-          </Group>
-        }
         size="lg"
         fullScreen={isMobile}
-        //centered={!isMobile}
+        withCloseButton={false}
+        styles={{ body: { padding: 0 } }}
       >
         <>
+          <Box
+            style={{
+              position: "sticky",
+              top: 0,
+              zIndex: 20,
+              backgroundColor: "var(--mantine-color-body)",
+              borderBottom: "1px solid var(--mantine-color-default-border)",
+              padding: "var(--mantine-spacing-xs) var(--mantine-spacing-md)",
+            }}
+          >
+            <Stack gap="xs" align="flex-end">
+              <ActionIcon
+                variant="subtle"
+                color="gray"
+                onClick={close}
+                aria-label="Close model switcher"
+              >
+                <RiCloseLine size={24} />
+              </ActionIcon>
+              <ModelFiltersPanel
+                mode="popup"
+                modalFullScreen={isMobile}
+                filterType={filterType}
+                onFilterTypeChange={setFilterType}
+                filterTags={filterTags}
+                onFilterTagsChange={setFilterTags}
+                filterBrands={filterBrands}
+                onFilterBrandsChange={setFilterBrands}
+                allTags={allTags}
+                allBrands={allBrands}
+              />
+            </Stack>
+          </Box>
           {models.length === 0 ? (
             <Text size="sm" c="dimmed" ta="center" py="xl">
               No models available
             </Text>
           ) : (
-            <Tabs
-              variant="pills"
-              color={theme.primaryColor}
-              value={activeTab}
-              onChange={setActiveTab}
-            >
-              <Tabs.List>
-                {(() => {
-                  const entries: Array<[string, { name: string; icon: any; color: string }]> =
-                    showAllTypes
-                      ? Object.entries(GENERATION_TYPE_INFO)
-                      : generationType && typeInfo
-                        ? [[generationType, typeInfo]]
-                        : [];
-
-                  return entries
-                    .filter(([type]) => {
-                      // Only show tabs that have models
-                      const modelsOfType = models.filter(
-                        (model) => model && model.generation_type === type
-                      );
-                      return modelsOfType.length > 0;
-                    })
-                    .map(([type, typeInfo]) => {
-                      const modelsOfType = models.filter(
-                        (model) => model && model.generation_type === type
-                      );
-                      const IconComponent = typeInfo.icon;
-
-                      const isSelected = activeTab === type;
-
-                      return (
-                        <Tabs.Tab
-                          key={type}
-                          value={type}
-                          leftSection={<IconComponent size={16} />}
-                          rightSection={
-                            <Badge
-                              size="xs"
-                              variant={isSelected ? "filled" : "light"}
-                              color={isSelected ? "white" : theme.primaryColor}
-                              style={
-                                isSelected
-                                  ? {
-                                      color: theme.colors[theme.primaryColor][6],
-                                    }
-                                  : undefined
-                              }
-                            >
-                              {modelsOfType.length}
-                            </Badge>
-                          }
-                        >
-                          {typeInfo.name}
-                        </Tabs.Tab>
-                      );
-                    });
-                })()}
-              </Tabs.List>
-
-              {(() => {
-                const entries: Array<[string, { name: string; icon: any; color: string }]> =
-                  showAllTypes
-                    ? Object.entries(GENERATION_TYPE_INFO)
-                    : generationType && typeInfo
-                      ? [[generationType, typeInfo]]
-                      : [];
-
-                return entries.map(([type]) => {
-                  const modelsOfType = models.filter(
-                    (model) => model && model.generation_type === type
-                  );
-
-                  if (modelsOfType.length === 0) return null;
-
-                  return (
-                    <Tabs.Panel key={type} value={type}>
-                      <Stack gap="sm" pt="xs">
-                        {modelsOfType.map((model) => {
-                          if (!model || !model.id) return null;
-
-                          const isCurrentModel = model.id === selectedModel?.id;
-
-                          return (
-                            <Card
-                              key={model.id}
-                              p="xs"
-                              bg={colorScheme === "dark" ? "dark.6" : "gray.0"}
-                              onClick={() => !isCurrentModel && handleModelSwitch(model)}
-                              style={{
-                                transition: "all 0.2s ease",
-                                cursor: isCurrentModel ? "default" : "pointer",
-                                opacity: isCurrentModel ? 0.7 : 1,
-                              }}
-                            >
-                              <Group gap="md" align="center" justify="space-between" wrap="nowrap">
-                                <Group gap="sm" align="center" wrap="nowrap">
-                                  {renderLogo(model, "md")}
-                                  <Text size="md" fw={isCurrentModel ? 600 : 400}>
-                                    {model.name}
-                                  </Text>
-                                </Group>
-                                <Group gap="xs" align="center" wrap="wrap">
-                                  {model.tags && model.tags.length > 0 && (
-                                    <Group gap="xs">
-                                      {model.tags.slice(0, 2).map((tag, index) => (
-                                        <Badge key={index} size="sm" variant="light" color="gray">
-                                          {tag}
-                                        </Badge>
-                                      ))}
-                                      {model.tags.length > 2 && (
-                                        <Text size="sm" c="dimmed">
-                                          +{model.tags.length - 2} more
-                                        </Text>
-                                      )}
-                                    </Group>
-                                  )}
-                                  {isCurrentModel && (
-                                    <Badge size="sm" variant="filled" color={theme.primaryColor}>
-                                      Current
-                                    </Badge>
-                                  )}
-                                </Group>
-                              </Group>
-                            </Card>
-                          );
-                        })}
-                      </Stack>
-                    </Tabs.Panel>
-                  );
-                });
-              })()}
-            </Tabs>
+            <Stack gap="md" p="md">
+              {filteredModels.length === 0 ? (
+                <Text size="sm" c="dimmed" ta="center" py="xl">
+                  No models match your filters
+                </Text>
+              ) : (
+                <Stack gap="sm">
+                  {filteredModels.map((model) => {
+                    const isCurrentModel = model.id === selectedModel?.id;
+                    return (
+                      <ModelCard
+                        key={model.id}
+                        model={model}
+                        onSelect={handleModelSwitch}
+                        selected={isCurrentModel}
+                        showDescriptionPopover
+                      />
+                    );
+                  })}
+                </Stack>
+              )}
+            </Stack>
           )}
         </>
       </Modal>

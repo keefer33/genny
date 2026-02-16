@@ -20,7 +20,7 @@ export function TokensBadge({
   clickable = true,
 }: TokensBadgeProps) {
   const { openPaymentModal } = usePaymentModal();
-  if (tokens === 0) return null;
+  //if (tokens === 0) return null;
 
   const handleClick = () => {
     if (clickable) {

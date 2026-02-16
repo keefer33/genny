@@ -1,116 +1,132 @@
 import {
-  Badge,
-  Button,
   Card,
   Container,
   Grid,
-  Group,
   Stack,
   Text,
   Title,
-  ThemeIcon,
   useMantineTheme,
+  Center,
+  Box,
 } from "@mantine/core";
-import { RiImageLine, RiVideoLine } from "@remixicon/react";
+import { RiImageLine } from "@remixicon/react";
 import { useNavigate } from "react-router";
-
-const GENERATION_TYPES = [
-  {
-    id: "image",
-    name: "Image Generation",
-    description: "Generate stunning AI images from text prompts",
-    icon: RiImageLine,
-    features: ["High Quality", "Multiple Styles", "Fast Processing"],
-  },
-  {
-    id: "video",
-    name: "Video Generation",
-    description: "Create AI videos from text descriptions",
-    icon: RiVideoLine,
-    features: ["Dynamic Content", "Smooth Motion", "Creative Control"],
-  },
-];
+import useAppStore from "~/lib/stores/appStore";
+import useGenerateStore from "~/lib/stores/generateStore";
+import type { Model } from "~/lib/stores/generateStore";
+import { ModelCard } from "~/shared/ModelCard";
+import {
+  ModelFiltersPanel,
+  POPUP_FILTERS_BAR_HEIGHT,
+  useModelFilters,
+} from "~/shared/ModelFilters";
 
 export default function Generate() {
   const navigate = useNavigate();
   const theme = useMantineTheme();
-  const primaryColor = theme.primaryColor;
+  const { isMobile } = useAppStore();
+  const { models, setSelectedModel, setSelectedFilterModelId, setGenerations } = useGenerateStore();
+  const {
+    filterType,
+    setFilterType,
+    filterTags,
+    setFilterTags,
+    filterBrands,
+    setFilterBrands,
+    allTags,
+    allBrands,
+    filteredModels,
+  } = useModelFilters(models);
 
-  const handleTypeSelect = (typeId: string) => {
-    navigate(`/generate/${typeId}`);
+  const handleModelSelect = (model: Model) => {
+    setSelectedModel(model);
+    setSelectedFilterModelId(model.id);
+    setGenerations([]);
+    navigate(`/generate/${model.generation_type}/${model.slug}`);
   };
 
   return (
-    <Container size="lg" py="xl">
-      <Stack gap="xl">
-        <Grid gutter="xl">
-          {GENERATION_TYPES.map((type) => {
-            const IconComponent = type.icon;
-            return (
-              <Grid.Col key={type.id} span={{ base: 12, md: 6 }}>
-                <Card
-                  withBorder
-                  radius="md"
-                  p="lg"
-                  style={{
-                    cursor: "pointer",
-                    transition: "transform 0.2s ease, box-shadow 0.2s ease",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.transform = "translateY(-2px)";
-                    e.currentTarget.style.boxShadow = theme.shadows.md;
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = "translateY(0)";
-                    e.currentTarget.style.boxShadow = "none";
-                  }}
-                  onClick={() => handleTypeSelect(type.id)}
-                >
-                  <Stack gap="md">
-                    <Group justify="space-between" align="flex-start">
-                      <ThemeIcon color={primaryColor} variant="light" size="xl">
-                        <IconComponent size={24} />
-                      </ThemeIcon>
-                      <Badge
-                        color={type.name === "Image Generation" ? "green" : "orange"}
-                        size="lg"
-                      >
-                        {type.name}
-                      </Badge>
-                    </Group>
+    <Container size="lg" py="xs">
+      <Grid gutter="xl">
+        {/* Left: Filters (sidebar on desktop; fixed bar on mobile) */}
+        <Grid.Col span={{ base: 12, md: 4 }}>
+          {isMobile ? (
+            <>
+              <Box style={{ height: POPUP_FILTERS_BAR_HEIGHT }} aria-hidden />
+              <Box
+                style={{
+                  position: "fixed",
+                  top: 60,
+                  left: 0,
+                  right: 0,
+                  zIndex: 10,
+                  backgroundColor: "var(--mantine-color-body)",
+                  height: POPUP_FILTERS_BAR_HEIGHT,
+                  padding: "var(--mantine-spacing-xs) var(--mantine-spacing-md)",
+                }}
+              >
+                <ModelFiltersPanel
+                  mode="popup"
+                  modalFullScreen
+                  filterType={filterType}
+                  onFilterTypeChange={setFilterType}
+                  filterTags={filterTags}
+                  onFilterTagsChange={setFilterTags}
+                  filterBrands={filterBrands}
+                  onFilterBrandsChange={setFilterBrands}
+                  allTags={allTags}
+                  allBrands={allBrands}
+                />
+              </Box>
+            </>
+          ) : (
+            <Box
+              style={{
+                position: "sticky",
+                top: 100,
+                zIndex: 10,
+                backgroundColor: "var(--mantine-color-body)",
+              }}
+            >
+              <ModelFiltersPanel
+                filterType={filterType}
+                onFilterTypeChange={setFilterType}
+                filterTags={filterTags}
+                onFilterTagsChange={setFilterTags}
+                filterBrands={filterBrands}
+                onFilterBrandsChange={setFilterBrands}
+                allTags={allTags}
+                allBrands={allBrands}
+              />
+            </Box>
+          )}
+        </Grid.Col>
 
-                    <div>
-                      <Title order={3} mb="xs">
-                        {type.name}
-                      </Title>
-                      <Text size="sm" c="dimmed" mb="md">
-                        {type.description}
-                      </Text>
-                    </div>
-
-                    <Group gap="xs" wrap="wrap">
-                      {type.features.map((feature, index) => (
-                        <Badge key={index} variant="light" size="sm" color={primaryColor}>
-                          {feature}
-                        </Badge>
-                      ))}
-                    </Group>
-
-                    <Button
-                      fullWidth
-                      variant="light"
-                      color={primaryColor}
-                      leftSection={<IconComponent size={16} />}
-                    >
-                      Start Generating
-                    </Button>
-                  </Stack>
-                </Card>
-              </Grid.Col>
-            );
-          })}
-        </Grid>
-      </Stack>
+        {/* Right: Results */}
+        <Grid.Col span={{ base: 12, md: 8 }}>
+          {filteredModels.length === 0 ? (
+            <Card withBorder radius="md" p="xl">
+              <Center py="xl">
+                <Stack align="center" gap="md">
+                  <RiImageLine size={48} color={theme.colors.gray[5]} />
+                  <Title order={3}>No models match your filters</Title>
+                  <Text size="sm" c="dimmed">
+                    Try changing the generation type, tags, or brand.
+                  </Text>
+                </Stack>
+              </Center>
+            </Card>
+          ) : (
+            <Grid>
+              {filteredModels.map((model) => (
+                <Grid.Col key={model.id} span={12}>
+                  <ModelCard model={model} onSelect={handleModelSelect} />
+                </Grid.Col>
+              ))}
+            </Grid>
+          )}
+        </Grid.Col>
+      </Grid>
     </Container>
   );
 }

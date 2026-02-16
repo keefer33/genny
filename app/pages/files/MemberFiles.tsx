@@ -37,7 +37,6 @@ export default function MemberFiles() {
     setPaginationData,
     loadUserFiles,
     deleteFile,
-    handleFileUpdate,
     handleFilesPageChange,
   } = useFilesFoldersStore();
   const { loadTags } = useTagStore();
@@ -63,6 +62,20 @@ export default function MemberFiles() {
       loadUserFiles(1, 12, user.user.id, undefined, "upload", undefined); // Reset to page 1 when file type filter changes
     }
   }, [fileTypeFilter, user?.user?.id]);
+
+  // Refresh file list showing only uploads (not generations). Used after upload/delete/update.
+  const handleFileUpdate = async () => {
+    if (user?.user?.id) {
+      await loadUserFiles(
+        paginationData.currentPage,
+        12,
+        user.user.id,
+        undefined,
+        "upload",
+        undefined
+      );
+    }
+  };
 
   const handleFileSelect = (fileId: string, selected: boolean, fileData: any) => {
     setSelectedFiles((prev) => {
