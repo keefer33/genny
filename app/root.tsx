@@ -191,6 +191,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <link rel="stylesheet" href={mantine} />
         <link rel="stylesheet" href={notifications} />
         <link rel="stylesheet" href={carousel} />
+        <style>{`html { scrollbar-gutter: stable; }`}</style>
         <script src="https://accounts.google.com/gsi/client" async></script>
       </head>
       <body>
