@@ -1332,6 +1332,48 @@ function NestedFieldRenderer({
 }: NestedFieldRendererProps) {
   const form = useFormContext();
 
+  const getNestedValue = (obj: any, path: string) => {
+    if (!path) return undefined;
+    return path.split(".").reduce((current, key) => {
+      return current && current[key] !== undefined ? current[key] : undefined;
+    }, obj);
+  };
+
+  const resolveRuleFieldPath = (ruleField: string, currentFieldPath: string) => {
+    if (!ruleField) return "";
+    if (ruleField.includes(".")) return ruleField;
+
+    const pathParts = currentFieldPath.split(".");
+    pathParts.pop();
+
+    return pathParts.length > 0 ? `${pathParts.join(".")}.${ruleField}` : ruleField;
+  };
+
+  const shouldShowField = (currentFieldPath: string, fieldSchema: any) => {
+    const showRules = fieldSchema?.show;
+    if (!Array.isArray(showRules) || showRules.length === 0) {
+      return true;
+    }
+
+    return showRules.some((rule: any) => {
+      const ruleField = typeof rule?.field === "string" ? rule.field.trim() : "";
+      if (!ruleField) return false;
+
+      const rulePath = resolveRuleFieldPath(ruleField, currentFieldPath);
+      const ruleFieldValue = getNestedValue(form.values, rulePath);
+
+      if (Array.isArray(rule?.values) && rule.values.length > 0) {
+        return rule.values.includes(ruleFieldValue);
+      }
+
+      if (Object.prototype.hasOwnProperty.call(rule || {}, "value")) {
+        return ruleFieldValue === rule.value;
+      }
+
+      return Boolean(ruleFieldValue);
+    });
+  };
+
   // Helper function to normalize enum data for Mantine Select
   const normalizeEnumData = (enumData: any[]) => {
     if (!Array.isArray(enumData)) return [];
@@ -1388,6 +1430,11 @@ function NestedFieldRenderer({
 
   const renderField = (fieldName: string, fieldSchema: any, isRequired: boolean) => {
     const fullFieldName = fieldPrefix ? `${fieldPrefix}.${fieldName}` : fieldName;
+
+    // Render this field only when at least one show rule matches.
+    if (!shouldShowField(fullFieldName, fieldSchema)) {
+      return null;
+    }
 
     // Skip rendering if field is read-only
     if (fieldSchema.readOnly === true) {
@@ -1661,7 +1708,9 @@ function NestedFieldRenderer({
       {Object.entries(properties).map(([fieldName, fieldSchema]) => {
         const field = fieldSchema as any;
         const isRequired = required.includes(fieldName);
-        return <div key={fieldName}>{renderField(fieldName, field, isRequired)}</div>;
+        const renderedField = renderField(fieldName, field, isRequired);
+        if (!renderedField) return null;
+        return <div key={fieldName}>{renderedField}</div>;
       })}
     </>
   );
