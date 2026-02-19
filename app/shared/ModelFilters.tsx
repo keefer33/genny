@@ -150,6 +150,7 @@ interface ModelFiltersPanelProps extends ModelFilterBarProps {
   buttonLabel?: string;
   modalTitle?: string;
   modalFullScreen?: boolean;
+  showTypeControlInPopup?: boolean;
 }
 
 export function ModelFiltersPanel({
@@ -157,6 +158,7 @@ export function ModelFiltersPanel({
   buttonLabel = "Filters",
   modalTitle = "Filters",
   modalFullScreen = false,
+  showTypeControlInPopup = false,
   ...filterBarProps
 }: ModelFiltersPanelProps) {
   const [opened, { open, close }] = useDisclosure(false);
@@ -194,12 +196,21 @@ export function ModelFiltersPanel({
   }
 
   return (
-    <Stack gap="xs" style={{ height: POPUP_FILTERS_BAR_HEIGHT }}>
-      <Group justify="flex-end" wrap="nowrap">
+    <Group gap="xs" style={{ height: showTypeControlInPopup ? "auto" : POPUP_FILTERS_BAR_HEIGHT }}>
+      {showTypeControlInPopup && (
+        <SegmentedControl
+          value={filterBarProps.filterType}
+          onChange={filterBarProps.onFilterTypeChange}
+          data={GENERATION_TYPE_OPTIONS}
+          w={"100%"}
+        />
+      )}
+      <Group>
         <Button variant="light" size="sm" leftSection={<RiFilter3Line size={16} />} onClick={open}>
           {buttonLabel}
         </Button>
       </Group>
+
       <Box style={{ minHeight: 22, overflow: "hidden" }}>
         <Group justify="space-between" align="center" wrap="nowrap">
           <Box style={{ overflow: "hidden" }}>
@@ -232,6 +243,6 @@ export function ModelFiltersPanel({
       <Modal opened={opened} onClose={close} title={modalTitle} fullScreen={modalFullScreen}>
         <ModelFilterBar {...filterBarProps} />
       </Modal>
-    </Stack>
+    </Group>
   );
 }
