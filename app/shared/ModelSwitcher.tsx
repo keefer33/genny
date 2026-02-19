@@ -187,18 +187,21 @@ export function ModelSwitcher({
               padding: "var(--mantine-spacing-xs) var(--mantine-spacing-md)",
             }}
           >
-            <Stack gap="xs" align="flex-end">
-              <ActionIcon
-                variant="subtle"
-                color="gray"
-                onClick={close}
-                aria-label="Close model switcher"
-              >
-                <RiCloseLine size={24} />
-              </ActionIcon>
+            <Stack gap="xs">
+              <Group justify="flex-end">
+                <ActionIcon
+                  variant="subtle"
+                  color="gray"
+                  onClick={close}
+                  aria-label="Close model switcher"
+                >
+                  <RiCloseLine size={24} />
+                </ActionIcon>
+              </Group>
               <ModelFiltersPanel
                 mode="popup"
                 modalFullScreen={isMobile}
+                showTypeControlInPopup
                 filterType={filterType}
                 onFilterTypeChange={setFilterType}
                 filterTags={filterTags}
