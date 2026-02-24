@@ -27,7 +27,7 @@ export function getModelTags(model: Model): string[] {
   return [];
 }
 
-export interface ModelCardProps {
+interface ModelCardProps {
   model: Model;
   onSelect?: (model: Model) => void;
   /** Show the info icon and description popover. Default true. */
@@ -55,8 +55,8 @@ export function ModelCard({
 
   return (
     <Card
-      withBorder
-      radius="xs"
+      //withBorder
+      radius="md"
       p={padding}
       style={{
         cursor: selected ? "default" : "pointer",

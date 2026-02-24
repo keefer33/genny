@@ -4,7 +4,6 @@ import {
   Group,
   Text,
   Stack,
-  Pagination,
   ActionIcon,
   Badge,
   Loader,
@@ -17,6 +16,7 @@ import { useState, useEffect } from "react";
 import { useDisclosure } from "@mantine/hooks";
 import useAppStore from "~/lib/stores/appStore";
 import useFilesFoldersStore, { type FileData } from "~/lib/stores/filesFoldersStore";
+import { AppPagination } from "~/shared/AppPagination";
 import { FileFilters } from "./FileFilters";
 import { FileGrid } from "./FileGrid";
 import FileUpload from "./FileUpload";
@@ -185,7 +185,7 @@ export function FilePickerContent({
           {/* Pagination */}
           {paginationData.totalPages > 1 && (
             <Group justify="center" mt="md">
-              <Pagination
+              <AppPagination
                 total={paginationData.totalPages}
                 value={currentPage}
                 onChange={handlePageChange}

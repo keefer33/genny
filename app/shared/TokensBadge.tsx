@@ -5,7 +5,7 @@ import { usePaymentModal } from "./PaymentModal";
 interface TokensBadgeProps {
   tokens?: number;
   size?: "xs" | "sm" | "md" | "lg";
-  variant?: "light" | "filled" | "outline" | "dot" | "gradient";
+  variant?: "light" | "filled" | "outline" | "dot" | "gradient" | "subtle" | "default";
   color?: string;
   leftSection?: React.ReactNode;
   clickable?: boolean;

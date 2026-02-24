@@ -1,11 +1,10 @@
-import { Group } from "@mantine/core";
+import { Box, Group } from "@mantine/core";
 import { ActionIcon, Burger } from "@mantine/core";
 import { RiLoginBoxLine } from "@remixicon/react";
 import { Link } from "react-router";
 import Logo from "./Logo";
 import useAppStore from "~/lib/stores/appStore";
 import { TokensBadge } from "./TokensBadge";
-import { mobileUI } from "~/lib/mobileUi";
 
 interface AppShellHeaderProps {
   mobileOpened: boolean;
@@ -13,15 +12,14 @@ interface AppShellHeaderProps {
 }
 
 export function AppShellHeader({ mobileOpened, toggleMobile }: AppShellHeaderProps) {
-  const { isMobile, page, getCurrentUserTokens, getUser } = useAppStore();
+  const { getCurrentUserTokens, getUser } = useAppStore();
   const isLoggedIn = !!getUser()?.user?.id;
 
   return (
-    <>
-      <Group p="sm" justify="space-between" align="center">
+    <Box h="100%" style={{ display: "flex", alignItems: "center" }}>
+      <Group px="sm" justify="space-between" align="center" w="100%">
         <Group>
-          <Burger opened={mobileOpened} onClick={toggleMobile} size="sm" hiddenFrom="md" />
-          <Logo size={48} />
+          <Logo size={40} />
         </Group>
         <Group align="center">
           {isLoggedIn ? (
@@ -31,9 +29,9 @@ export function AppShellHeader({ mobileOpened, toggleMobile }: AppShellHeaderPro
               <RiLoginBoxLine size={20} />
             </ActionIcon>
           )}
+          <Burger opened={mobileOpened} onClick={toggleMobile} size="sm" hiddenFrom="md" />
         </Group>
       </Group>
-      {isMobile && mobileUI.pages[page ?? ""]?.header?.component}
-    </>
+    </Box>
   );
 }

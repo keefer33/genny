@@ -69,16 +69,7 @@ export function ModelSwitcher({
   const { isMobile } = useAppStore();
 
   // Get state from generateStore
-  const {
-    models,
-    selectedModel,
-    resetGenerateState,
-    setModelLoading,
-    setLoadingGenerations,
-    setSelectedModel,
-    setSelectedFilterModelId,
-    setGenerations,
-  } = useGenerateStore();
+  const { models, selectedModel, setSelectedModel, setActiveTab } = useGenerateStore();
 
   const {
     filterType,
@@ -93,12 +84,10 @@ export function ModelSwitcher({
   } = useModelFilters(models, { initialFilterType: generationType ?? "" });
 
   const handleModelSwitch = (model: Model) => {
-    resetGenerateState();
+    if (isMobile) {
+      setActiveTab("form");
+    }
     setSelectedModel(model);
-    setSelectedFilterModelId(model.id);
-    setGenerations([]);
-    setModelLoading(true);
-    setLoadingGenerations(true);
     navigate(`/generate/${model.generation_type}/${model.slug}`, { replace: true });
     close();
   };

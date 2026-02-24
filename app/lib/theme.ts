@@ -15,8 +15,8 @@ const createAppTheme = (primaryColor: string = "cyan") =>
         "#696969",
         "#424242",
         "#3b3b3b",
-        "#2e2e2e",
-        "#242424",
+        "#1f1f1f",
+        "#141414",
         "#1f1f1f",
         "#141414",
       ],
@@ -182,8 +182,8 @@ const createAppTheme = (primaryColor: string = "cyan") =>
       dark: 7,
     },
     primaryColor: primaryColor,
-    autoContrast: false,
-    luminanceThreshold: 0.3,
+    autoContrast: true,
+    luminanceThreshold: 0.6,
     fontFamily:
       "-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif, Apple Color Emoji, Segoe UI Emoji",
     fontFamilyMonospace:
@@ -272,9 +272,16 @@ const createAppTheme = (primaryColor: string = "cyan") =>
       lg: "0 calc(0.0625rem * var(--mantine-scale)) calc(0.1875rem * var(--mantine-scale)) rgba(0, 0, 0, 0.05), rgba(0, 0, 0, 0.05) 0 calc(1.75rem * var(--mantine-scale)) calc(1.4375rem * var(--mantine-scale)) calc(-0.4375rem * var(--mantine-scale)), rgba(0, 0, 0, 0.04) 0 calc(0.75rem * var(--mantine-scale)) calc(0.75rem * var(--mantine-scale)) calc(-0.4375rem * var(--mantine-scale))",
       xl: "0 calc(0.0625rem * var(--mantine-scale)) calc(0.1875rem * var(--mantine-scale)) rgba(0, 0, 0, 0.05), rgba(0, 0, 0, 0.05) 0 calc(2.25rem * var(--mantine-scale)) calc(1.75rem * var(--mantine-scale)) calc(-0.4375rem * var(--mantine-scale)), rgba(0, 0, 0, 0.04) 0 calc(1.0625rem * var(--mantine-scale)) calc(1.0625rem * var(--mantine-scale)) calc(-0.4375rem * var(--mantine-scale))",
     },
+    components: {
+      Card: {
+        styles: {
+          root: {
+            backgroundColor: "light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-6))",
+          },
+        },
+      },
+    },
   });
-
-export const theme = mergeMantineTheme(DEFAULT_THEME, createAppTheme());
 
 // Export the function to create theme with custom primary color
 export const createThemeWithColor = (primaryColor: string) =>

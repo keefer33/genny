@@ -324,4 +324,3 @@ const useTagStoreBase = create<TagState>((set, get) => ({
 }));
 
 export default createUniversalSelectors(useTagStoreBase);
-export type { UserTag, UserFileTag, TagState };

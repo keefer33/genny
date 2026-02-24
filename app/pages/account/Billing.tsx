@@ -1,6 +1,6 @@
 import {
   Badge,
-  Button,
+  Box,
   Card,
   Container,
   Group,
@@ -16,9 +16,10 @@ import useAppStore from "~/lib/stores/appStore";
 import useBillingStore from "~/lib/stores/billingStore";
 import { formatPrice } from "~/lib/tokenUtils";
 import PaymentModal from "~/shared/PaymentModal";
-import { Table, Pagination } from "@mantine/core";
+import { Table } from "@mantine/core";
 import { RiHistoryLine } from "@remixicon/react";
 import { CurrentBalance } from "~/shared/CurrentBalance";
+import { AppPagination } from "~/shared/AppPagination";
 
 export default function Billing() {
   const { getUser, isMobile } = useAppStore();
@@ -72,30 +73,32 @@ export default function Billing() {
   };
 
   return (
-    <Container size="lg" py="xl">
-      <Stack gap="xl">
+    <Container
+      size="lg"
+      py={isMobile ? "xs" : "xl"}
+      h={
+        isMobile
+          ? "calc(100dvh - var(--app-shell-header-height, 0px) - var(--app-shell-footer-height, 0px))"
+          : undefined
+      }
+      style={isMobile ? { minHeight: 0 } : undefined}
+    >
+      <Stack
+        gap="xl"
+        h={isMobile ? "100%" : undefined}
+        style={isMobile ? { minHeight: 0 } : undefined}
+      >
         <CurrentBalance />
 
         {/* Transaction History */}
-        <Card radius="md" p="lg">
+
+        <Stack
+          gap="md"
+          h={isMobile ? "100%" : undefined}
+          style={isMobile ? { flex: 1, minHeight: 0 } : undefined}
+        >
           <Group justify="space-between" mb="md">
-            <div>
-              <Title order={3} mb="xs">
-                Transaction History
-              </Title>
-              <Text size="sm" c="dimmed">
-                Your recent token purchases
-              </Text>
-            </div>
-            <Button
-              leftSection={<RiHistoryLine size={16} />}
-              onClick={() => loadTransactions(currentPage)}
-              loading={transactionsLoading}
-              variant="light"
-              size="sm"
-            >
-              Refresh
-            </Button>
+            <Title order={3}>Transaction History</Title>
           </Group>
 
           {transactions.length === 0 ? (
@@ -109,64 +112,78 @@ export default function Billing() {
               </Text>
             </Stack>
           ) : isMobile ? (
-            // Mobile: Card-based layout (pagination in footer, natural scroll)
-            <Stack gap="md">
-              {transactions.map((transaction) => (
-                <Card key={transaction.id} withBorder radius="md" p="md">
-                  <Stack gap="sm">
-                    <Group justify="space-between" align="flex-start">
-                      <div>
-                        <Text size="xs" c="dimmed" mb={4}>
-                          {new Date(transaction.created_at).toLocaleDateString("en-US", {
-                            year: "numeric",
-                            month: "short",
-                            day: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </Text>
-                        <Badge
-                          color={transaction.status === "completed" ? "green" : "yellow"}
-                          variant="light"
-                          size="sm"
-                          mb="xs"
-                        >
-                          {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
-                        </Badge>
-                      </div>
-                      <Group gap="xs">
-                        <RiVisaLine size={18} color={theme.colors.blue[6]} />
-                        <Text fw={700} size="lg">
-                          {formatPrice(transaction.amount_cents)}
-                        </Text>
-                      </Group>
-                    </Group>
-                    <Divider />
-                    <Group justify="space-between">
-                      <div>
-                        <Text size="xs" c="dimmed" mb={2}>
-                          Tokens
-                        </Text>
-                        <Group gap="xs">
-                          <RiCoinsLine size={16} color={theme.colors.orange[6]} />
-                          <Text size="sm" fw={500}>
-                            {transaction.tokens_purchased.toLocaleString()}
-                          </Text>
+            <>
+              <Box style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
+                <Stack gap="md" pb="xs">
+                  {transactions.map((transaction) => (
+                    <Card key={transaction.id} withBorder radius="md" p="md">
+                      <Stack gap="sm">
+                        <Group justify="space-between" align="flex-start">
+                          <div>
+                            <Text size="xs" c="dimmed" mb={4}>
+                              {new Date(transaction.created_at).toLocaleDateString("en-US", {
+                                year: "numeric",
+                                month: "short",
+                                day: "numeric",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </Text>
+                            <Badge
+                              color={transaction.status === "completed" ? "green" : "yellow"}
+                              variant="light"
+                              size="sm"
+                              mb="xs"
+                            >
+                              {transaction.status.charAt(0).toUpperCase() +
+                                transaction.status.slice(1)}
+                            </Badge>
+                          </div>
+                          <Group gap="xs">
+                            <RiVisaLine size={18} color={theme.colors.blue[6]} />
+                            <Text fw={700} size="lg">
+                              {formatPrice(transaction.amount_cents)}
+                            </Text>
+                          </Group>
                         </Group>
-                      </div>
-                      <div style={{ textAlign: "right" }}>
-                        <Text size="xs" c="dimmed" mb={2}>
-                          Payment ID
-                        </Text>
-                        <Text size="xs" c="dimmed" ff="monospace">
-                          {transaction.stripe_payment_intent_id.slice(-8)}
-                        </Text>
-                      </div>
-                    </Group>
-                  </Stack>
-                </Card>
-              ))}
-            </Stack>
+                        <Divider />
+                        <Group justify="space-between">
+                          <div>
+                            <Text size="xs" c="dimmed" mb={2}>
+                              Tokens
+                            </Text>
+                            <Group gap="xs">
+                              <RiCoinsLine size={16} color={theme.colors.orange[6]} />
+                              <Text size="sm" fw={500}>
+                                {transaction.tokens_purchased.toLocaleString()}
+                              </Text>
+                            </Group>
+                          </div>
+                          <div style={{ textAlign: "right" }}>
+                            <Text size="xs" c="dimmed" mb={2}>
+                              Payment ID
+                            </Text>
+                            <Text size="xs" c="dimmed" ff="monospace">
+                              {transaction.stripe_payment_intent_id.slice(-8)}
+                            </Text>
+                          </div>
+                        </Group>
+                      </Stack>
+                    </Card>
+                  ))}
+                </Stack>
+              </Box>
+              {totalPages > 1 && (
+                <Group justify="center" mt="xs">
+                  <AppPagination
+                    value={currentPage}
+                    onChange={setCurrentPage}
+                    total={totalPages}
+                    size="sm"
+                  />
+                </Group>
+              )}
+            </>
           ) : (
             // Desktop: Table layout
             <>
@@ -228,7 +245,7 @@ export default function Billing() {
               {/* Pagination */}
               {totalPages > 1 && (
                 <Group justify="center" mt="md">
-                  <Pagination
+                  <AppPagination
                     value={currentPage}
                     onChange={setCurrentPage}
                     total={totalPages}
@@ -238,7 +255,7 @@ export default function Billing() {
               )}
             </>
           )}
-        </Card>
+        </Stack>
 
         {/* Payment Modal - using global hook */}
         {paymentModalOpen && (
@@ -247,6 +264,7 @@ export default function Billing() {
             onClose={closePaymentModal}
             onSuccess={handlePaymentSuccess}
             showPackageSelection={true}
+            fullScreen={isMobile}
           />
         )}
       </Stack>

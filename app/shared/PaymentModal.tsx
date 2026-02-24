@@ -157,6 +157,8 @@ interface PaymentModalProps {
   description?: string;
   autoOpen?: boolean;
   showPackageSelection?: boolean;
+  /** When true, modal is fullscreen (e.g. pass isMobile from parent). If omitted, uses isMobile from app store. */
+  fullScreen?: boolean;
 }
 
 export default function PaymentModal({
@@ -168,7 +170,10 @@ export default function PaymentModal({
   description,
   autoOpen: _autoOpen = false,
   showPackageSelection = false,
+  fullScreen: fullScreenProp,
 }: PaymentModalProps) {
+  const { isMobile } = useAppStore();
+  const fullScreen = fullScreenProp ?? isMobile;
   const {
     selectedPackage,
     clientSecret,
@@ -276,7 +281,10 @@ export default function PaymentModal({
       opened={opened}
       onClose={handleClose}
       title={modalTitle}
-      size={showPackageSelection ? "lg" : "md"}
+      fullScreen={fullScreen}
+      size="lg"
+      radius={fullScreen ? 0 : undefined}
+      transitionProps={fullScreen ? { transition: "fade", duration: 200 } : undefined}
       closeOnClickOutside={!paymentLoading}
       closeOnEscape={!paymentLoading}
     >

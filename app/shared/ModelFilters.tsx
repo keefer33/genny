@@ -16,7 +16,7 @@ import { useMemo, useState } from "react";
 import type { Model } from "~/lib/stores/generateStore";
 import { getModelTags } from "~/shared/ModelCard";
 
-export const GENERATION_TYPE_OPTIONS = [
+const GENERATION_TYPE_OPTIONS = [
   { value: "", label: "All" },
   { value: "image", label: "Image" },
   { value: "video", label: "Video" },
@@ -24,7 +24,7 @@ export const GENERATION_TYPE_OPTIONS = [
 ];
 export const POPUP_FILTERS_BAR_HEIGHT = 84;
 
-export interface UseModelFiltersOptions {
+interface UseModelFiltersOptions {
   /** Initial generation type filter (e.g. from URL or parent). */
   initialFilterType?: string;
 }
@@ -82,7 +82,7 @@ export function useModelFilters(models: Model[], options: UseModelFiltersOptions
   };
 }
 
-export interface ModelFilterBarProps {
+interface ModelFilterBarProps {
   filterType: string;
   onFilterTypeChange: (value: string) => void;
   filterTags: string[];
@@ -93,7 +93,7 @@ export interface ModelFilterBarProps {
   allBrands?: string[];
 }
 
-export function ModelFilterBar({
+function ModelFilterBar({
   filterType,
   onFilterTypeChange,
   filterTags,

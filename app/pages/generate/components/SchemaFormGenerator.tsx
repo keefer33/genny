@@ -3,12 +3,14 @@ import {
   Button,
   Group,
   NumberInput,
+  Popover,
   Select,
   Stack,
   Switch,
   Text,
   TextInput,
   Textarea,
+  ThemeIcon,
   useMantineTheme,
   useMantineColorScheme,
   Box,
@@ -20,7 +22,13 @@ import {
 import { useDisclosure } from "@mantine/hooks";
 import { useEffect, useRef, useState } from "react";
 import { useFormContext } from "~/lib/ContextForm";
-import { RiFileCopyLine, RiCheckLine, RiCloseLine } from "@remixicon/react";
+import {
+  RiArrowRightSLine,
+  RiFileCopyLine,
+  RiCheckLine,
+  RiCloseLine,
+  RiSettings3Line,
+} from "@remixicon/react";
 import { FilePickerModal } from "../../../shared/FilePickerModal";
 import { RandomPromptButton } from "./RandomPromptButton";
 import { EnhancePromptButton } from "./EnhancePromptButton";
@@ -47,6 +55,7 @@ interface SchemaFormGeneratorProps {
   showNoFieldsMessage?: boolean;
   fieldPrefix?: string;
   generationType?: "image" | "video";
+  renderSection?: "all" | "main" | "output";
 }
 
 interface NestedFieldRendererProps {
@@ -69,6 +78,15 @@ interface StringArrayRendererProps {
   isRequired?: boolean;
   fieldPrefix?: string;
 }
+
+const OUTPUT_GROUP_FIELDS = [
+  "aspect_ratio",
+  "duration",
+  "resolution",
+  "output_format",
+  "n_frames",
+  "mode",
+] as const;
 
 // Component for rendering selectable boxes for string enums
 function SelectableBoxesRenderer({
@@ -183,8 +201,10 @@ function FilePickerInput({
   fieldPrefix?: string;
 }) {
   const form = useFormContext();
+  const { themeColor } = useAppStore();
   const [_opened, { open }] = useDisclosure(false);
   const fullFieldName = fieldPrefix ? `${fieldPrefix}.${fieldName}` : fieldName;
+  const pickerBorderColor = `var(--mantine-color-${themeColor}-6)`;
 
   const currentValue = form.getInputProps(fullFieldName).value;
 
@@ -202,22 +222,31 @@ function FilePickerInput({
 
   return (
     <>
-      <Stack key={form.key(fullFieldName)} gap="sm">
-        <Text size="sm" fw={500}>
-          {fieldSchema.title || fieldName}
-          {isRequired && <span style={{ color: "red" }}> *</span>}
-        </Text>
+      <Box
+        key={form.key(fullFieldName)}
+        p="sm"
+        style={{
+          border: `1px dotted ${pickerBorderColor}`,
+          borderRadius: "var(--mantine-radius-md)",
+        }}
+      >
+        <Stack gap="sm">
+          <Text size="sm" fw={500}>
+            {fieldSchema.title || fieldName}
+            {isRequired && <span style={{ color: "red" }}> *</span>}
+          </Text>
 
-        <FilePickerPreview
-          fileUrl={currentValue || ""}
-          placeholder={`Select ${fieldSchema.title || fieldName}`}
-          onSelect={open}
-          onClear={handleClear}
-          onFileSelect={handleFileSelect}
-          allowedTypes={allowedTypes}
-          title={`Select ${fieldSchema.title || fieldName}`}
-        />
-      </Stack>
+          <FilePickerPreview
+            fileUrl={currentValue || ""}
+            placeholder={`Select ${fieldSchema.title || fieldName}`}
+            onSelect={open}
+            onClear={handleClear}
+            onFileSelect={handleFileSelect}
+            allowedTypes={allowedTypes}
+            title={`Select ${fieldSchema.title || fieldName}`}
+          />
+        </Stack>
+      </Box>
     </>
   );
 }
@@ -703,7 +732,7 @@ function FilePickerPreview({
     <>
       {fileUrl ? (
         <Card
-          withBorder
+          withBorder={false}
           radius="md"
           w="100%"
           p="0"
@@ -1139,7 +1168,9 @@ function StringArrayRenderer({
   fieldPrefix = "",
 }: StringArrayRendererProps) {
   const form = useFormContext();
+  const { themeColor } = useAppStore();
   const fullFieldName = fieldPrefix ? `${fieldPrefix}.${fieldName}` : fieldName;
+  const pickerBorderColor = `var(--mantine-color-${themeColor}-6)`;
 
   // Helper function to get nested value safely
   const getNestedValue = (obj: any, path: string) => {
@@ -1222,7 +1253,7 @@ function StringArrayRenderer({
     form.setValues(updatedValues);
   };
 
-  return (
+  const content = (
     <Stack key={form.key(fullFieldName)} gap="sm">
       <Group justify="space-between" align="center">
         <Text size="sm" fw={500}>
@@ -1276,6 +1307,23 @@ function StringArrayRenderer({
       )}
     </Stack>
   );
+
+  if (isFilePicker) {
+    return (
+      <Box
+        key={`file-picker-array-${form.key(fullFieldName)}`}
+        p="sm"
+        style={{
+          border: `1px dotted ${pickerBorderColor}`,
+          borderRadius: "var(--mantine-radius-md)",
+        }}
+      >
+        {content}
+      </Box>
+    );
+  }
+
+  return content;
 }
 
 // Component for prompt action buttons (copy and clear)
@@ -1721,6 +1769,7 @@ export function SchemaFormGenerator({
   showNoSchemaMessage = true,
   showNoFieldsMessage = true,
   generationType = "image",
+  renderSection = "all",
 }: SchemaFormGeneratorProps) {
   const form = useFormContext();
   const defaultsSetRef = useRef(false);
@@ -1916,13 +1965,94 @@ export function SchemaFormGenerator({
     return showNoFieldsMessage ? <Text c="dimmed">No form fields found in schema</Text> : null;
   }
 
+  const groupedOutputProperties: Record<string, any> = {};
+  OUTPUT_GROUP_FIELDS.forEach((fieldName) => {
+    if (properties[fieldName]) {
+      groupedOutputProperties[fieldName] = properties[fieldName];
+    }
+  });
+
+  const remainingProperties = Object.fromEntries(
+    Object.entries(properties).filter(
+      ([fieldName]) => !OUTPUT_GROUP_FIELDS.includes(fieldName as any)
+    )
+  );
+  const outputRequired = required.filter((fieldName) =>
+    Object.prototype.hasOwnProperty.call(groupedOutputProperties, fieldName)
+  );
+  const remainingRequired = required.filter((fieldName) =>
+    Object.prototype.hasOwnProperty.call(remainingProperties, fieldName)
+  );
+  const outputSummary = OUTPUT_GROUP_FIELDS.filter((fieldName) =>
+    Object.prototype.hasOwnProperty.call(groupedOutputProperties, fieldName)
+  )
+    .map((fieldName) => {
+      const value = form.values?.[fieldName];
+      if (value === undefined || value === null || value === "") return "-";
+      return String(value);
+    })
+    .join(" | ");
+
+  const shouldRenderMain = renderSection === "all" || renderSection === "main";
+  const shouldRenderOutput = renderSection === "all" || renderSection === "output";
+
+  if (renderSection === "main" && Object.keys(remainingProperties).length === 0) {
+    return showNoFieldsMessage ? <Text c="dimmed">No form fields found in schema</Text> : null;
+  }
+
+  if (renderSection === "output" && Object.keys(groupedOutputProperties).length === 0) {
+    return null;
+  }
+
   return (
     <Stack gap="xl">
-      <NestedFieldRenderer
-        properties={properties}
-        required={required}
-        generationType={generationType}
-      />
+      {shouldRenderMain && Object.keys(remainingProperties).length > 0 && (
+        <NestedFieldRenderer
+          properties={remainingProperties}
+          required={remainingRequired}
+          generationType={generationType}
+        />
+      )}
+
+      {shouldRenderOutput && Object.keys(groupedOutputProperties).length > 0 && (
+        <Popover
+          width="target"
+          position="top-start"
+          withArrow
+          shadow="md"
+          middlewares={{ flip: false, shift: true }}
+        >
+          <Popover.Target>
+            <Card withBorder radius="md" p="sm" style={{ cursor: "pointer" }}>
+              <Group gap="sm" justify="space-between" wrap="nowrap">
+                <Group gap="sm" wrap="nowrap">
+                  <ThemeIcon variant="light" size="sm" radius="xl">
+                    <RiSettings3Line size={14} />
+                  </ThemeIcon>
+                  <Stack gap={2}>
+                    <Text size="sm" fw={600}>
+                      Output
+                    </Text>
+                    <Text size="xs" c="dimmed">
+                      {outputSummary}
+                    </Text>
+                  </Stack>
+                </Group>
+                <ThemeIcon variant="subtle" size="sm" color="gray">
+                  <RiArrowRightSLine size={16} />
+                </ThemeIcon>
+              </Group>
+            </Card>
+          </Popover.Target>
+          <Popover.Dropdown>
+            <NestedFieldRenderer
+              properties={groupedOutputProperties}
+              required={outputRequired}
+              generationType={generationType}
+            />
+          </Popover.Dropdown>
+        </Popover>
+      )}
     </Stack>
   );
 }

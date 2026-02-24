@@ -241,7 +241,7 @@ const useGenerateStoreBase = create<GenerateStoreState>((set, get) => ({
     const supabase = useAppStore.getState().getApi();
     if (!userId || !supabase) return;
 
-    const limit = 10;
+    const limit = 9;
     const from = (page - 1) * limit;
     const to = from + limit - 1;
 

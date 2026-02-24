@@ -1,48 +1,66 @@
-import {
-  Container,
-  Stack,
-  Loader,
-  Alert,
-  ScrollArea,
-  Grid,
-  Card,
-  Box,
-  Center,
-  Text,
-  useMantineColorScheme,
-} from "@mantine/core";
-import { useViewportSize } from "@mantine/hooks";
+import { Stack, Loader, Alert, Center, Text, ScrollArea, Box } from "@mantine/core";
 import { RiErrorWarningLine } from "@remixicon/react";
-import { useEffect } from "react";
-import { useParams } from "react-router";
+import { useEffect, useRef } from "react";
+import { useNavigate, useParams } from "react-router";
 import { notifications } from "@mantine/notifications";
 import useAppStore from "~/lib/stores/appStore";
 import useGenerateStore from "~/lib/stores/generateStore";
 import { SchemaFormGenerator } from "~/pages/generate/components/SchemaFormGenerator";
 import { FormProvider, useForm } from "~/lib/ContextForm";
-import { GenerationResults } from "~/pages/generate/components/GenerationResults";
 import { GenerateButton } from "~/pages/generate/components/GenerateButton";
 import { LoginCTA } from "~/shared/LoginCTA";
 import { ModelSwitcher } from "~/shared/ModelSwitcher";
 
 export default function GenerateModel() {
-  const { slug } = useParams();
-  const { height: viewportHeight } = useViewportSize();
-  const { getUser } = useAppStore();
-  const { colorScheme } = useMantineColorScheme();
+  const { slug, generation_type } = useParams();
+  const navigate = useNavigate();
+  const { getUser, saveModelHistory, getModelHistoryEntry } = useAppStore();
   const {
     modelLoading,
     loadModel,
     generateContent,
     setCurrentTaskId,
     calculateTokens,
-    activeTab,
-    setActiveTab,
     getSelectedModel,
   } = useGenerateStore();
   const { isMobile, userTokens } = useAppStore();
   const user = getUser();
   const currentTokens = userTokens || 0;
+  const saveHistoryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isHydratingFormRef = useRef(false);
+  const persistedValuesRef = useRef<string>("");
+
+  const persistedGenerationType =
+    generation_type === "image" || generation_type === "video" ? generation_type : null;
+
+  const deepMerge = (base: any, override: any): any => {
+    if (Array.isArray(base) || Array.isArray(override)) {
+      return override ?? base;
+    }
+    if (
+      base &&
+      override &&
+      typeof base === "object" &&
+      typeof override === "object" &&
+      !Array.isArray(base) &&
+      !Array.isArray(override)
+    ) {
+      const merged: Record<string, any> = { ...base };
+      Object.keys(override).forEach((key) => {
+        merged[key] = deepMerge(base[key], override[key]);
+      });
+      return merged;
+    }
+    return override ?? base;
+  };
+
+  const persistModelHistory = async (values: Record<string, any>) => {
+    if (!user?.user?.id || !slug || !persistedGenerationType) return;
+    const serializedValues = JSON.stringify(values || {});
+    if (persistedValuesRef.current === serializedValues) return;
+    persistedValuesRef.current = serializedValues;
+    await saveModelHistory(persistedGenerationType, slug, values || {});
+  };
 
   // Define function before using it
   const getDefaultValuesFromSchema = (schema: any): Record<string, any> => {
@@ -265,6 +283,16 @@ export default function GenerateModel() {
       if (hasTriggerChange && user?.user?.id) {
         calculateTokens(values);
       }
+
+      if (isHydratingFormRef.current) return;
+      if (!user?.user?.id || !slug || !persistedGenerationType) return;
+
+      if (saveHistoryTimeoutRef.current) {
+        clearTimeout(saveHistoryTimeoutRef.current);
+      }
+      saveHistoryTimeoutRef.current = setTimeout(() => {
+        persistModelHistory(values);
+      }, 400);
     },
   });
 
@@ -281,12 +309,30 @@ export default function GenerateModel() {
       const defaultValues = getDefaultValuesFromSchema(
         getSelectedModel().api?.schema || getSelectedModel().schema
       );
+      const historyEntry = persistedGenerationType
+        ? getModelHistoryEntry(persistedGenerationType)
+        : null;
+      const savedValuesForRoute =
+        historyEntry?.slug === slug && historyEntry?.form_values
+          ? deepMerge(defaultValues, historyEntry.form_values)
+          : defaultValues;
       // Reinitialize form with new defaults
-      form.setInitialValues(defaultValues);
-      form.reset();
+      isHydratingFormRef.current = true;
+      form.setInitialValues(savedValuesForRoute);
+      form.setValues(savedValuesForRoute);
+      isHydratingFormRef.current = false;
+      persistModelHistory(savedValuesForRoute);
       //calculateTokens(defaultValues);
     }
-  }, [getSelectedModel()?.id]);
+  }, [getSelectedModel()?.id, generation_type, slug]);
+
+  useEffect(() => {
+    return () => {
+      if (saveHistoryTimeoutRef.current) {
+        clearTimeout(saveHistoryTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleSubmit = async (values: any) => {
     if (!getSelectedModel()) return;
@@ -306,9 +352,9 @@ export default function GenerateModel() {
     const result = await generateContent(getSelectedModel().id, cleanedValues);
 
     if (result.success) {
-      // Switch to results tab when generation starts
+      // On mobile, go directly to generations page after submission.
       if (isMobile) {
-        setActiveTab("results");
+        navigate("/generations");
       }
       // Extract task ID from the result data
       const taskId = result.data?.task_id || result.data?.id;
@@ -349,91 +395,45 @@ export default function GenerateModel() {
     return null;
   };
 
-  // Calculate available height for ScrollArea
-  // Subtract: header (60px) + navbar header (60px) + padding/margins (~120px) + submit button area (~80px)
-  const availableHeightForm = user?.user?.id ? viewportHeight - 330 : viewportHeight - 360;
-  const availableHeightResults = viewportHeight - 170;
-  // Mobile Layout
-  if (isMobile) {
-    return (
-      <Container fluid py="md">
-        <LoadingComponent />
-        {getSelectedModel() && !modelLoading && (
-          <>
-            {activeTab === "form" ? (
-              <FormProvider form={form}>
-                <form onSubmit={form.onSubmit(handleSubmit)}>
-                  <Stack gap="md" pb="120px">
-                    <SchemaFormGenerator
-                      schema={getSelectedModel().api?.schema}
-                      generationType={getSelectedModel().generation_type as "image" | "video"}
-                    />
-
-                    <Box
-                      pos="fixed"
-                      bottom="60px"
-                      left="0"
-                      right="0"
-                      bg={colorScheme === "dark" ? "dark.8" : "white"}
-                    >
-                      {/* Submit button */}
-                      {user?.user?.id ? <GenerateButton /> : <LoginCTA />}
-                    </Box>
-                  </Stack>
-                </form>
-              </FormProvider>
-            ) : (
-              <GenerationResults />
-            )}
-          </>
-        )}
-      </Container>
-    );
-  }
-
-  // Desktop Layout
+  // Desktop form-only panel (results are rendered in GenerateModelLayout)
   return (
-    <Container fluid py="0">
-      <Grid gutter="xl">
-        {/* Form Column */}
-        <Grid.Col span={{ base: 12, sm: 6, md: 6, lg: 6, xl: 4 }}>
-          <LoadingComponent />
-          {getSelectedModel() && !modelLoading && (
-            <Stack gap="md" pt="xs">
-              <ModelSwitcher />
-              <FormProvider form={form}>
-                <form onSubmit={form.onSubmit(handleSubmit)}>
-                  <Card radius="md" p="0">
-                    <Stack gap="md">
-                      {/* Scrollable form content */}
-                      <ScrollArea h={availableHeightForm} p="xs">
-                        <Stack gap="xs" px="xs">
-                          <SchemaFormGenerator
-                            schema={getSelectedModel().api?.schema}
-                            generationType={getSelectedModel().generation_type as "image" | "video"}
-                          />
-                        </Stack>
-                      </ScrollArea>
+    <>
+      <LoadingComponent />
+      {getSelectedModel() && !modelLoading && (
+        <FormProvider form={form}>
+          <form
+            onSubmit={form.onSubmit(handleSubmit)}
+            style={{ height: "100%", minHeight: 0, display: "flex", flexDirection: "column" }}
+          >
+            <Stack gap="md" style={{ flex: 1, minHeight: 0 }}>
+              <Box>
+                <ModelSwitcher />
+              </Box>
 
-                      {/* Submit button */}
-                      {user?.user?.id ? <GenerateButton /> : <LoginCTA />}
-                    </Stack>
-                  </Card>
-                </form>
-              </FormProvider>
+              <Box style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
+                <ScrollArea h="100%">
+                  <SchemaFormGenerator
+                    schema={getSelectedModel().api?.schema}
+                    generationType={getSelectedModel().generation_type as "image" | "video"}
+                    showNoFieldsMessage={false}
+                    renderSection="main"
+                  />
+                </ScrollArea>
+              </Box>
+
+              <Box>
+                <SchemaFormGenerator
+                  schema={getSelectedModel().api?.schema}
+                  generationType={getSelectedModel().generation_type as "image" | "video"}
+                  showNoFieldsMessage={false}
+                  renderSection="output"
+                />
+                {user?.user?.id ? <GenerateButton /> : <LoginCTA />}
+              </Box>
             </Stack>
-          )}
-        </Grid.Col>
-
-        {/* Results Column */}
-        <Grid.Col span={{ base: 12, sm: 6, md: 6, lg: 6, xl: 8 }}>
-          <ScrollArea h={availableHeightResults}>
-            <Box pr="md">
-              <GenerationResults />
-            </Box>
-          </ScrollArea>
-        </Grid.Col>
-      </Grid>
-    </Container>
+          </form>
+        </FormProvider>
+      )}
+    </>
   );
 }
