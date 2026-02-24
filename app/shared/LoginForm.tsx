@@ -176,12 +176,7 @@ export default function LoginForm() {
   useEffect(() => {
     if (googleLoaded && googleButtonRef.current && window.google && window.google.accounts) {
       window.google.accounts.id.renderButton(googleButtonRef.current, {
-        type: "standard",
-        shape: "pill",
-        theme: "outline",
         text: "signin_with",
-        size: "large",
-        logo_alignment: "left",
       });
     }
   }, [googleLoaded]);
