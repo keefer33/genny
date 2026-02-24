@@ -237,5 +237,3 @@ export default function ProfileInformation() {
     </>
   );
 }
-
-export { useDisclosure };

@@ -22,6 +22,7 @@ import {
 } from "@remixicon/react";
 import { NavLink, useLocation } from "react-router";
 import useAppStore from "~/lib/stores/appStore";
+import useGenerateStore from "~/lib/stores/generateStore";
 import { CurrentBalance } from "./CurrentBalance";
 
 interface NavbarProps {
@@ -35,9 +36,28 @@ export function Navbar({ toggleMobile, collapsed }: NavbarProps) {
   const { colorScheme } = useMantineColorScheme();
   const location = useLocation();
   const { getUser, isMobile } = useAppStore();
+  const { models } = useGenerateStore();
 
   const user = getUser();
   const isLoggedIn = !!user?.user?.id;
+  const modelHistory = user?.profile?.meta?.model_history;
+
+  const resolveModelRoute = (generationType: "image" | "video") => {
+    const orderedModelsForType = (models || []).filter(
+      (model) => model.generation_type === generationType
+    );
+    const savedSlug = modelHistory?.[generationType]?.slug;
+
+    if (savedSlug && orderedModelsForType.some((model) => model.slug === savedSlug)) {
+      return `/generate/${generationType}/${savedSlug}`;
+    }
+
+    if (orderedModelsForType.length > 0) {
+      return `/generate/${generationType}/${orderedModelsForType[0].slug}`;
+    }
+
+    return `/generate/${generationType}`;
+  };
 
   const navItems = [
     {
@@ -47,16 +67,18 @@ export function Navbar({ toggleMobile, collapsed }: NavbarProps) {
       description: "AI Content Generation",
     },
     {
-      to: "/generate/image",
+      to: resolveModelRoute("image"),
       icon: RiImageLine,
       label: "Images",
       description: "Image Generation",
+      matchPrefix: "/generate/image",
     },
     {
-      to: "/generate/video",
+      to: resolveModelRoute("video"),
       icon: RiVideoLine,
       label: "Videos",
       description: "Video Generation",
+      matchPrefix: "/generate/video",
     },
     {
       to: "/generations",
@@ -112,7 +134,9 @@ export function Navbar({ toggleMobile, collapsed }: NavbarProps) {
 
   const NavItem = ({ item }: { item: (typeof navItems)[0] }) => {
     const IconComponent = item.icon;
-    const isActive = location.pathname === item.to;
+    const isActive = item.matchPrefix
+      ? location.pathname.startsWith(item.matchPrefix)
+      : location.pathname === item.to;
 
     // On mobile, always show full text. On desktop, respect collapsed state
     const shouldShowLabel = isMobile || !collapsed;
@@ -159,7 +183,7 @@ export function Navbar({ toggleMobile, collapsed }: NavbarProps) {
           justify={collapsed && !isMobile ? "center" : "flex-start"}
           align="center"
         >
-          <IconComponent size={isMobile ? 24 : 20} />
+          <IconComponent size={isMobile ? 24 : 24} />
 
           {shouldShowLabel && (
             <Text size={isMobile ? "md" : "sm"} fw={isActive ? 600 : 400}>
@@ -183,7 +207,7 @@ export function Navbar({ toggleMobile, collapsed }: NavbarProps) {
   };
 
   return (
-    <Stack gap={isMobile ? "xs" : "xs"} p={isMobile ? "md" : "xs"}>
+    <Stack gap="lg" p={isMobile ? "md" : "xs"}>
       {isLoggedIn && isMobile && (
         <>
           <CurrentBalance />

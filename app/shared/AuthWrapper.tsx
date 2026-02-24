@@ -17,5 +17,5 @@ export default function AuthWrapper() {
   }, [mounted, appLoading, getUser, navigate]);
 
   // If we get here, user is authenticated
-  return <Outlet />;
+  return getUser()?.user?.id && <Outlet />;
 }

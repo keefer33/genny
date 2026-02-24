@@ -104,5 +104,3 @@ export function useAuth() {
     getCurrentSession: () => useAppStore.getState().getCurrentSession(),
   };
 }
-
-export default useAuth;

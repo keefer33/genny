@@ -39,7 +39,8 @@ async function getModels(supabaseClient: any): Promise<Model[]> {
         api(schema,pricing)
       `
       )
-      .neq("status", false);
+      .neq("status", false)
+      .order("order", { ascending: true, nullsFirst: false });
 
     if (error) {
       console.error("Error fetching models:", error);
@@ -51,18 +52,12 @@ async function getModels(supabaseClient: any): Promise<Model[]> {
       (model) => model && model.id && model.name && model.generation_type
     );
 
-    // Sort models by generation_type first, then by brand_id (from brands relationship)
+    // Keep DB-driven order first, then fallback by name for stable rendering.
     const sortedModels = validModels.sort((a, b) => {
-      // First sort by generation_type
-      const typeComparison = (a.generation_type || "").localeCompare(b.generation_type || "");
-      if (typeComparison !== 0) {
-        return typeComparison;
-      }
-      // If generation_type is the same, sort by brand_id
-      // brand_id might be on the model directly or in brands.id
-      const brandIdA = a.brand_id || a.brands?.id || "";
-      const brandIdB = b.brand_id || b.brands?.id || "";
-      return brandIdA.localeCompare(brandIdB);
+      const orderA = typeof a.order === "number" ? a.order : Number.MAX_SAFE_INTEGER;
+      const orderB = typeof b.order === "number" ? b.order : Number.MAX_SAFE_INTEGER;
+      if (orderA !== orderB) return orderA - orderB;
+      return (a.name || "").localeCompare(b.name || "");
     });
 
     return sortedModels;
@@ -191,7 +186,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <link rel="stylesheet" href={mantine} />
         <link rel="stylesheet" href={notifications} />
         <link rel="stylesheet" href={carousel} />
-        <style>{`html { scrollbar-gutter: stable; }`}</style>
         <script src="https://accounts.google.com/gsi/client" async></script>
       </head>
       <body>

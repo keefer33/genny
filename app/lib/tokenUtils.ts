@@ -1,6 +1,6 @@
 // Token management utilities
 
-export interface TokenPackage {
+interface TokenPackage {
   id: string;
   amount: number;
   tokens: number;
@@ -63,10 +63,3 @@ export function formatPrice(priceInCents: number): string {
   return `$${(priceInCents / 100).toFixed(2)}`;
 }
 
-export function getTokenPackage(amount: number): TokenPackage | undefined {
-  return TOKEN_PACKAGES.find((pkg) => pkg.amount === amount);
-}
-
-export function calculateTokenValue(tokens: number, priceInCents: number): number {
-  return tokens / (priceInCents / 100);
-}
