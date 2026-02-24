@@ -185,7 +185,7 @@ export default function LoginForm() {
     <Paper radius="lg" p="xs">
       <Stack gap="lg">
         {googleLoaded ? (
-          <div ref={googleButtonRef}></div>
+          <div ref={googleButtonRef} style={{ backgroundColor: "transparent" }}></div>
         ) : (
           <div style={{ textAlign: "center", padding: "20px" }}>Loading Google Sign-In...</div>
         )}
