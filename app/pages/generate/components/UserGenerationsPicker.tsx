@@ -11,7 +11,6 @@ import {
   Image,
   Box,
   Button,
-  Pagination,
   useMantineColorScheme,
   ThemeIcon,
 } from "@mantine/core";
@@ -19,6 +18,7 @@ import { useEffect, useState } from "react";
 import useAppStore from "~/lib/stores/appStore";
 import type { GenerationFile } from "~/lib/stores/generateStore";
 import { RiCheckLine, RiTimeLine } from "@remixicon/react";
+import { AppPagination } from "~/shared/AppPagination";
 
 interface UserGenerationsPickerProps {
   opened: boolean;
@@ -290,7 +290,7 @@ export function UserGenerationsPicker({
             {/* Pagination */}
             {totalPages > 1 && (
               <Group justify="center" mt="md">
-                <Pagination
+                <AppPagination
                   total={totalPages}
                   value={currentPage}
                   onChange={handlePageChange}

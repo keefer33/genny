@@ -1,12 +1,12 @@
 // Theme utility functions for consistent theme management across the app
 
-export interface ThemeSettings {
+interface ThemeSettings {
   colorScheme: "light" | "dark" | "auto";
   themeColor: string;
 }
 
-export const DEFAULT_THEME_COLOR = "cyan";
-export const DEFAULT_COLOR_SCHEME = "light";
+const DEFAULT_THEME_COLOR = "cyan";
+const DEFAULT_COLOR_SCHEME = "dark";
 
 // Available color options with descriptions
 export const colorOptions = [
@@ -32,7 +32,7 @@ const THEME_SETTINGS_KEY = "themeSettings";
 /**
  * Load theme settings from localStorage
  */
-export const loadThemeSettings = (): ThemeSettings => {
+const loadThemeSettings = (): ThemeSettings => {
   try {
     const stored = localStorage.getItem(THEME_SETTINGS_KEY);
     if (stored) {
@@ -68,13 +68,3 @@ export const saveThemeSettings = (settings: Partial<ThemeSettings>): void => {
 /**
  * Get color option by value
  */
-export const getColorOption = (value: string) => {
-  return colorOptions.find((color) => color.value === value) || colorOptions[0];
-};
-
-/**
- * Validate if a color value is valid
- */
-export const isValidColor = (color: string): boolean => {
-  return colorOptions.some((option) => option.value === color);
-};

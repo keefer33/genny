@@ -823,4 +823,4 @@ const useFilesFoldersStoreBase = create<FilesFoldersState>((set, get) => ({
 }));
 
 export default createUniversalSelectors(useFilesFoldersStoreBase);
-export type { FileData, FilesFoldersState, PaginationData };
+export type { FileData };

@@ -4,7 +4,6 @@ import {
   Grid,
   Group,
   Modal,
-  Pagination,
   ScrollArea,
   SimpleGrid,
   Stack,
@@ -20,6 +19,7 @@ import FileUpload from "./components/FileUpload";
 import useAppStore from "~/lib/stores/appStore";
 import PageLoader from "~/shared/PageLoader";
 import { FileFilters } from "~/pages/files/components/FileFilters";
+import { AppPagination } from "~/shared/AppPagination";
 
 export default function MemberFiles() {
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
@@ -251,7 +251,7 @@ export default function MemberFiles() {
               {/* Pagination */}
               {!isMobile && paginationData.totalPages > 1 && (
                 <Group justify="center" mt="md">
-                  <Pagination
+                  <AppPagination
                     total={paginationData.totalPages}
                     value={paginationData.currentPage}
                     onChange={handleFilesPageChange}

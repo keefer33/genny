@@ -17,10 +17,10 @@ export function AppShellNavbar({
   return (
     <>
       <AppShell.Section>
-        <Group justify="flex-end" p="xs">
+        <Group justify="end" p="xs">
           <Box visibleFrom="md">
             <ActionIcon variant="default" onClick={toggleDesktop} size="lg" radius="xl">
-              {desktopCollapsed ? <RiMenuUnfoldLine size={20} /> : <RiMenuFoldLine size={20} />}
+              {desktopCollapsed ? <RiMenuUnfoldLine size={24} /> : <RiMenuFoldLine size={24} />}
             </ActionIcon>
           </Box>
           <Box hiddenFrom="md">
