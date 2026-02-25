@@ -161,6 +161,8 @@ export default function LoginForm() {
           auto_select: true,
           itp_support: true,
           use_fedcm_for_prompt: true,
+          button_auto_select: true,
+          color_scheme: "dark",
         });
       } else {
         // Retry after a short delay
@@ -177,6 +179,10 @@ export default function LoginForm() {
     if (googleLoaded && googleButtonRef.current && window.google && window.google.accounts) {
       window.google.accounts.id.renderButton(googleButtonRef.current, {
         text: "signin_with",
+        shape: "pill",
+        theme: "outline",
+        size: "large",
+        logo_alignment: "left",
       });
     }
   }, [googleLoaded]);
@@ -185,7 +191,7 @@ export default function LoginForm() {
     <Paper radius="lg" p="xs">
       <Stack gap="lg">
         {googleLoaded ? (
-          <div ref={googleButtonRef}></div>
+          <div ref={googleButtonRef} style={{ backgroundColor: "transparent" }}></div>
         ) : (
           <div style={{ textAlign: "center", padding: "20px" }}>Loading Google Sign-In...</div>
         )}

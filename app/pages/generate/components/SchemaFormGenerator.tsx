@@ -83,10 +83,42 @@ const OUTPUT_GROUP_FIELDS = [
   "aspect_ratio",
   "duration",
   "resolution",
+  "fps",
+  "generate_audio",
   "output_format",
   "n_frames",
   "mode",
 ] as const;
+
+/**
+ * Resolves the effective enum for a field that may have conditional enum values.
+ * Supports field-level `conditions`: either a single object or array of { fields: [{ field, value }], values: any[] }.
+ * First matching condition (all dependency field values equal) wins; otherwise falls back to fieldSchema.enum.
+ */
+function getEffectiveEnum(fieldSchema: any, formValues: any, fieldPrefix: string = ""): any[] {
+  const baseEnum = Array.isArray(fieldSchema.enum) ? fieldSchema.enum : [];
+  const conditions = fieldSchema.conditions;
+  if (!conditions) return baseEnum;
+
+  const list = Array.isArray(conditions) ? conditions : [conditions];
+  const getNested = (obj: any, path: string) =>
+    path
+      .split(".")
+      .reduce((cur: any, key) => (cur && cur[key] !== undefined ? cur[key] : undefined), obj);
+
+  for (const cond of list) {
+    const fields = cond.fields as Array<{ field: string; value: any }> | undefined;
+    const values = cond.values;
+    if (!Array.isArray(fields) || !Array.isArray(values)) continue;
+    const allMatch = fields.every(({ field, value: condValue }) => {
+      const path = fieldPrefix ? `${fieldPrefix}.${field}` : field;
+      const formVal = getNested(formValues, path);
+      return formVal == condValue;
+    });
+    if (allMatch) return values;
+  }
+  return baseEnum;
+}
 
 // Component for rendering selectable boxes for string enums
 function SelectableBoxesRenderer({
@@ -105,7 +137,7 @@ function SelectableBoxesRenderer({
   const { colorScheme } = useMantineColorScheme();
   const fullFieldName = fieldPrefix ? `${fieldPrefix}.${fieldName}` : fieldName;
 
-  const enumData = fieldSchema.enum || [];
+  const enumData = getEffectiveEnum(fieldSchema, form.values, fieldPrefix);
 
   // Helper function to get nested value safely
   const getNestedValue = (obj: any, path: string) => {
@@ -874,7 +906,7 @@ function SelectableIntegerBoxesRenderer({
   const { colorScheme } = useMantineColorScheme();
   const fullFieldName = fieldPrefix ? `${fieldPrefix}.${fieldName}` : fieldName;
 
-  const enumData = fieldSchema.enum || [];
+  const enumData = getEffectiveEnum(fieldSchema, form.values, fieldPrefix);
 
   // Helper function to get nested value safely
   const getNestedValue = (obj: any, path: string) => {
@@ -883,7 +915,36 @@ function SelectableIntegerBoxesRenderer({
     }, obj);
   };
 
+  const setNestedValue = (obj: any, path: string, value: any) => {
+    const keys = path.split(".");
+    let current = obj;
+    for (let i = 0; i < keys.length - 1; i++) {
+      if (!current[keys[i]] || typeof current[keys[i]] !== "object") {
+        current[keys[i]] = {};
+      }
+      current = current[keys[i]];
+    }
+    current[keys[keys.length - 1]] = value;
+  };
+
   const currentValue = getNestedValue(form.values, fullFieldName);
+
+  // When dependency fields change (e.g. model/resolution/fps), ensure duration is in the new allowed list
+  useEffect(() => {
+    const effective = getEffectiveEnum(fieldSchema, form.values, fieldPrefix);
+    if (effective.length === 0) return;
+    const numericCurrent = typeof currentValue === "number" ? currentValue : Number(currentValue);
+    const allowed = effective
+      .map((o: any) => (typeof o === "object" ? o.value : o))
+      .map((v: any) => (typeof v === "string" ? parseInt(v, 10) : v));
+    if (!allowed.includes(numericCurrent)) {
+      const first = typeof effective[0] === "object" ? effective[0].value : effective[0];
+      const firstNum = typeof first === "string" ? parseInt(first, 10) : first;
+      const updatedValues = JSON.parse(JSON.stringify(form.values));
+      setNestedValue(updatedValues, fullFieldName, firstNum);
+      form.setValues(updatedValues);
+    }
+  }, [form.values, fieldPrefix, fieldSchema, fullFieldName, fieldName, currentValue, form]);
 
   const handleBoxClick = (value: number) => {
     // Helper function to set nested value properly
@@ -1697,8 +1758,11 @@ function NestedFieldRenderer({
 
       case "number":
       case "integer":
-        // Check if display is set to "boxes" and has enum values
-        if (fieldSchema.display === "boxes" && fieldSchema.enum) {
+        // Check if display is set to "boxes" and has enum and/or conditional values
+        if (
+          fieldSchema.display === "boxes" &&
+          (fieldSchema.enum?.length || fieldSchema.conditions)
+        ) {
           return (
             <SelectableIntegerBoxesRenderer
               fieldName={fieldName}
@@ -1773,6 +1837,7 @@ export function SchemaFormGenerator({
 }: SchemaFormGeneratorProps) {
   const form = useFormContext();
   const defaultsSetRef = useRef(false);
+  const [outputPopoverOpened, setOutputPopoverOpened] = useState(false);
 
   if (!schema) {
     return showNoSchemaMessage ? <Text c="dimmed">No schema available</Text> : null;
@@ -1983,14 +2048,18 @@ export function SchemaFormGenerator({
   const remainingRequired = required.filter((fieldName) =>
     Object.prototype.hasOwnProperty.call(remainingProperties, fieldName)
   );
+  const formatOutputSummaryValue = (fieldName: string, value: any): string => {
+    if (value === undefined || value === null || value === "") return "-";
+    if (fieldName === "duration") return `${value} s`;
+    if (fieldName === "fps") return `${value} fps`;
+    if (fieldName === "generate_audio") return value ? "audio: on" : "audio: off";
+    return String(value);
+  };
+
   const outputSummary = OUTPUT_GROUP_FIELDS.filter((fieldName) =>
     Object.prototype.hasOwnProperty.call(groupedOutputProperties, fieldName)
   )
-    .map((fieldName) => {
-      const value = form.values?.[fieldName];
-      if (value === undefined || value === null || value === "") return "-";
-      return String(value);
-    })
+    .map((fieldName) => formatOutputSummaryValue(fieldName, form.values?.[fieldName]))
     .join(" | ");
 
   const shouldRenderMain = renderSection === "all" || renderSection === "main";
@@ -2019,11 +2088,21 @@ export function SchemaFormGenerator({
           width="target"
           position="top-start"
           withArrow
+          withOverlay
           shadow="md"
           middlewares={{ flip: false, shift: true }}
+          overlayProps={{ backgroundOpacity: 0.5 }}
+          opened={outputPopoverOpened}
+          onChange={setOutputPopoverOpened}
         >
           <Popover.Target>
-            <Card withBorder radius="md" p="sm" style={{ cursor: "pointer" }}>
+            <Card
+              withBorder
+              radius="md"
+              p="sm"
+              style={{ cursor: "pointer" }}
+              onClick={() => setOutputPopoverOpened((o) => !o)}
+            >
               <Group gap="sm" justify="space-between" wrap="nowrap">
                 <Group gap="sm" wrap="nowrap">
                   <ThemeIcon variant="light" size="sm" radius="xl">
@@ -2045,11 +2124,27 @@ export function SchemaFormGenerator({
             </Card>
           </Popover.Target>
           <Popover.Dropdown>
-            <NestedFieldRenderer
-              properties={groupedOutputProperties}
-              required={outputRequired}
-              generationType={generationType}
-            />
+            <Stack gap="lg">
+              <Group justify="space-between" wrap="nowrap">
+                <Text size="sm" fw={600}>
+                  Output
+                </Text>
+                <ActionIcon
+                  size="sm"
+                  variant="subtle"
+                  color="gray"
+                  onClick={() => setOutputPopoverOpened(false)}
+                  aria-label="Close"
+                >
+                  <RiCloseLine size={18} />
+                </ActionIcon>
+              </Group>
+              <NestedFieldRenderer
+                properties={groupedOutputProperties}
+                required={outputRequired}
+                generationType={generationType}
+              />
+            </Stack>
           </Popover.Dropdown>
         </Popover>
       )}
