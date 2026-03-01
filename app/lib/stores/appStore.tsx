@@ -138,14 +138,6 @@ interface AppStoreState {
   updateUserTokens: (tokens: number) => Promise<any>;
   getUserTokens: () => Promise<number>;
   getCurrentUserTokens: () => number;
-  saveModelHistory: (
-    generationType: "image" | "video",
-    slug: string,
-    formValues: Record<string, any>
-  ) => Promise<{ success: boolean; error?: string }>;
-  getModelHistoryEntry: (
-    generationType: "image" | "video"
-  ) => { slug?: string; form_values?: Record<string, any> } | null;
   checkApiHealth: () => Promise<boolean>;
   getCurrentSession: () => Promise<Session | null>;
   setAuthRealtimeChannel: (channel: any) => void;
@@ -183,66 +175,6 @@ const useAppStoreBase = create<AppStoreState>((set, get) => ({
   getApi: () => get().api,
   getUser: () => get().user,
   getCurrentUserTokens: () => get().userTokens,
-  getModelHistoryEntry: (generationType: "image" | "video") => {
-    const session = get().getUser();
-    const modelHistory = session?.profile?.meta?.model_history;
-    if (!modelHistory || typeof modelHistory !== "object") {
-      return null;
-    }
-    const entry = modelHistory[generationType];
-    if (!entry || typeof entry !== "object") {
-      return null;
-    }
-    return entry;
-  },
-  saveModelHistory: async (
-    generationType: "image" | "video",
-    slug: string,
-    formValues: Record<string, any>
-  ) => {
-    const api = get().getApi();
-    const session = get().getUser();
-    if (!api || !session?.user?.id) {
-      return { success: false, error: "Not authenticated" };
-    }
-
-    const currentMeta =
-      session?.profile?.meta && typeof session.profile.meta === "object" ? session.profile.meta : {};
-
-    const nextMeta = {
-      ...currentMeta,
-      model_history: {
-        ...(currentMeta.model_history || {}),
-        [generationType]: {
-          slug,
-          form_values: formValues,
-        },
-      },
-    };
-
-    const { error } = await api
-      .from("user_profiles")
-      .update({
-        meta: nextMeta,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("user_id", session.user.id);
-
-    if (error) {
-      console.error("Error saving model history:", error);
-      return { success: false, error: "Failed to save model history" };
-    }
-
-    const updatedUser: Session = {
-      ...(session as Session),
-      profile: {
-        ...(session.profile || ({} as any)),
-        meta: nextMeta,
-      },
-    };
-    set({ user: updatedUser });
-    return { success: true };
-  },
   getUserTokens: async () => {
     const session = get().getUser();
     if (!session?.user?.id) {

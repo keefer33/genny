@@ -26,7 +26,7 @@ export default function GenerateLayout() {
         footer: { height: MOBILE_GLOBAL_NAV_HEIGHT },
       })}
       navbar={{
-        width: desktopCollapsed ? 70 : 200,
+        width: desktopCollapsed ? 60 : 160,
         breakpoint: "md",
         collapsed: { mobile: !mobileOpened, desktop: false },
       }}

@@ -31,7 +31,7 @@ export function GenerateButton() {
         leftSection={getIcon()}
         rightSection={<TokensBadge tokens={tokensCost} clickable={false} />}
         size="md"
-        variant="light"
+        variant="dark"
       >
         {getButtonText()}
       </Button>

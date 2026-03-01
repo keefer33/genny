@@ -30,8 +30,7 @@ import {
   RiSettings3Line,
 } from "@remixicon/react";
 import { FilePickerModal } from "../../../shared/FilePickerModal";
-import { RandomPromptButton } from "./RandomPromptButton";
-import { EnhancePromptButton } from "./EnhancePromptButton";
+import { AgentPromptButton } from "./AgentPromptButton";
 import { UserGenerationsPicker } from "./UserGenerationsPicker";
 import type { GenerationFile } from "~/lib/stores/generateStore";
 import useAppStore from "~/lib/stores/appStore";
@@ -1707,10 +1706,12 @@ function NestedFieldRenderer({
                   </Box>
 
                   <Group gap="xs">
-                    <RandomPromptButton generationType={generationType} fieldName={fullFieldName} />
-                    <EnhancePromptButton
+                    <AgentPromptButton
                       generationType={generationType}
                       fieldName={fullFieldName}
+                      promptMaxLength={
+                        typeof fieldSchema.max === "number" ? fieldSchema.max : undefined
+                      }
                     />
 
                     <PromptActionButtons fieldName={fullFieldName} fieldValue={currentValue} />

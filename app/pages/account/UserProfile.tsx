@@ -108,6 +108,9 @@ export default function UserProfile() {
             >
               View Tokens log
             </Button>
+            <Button component={Link} to="/account/support" variant="light">
+              Support
+            </Button>
           </Group>
         </Group>
         <CurrentBalance />

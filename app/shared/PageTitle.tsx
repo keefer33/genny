@@ -11,7 +11,7 @@ type PageTitleSettings = {
 };
 
 type PageTitleProps = {
-  title: string;
+  title: ReactNode;
   text?: string;
   settings?: PageTitleSettings;
 };

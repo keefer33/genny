@@ -19,6 +19,7 @@ import {
   RiMoneyDollarBoxLine,
   RiLogoutBoxLine,
   RiCoinLine,
+  RiCustomerService2Line,
 } from "@remixicon/react";
 import { NavLink, useLocation } from "react-router";
 import useAppStore from "~/lib/stores/appStore";
@@ -40,22 +41,14 @@ export function Navbar({ toggleMobile, collapsed }: NavbarProps) {
 
   const user = getUser();
   const isLoggedIn = !!user?.user?.id;
-  const modelHistory = user?.profile?.meta?.model_history;
 
   const resolveModelRoute = (generationType: "image" | "video") => {
     const orderedModelsForType = (models || []).filter(
       (model) => model.generation_type === generationType
     );
-    const savedSlug = modelHistory?.[generationType]?.slug;
-
-    if (savedSlug && orderedModelsForType.some((model) => model.slug === savedSlug)) {
-      return `/generate/${generationType}/${savedSlug}`;
-    }
-
     if (orderedModelsForType.length > 0) {
       return `/generate/${generationType}/${orderedModelsForType[0].slug}`;
     }
-
     return `/generate/${generationType}`;
   };
 
@@ -123,6 +116,13 @@ export function Navbar({ toggleMobile, collapsed }: NavbarProps) {
       icon: RiUserLine,
       label: "Profile",
       description: "Profile",
+    },
+    {
+      to: "/account/support",
+      icon: RiCustomerService2Line,
+      label: "Support",
+      description: "Support tickets",
+      matchPrefix: "/account/support",
     },
     {
       to: "/login",
