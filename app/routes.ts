@@ -14,6 +14,8 @@ export default [
       route("/account/profile", "pages/account/UserProfile.tsx"),
       route("/account/billing", "pages/account/Billing.tsx"),
       route("/account/tokens-log", "pages/account/TokensLog.tsx"),
+      route("/account/support", "pages/account/Support.tsx"),
+      route("/account/support/:ticketId", "pages/account/SupportTicket.tsx"),
       route("/files", "pages/files/MemberFiles.tsx"),
       route("/generations", "pages/generations/Generations.tsx"),
     ]),

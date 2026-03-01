@@ -22,22 +22,14 @@ export function MobileFooterGlobalNav() {
   const { models } = useGenerateStore();
 
   const user = getUser();
-  const modelHistory = user?.profile?.meta?.model_history;
 
   const resolveModelRoute = (generationType: "image" | "video") => {
     const orderedModelsForType = (models || []).filter(
       (model) => model.generation_type === generationType
     );
-    const savedSlug = modelHistory?.[generationType]?.slug;
-
-    if (savedSlug && orderedModelsForType.some((model) => model.slug === savedSlug)) {
-      return `/generate/${generationType}/${savedSlug}`;
-    }
-
     if (orderedModelsForType.length > 0) {
       return `/generate/${generationType}/${orderedModelsForType[0].slug}`;
     }
-
     return `/generate/${generationType}`;
   };
 

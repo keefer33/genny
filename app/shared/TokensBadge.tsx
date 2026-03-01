@@ -14,8 +14,8 @@ interface TokensBadgeProps {
 export function TokensBadge({
   tokens = 0,
   size = "lg",
-  variant = "light",
-  color = "yellow.5",
+  variant = "filled",
+  color = "yellow.3",
   leftSection,
   clickable = true,
 }: TokensBadgeProps) {

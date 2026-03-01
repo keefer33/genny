@@ -1,7 +1,7 @@
 import { Stack, Loader, Alert, Center, Text, ScrollArea, Box } from "@mantine/core";
 import { RiErrorWarningLine } from "@remixicon/react";
-import { useEffect, useRef } from "react";
-import { useNavigate, useParams } from "react-router";
+import { useEffect } from "react";
+import { useLoaderData, useNavigate } from "react-router";
 import { notifications } from "@mantine/notifications";
 import useAppStore from "~/lib/stores/appStore";
 import useGenerateStore from "~/lib/stores/generateStore";
@@ -11,56 +11,27 @@ import { GenerateButton } from "~/pages/generate/components/GenerateButton";
 import { LoginCTA } from "~/shared/LoginCTA";
 import { ModelSwitcher } from "~/shared/ModelSwitcher";
 
+/** Update the store when route params change so the rest of the app stays store-based. Re-runs on param change (React Router default). */
+export async function clientLoader({
+  params,
+}: {
+  params: { generation_type?: string; slug?: string };
+}) {
+  const slug = params.slug;
+  if (slug) {
+    useGenerateStore.getState().loadModel(slug);
+  }
+  return { slug: slug ?? null, generation_type: params.generation_type ?? null };
+}
+
 export default function GenerateModel() {
-  const { slug, generation_type } = useParams();
+  const { slug } = useLoaderData<typeof clientLoader>();
   const navigate = useNavigate();
-  const { getUser, saveModelHistory, getModelHistoryEntry } = useAppStore();
-  const {
-    modelLoading,
-    loadModel,
-    generateContent,
-    setCurrentTaskId,
-    calculateTokens,
-    getSelectedModel,
-  } = useGenerateStore();
-  const { isMobile, userTokens } = useAppStore();
+  const { getUser, isMobile, userTokens } = useAppStore();
+  const { modelLoading, generateContent, setCurrentTaskId, calculateTokens, getSelectedModel } =
+    useGenerateStore();
   const user = getUser();
   const currentTokens = userTokens || 0;
-  const saveHistoryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isHydratingFormRef = useRef(false);
-  const persistedValuesRef = useRef<string>("");
-
-  const persistedGenerationType =
-    generation_type === "image" || generation_type === "video" ? generation_type : null;
-
-  const deepMerge = (base: any, override: any): any => {
-    if (Array.isArray(base) || Array.isArray(override)) {
-      return override ?? base;
-    }
-    if (
-      base &&
-      override &&
-      typeof base === "object" &&
-      typeof override === "object" &&
-      !Array.isArray(base) &&
-      !Array.isArray(override)
-    ) {
-      const merged: Record<string, any> = { ...base };
-      Object.keys(override).forEach((key) => {
-        merged[key] = deepMerge(base[key], override[key]);
-      });
-      return merged;
-    }
-    return override ?? base;
-  };
-
-  const persistModelHistory = async (values: Record<string, any>) => {
-    if (!user?.user?.id || !slug || !persistedGenerationType) return;
-    const serializedValues = JSON.stringify(values || {});
-    if (persistedValuesRef.current === serializedValues) return;
-    persistedValuesRef.current = serializedValues;
-    await saveModelHistory(persistedGenerationType, slug, values || {});
-  };
 
   // Define function before using it
   const getDefaultValuesFromSchema = (schema: any): Record<string, any> => {
@@ -283,56 +254,18 @@ export default function GenerateModel() {
       if (hasTriggerChange && user?.user?.id) {
         calculateTokens(values);
       }
-
-      if (isHydratingFormRef.current) return;
-      if (!user?.user?.id || !slug || !persistedGenerationType) return;
-
-      if (saveHistoryTimeoutRef.current) {
-        clearTimeout(saveHistoryTimeoutRef.current);
-      }
-      saveHistoryTimeoutRef.current = setTimeout(() => {
-        persistModelHistory(values);
-      }, 400);
     },
   });
 
+  // clientLoader updates the store when params change; init form when the selected model is ready.
   useEffect(() => {
-    // Load specific model if slug is provided
-    if (slug) {
-      loadModel(slug);
-    }
-  }, [slug]);
-
-  // Reinitialize form when model changes
-  useEffect(() => {
-    if (getSelectedModel()?.api?.schema || getSelectedModel()?.schema) {
-      const defaultValues = getDefaultValuesFromSchema(
-        getSelectedModel().api?.schema || getSelectedModel().schema
-      );
-      const historyEntry = persistedGenerationType
-        ? getModelHistoryEntry(persistedGenerationType)
-        : null;
-      const savedValuesForRoute =
-        historyEntry?.slug === slug && historyEntry?.form_values
-          ? deepMerge(defaultValues, historyEntry.form_values)
-          : defaultValues;
-      // Reinitialize form with new defaults
-      isHydratingFormRef.current = true;
-      form.setInitialValues(savedValuesForRoute);
-      form.setValues(savedValuesForRoute);
-      isHydratingFormRef.current = false;
-      persistModelHistory(savedValuesForRoute);
-      //calculateTokens(defaultValues);
-    }
-  }, [getSelectedModel()?.id, generation_type, slug]);
-
-  useEffect(() => {
-    return () => {
-      if (saveHistoryTimeoutRef.current) {
-        clearTimeout(saveHistoryTimeoutRef.current);
-      }
-    };
-  }, []);
+    const model = getSelectedModel();
+    const schema = model?.api?.schema || model?.schema;
+    if (!model || model.slug !== slug || !schema) return;
+    const defaultValues = getDefaultValuesFromSchema(schema);
+    form.setInitialValues(defaultValues);
+    form.setValues(defaultValues);
+  }, [slug, getSelectedModel()?.id]);
 
   const handleSubmit = async (values: any) => {
     if (!getSelectedModel()) return;
