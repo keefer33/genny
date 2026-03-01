@@ -119,7 +119,14 @@ export function AgentPromptButton({
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`HTTP ${response.status}: ${errorText}`);
+        let errorMessage = errorText;
+        try {
+          const json = JSON.parse(errorText);
+          if (typeof json?.error === "string") errorMessage = json.error;
+        } catch {
+          // use raw errorText
+        }
+        throw new Error(errorMessage || `Request failed (${response.status})`);
       }
 
       if (!response.body) throw new Error("No response body");
@@ -143,7 +150,7 @@ export function AgentPromptButton({
       if (err.name === "AbortError") return;
       console.error("Agent prompt error:", err);
       notifications.show({
-        title: "Agent Failed",
+        title: "Prompt enhancement failed",
         message: err.message || "Failed to get response. Please try again.",
         color: "red",
       });

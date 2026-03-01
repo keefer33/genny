@@ -269,7 +269,7 @@ export default function MemberFilesCard({
                 return (
                   <video
                     src={currentFile.file_path}
-                    height={240}
+                    height={200}
                     style={{ width: "100%", objectFit: "cover" }}
                     preload="metadata"
                     muted
