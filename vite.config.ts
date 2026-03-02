@@ -5,6 +5,12 @@ import tsconfigPaths from "vite-tsconfig-paths";
 import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
+  // Allow Google Sign-In / Supabase auth postMessage (avoids COOP blocking)
+  server: {
+    headers: {
+      "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
+    },
+  },
   plugins: [
     tailwindcss(),
     reactRouter(),
