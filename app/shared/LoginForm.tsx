@@ -154,13 +154,15 @@ export default function LoginForm() {
       if (window.google && window.google.accounts) {
         setGoogleLoaded(true);
         // Initialize Google Sign-In
+        // Google Cloud Console: ensure Authorized JavaScript origins include your app origin
+        // (e.g. http://localhost:5173 for dev, https://yourdomain.com for prod/Docker).
         window.google.accounts.id.initialize({
           client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
           callback: window.handleSignInWithGoogle,
           nonce: hashedNonce,
           auto_select: true,
           itp_support: true,
-          use_fedcm_for_prompt: true,
+          use_fedcm_for_prompt: false,
           button_auto_select: true,
           color_scheme: "dark",
         });
