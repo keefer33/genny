@@ -13,26 +13,27 @@ export default function GenerateModelLayout() {
       h="calc(100dvh - var(--app-shell-header-height, 0px) - var(--app-shell-footer-height, 0px))"
       style={{ minHeight: 0, overflow: "hidden" }}
     >
-      <Container
-        //pl={!isMobile && 0}
-        fluid
-        h="100%"
-        style={{ minHeight: 0, display: "flex", flexDirection: "column" }}
-      >
-        {isMobile ? (
-          <Box
-            h="100%"
-            style={{
-              flex: 1,
-              minHeight: 0,
-              overflow: "hidden",
-              display: "flex",
-              flexDirection: "column",
-            }}
-          >
-            <Outlet />
-          </Box>
-        ) : (
+      {isMobile ? (
+        <Box
+          px="0"
+          h="100%"
+          style={{
+            flex: 1,
+            minHeight: 0,
+            overflow: "hidden",
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
+          <Outlet />
+        </Box>
+      ) : (
+        <Container
+          //pl={!isMobile && 0}
+          fluid
+          h="100%"
+          style={{ minHeight: 0, display: "flex", flexDirection: "column" }}
+        >
           <Box
             style={{
               flex: 1,
@@ -55,7 +56,7 @@ export default function GenerateModelLayout() {
               <Card
                 //radius={0}
                 h="100%"
-                px="xs"
+                px="0"
                 style={{
                   flex: 1,
                   minHeight: 0,
@@ -71,8 +72,8 @@ export default function GenerateModelLayout() {
               <GenerationResults />
             </Box>
           </Box>
-        )}
-      </Container>
+        </Container>
+      )}
     </Box>
   );
 }

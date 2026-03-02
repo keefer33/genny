@@ -1,4 +1,4 @@
-import { Button, Stack, useMantineColorScheme } from "@mantine/core";
+import { Box, Button, useMantineColorScheme } from "@mantine/core";
 import { RiImageLine, RiVideoLine } from "@remixicon/react";
 import { TokensBadge } from "../../../shared/TokensBadge";
 import useGenerateStore from "~/lib/stores/generateStore";
@@ -24,17 +24,17 @@ export function GenerateButton() {
   };
 
   return (
-    <Stack justify="center" align="center" p="md" gap="sm">
+    <Box pt="md">
       <Button
         type="submit"
         loading={generating}
         leftSection={getIcon()}
         rightSection={<TokensBadge tokens={tokensCost} clickable={false} />}
-        size="md"
+        fullWidth
         variant="dark"
       >
         {getButtonText()}
       </Button>
-    </Stack>
+    </Box>
   );
 }

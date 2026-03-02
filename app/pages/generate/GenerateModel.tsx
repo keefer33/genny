@@ -338,13 +338,13 @@ export default function GenerateModel() {
             onSubmit={form.onSubmit(handleSubmit)}
             style={{ height: "100%", minHeight: 0, display: "flex", flexDirection: "column" }}
           >
-            <Stack gap="md" style={{ flex: 1, minHeight: 0 }}>
-              <Box>
+            <Stack gap="xl" style={{ flex: 1, minHeight: 0 }}>
+              <Box px="xs">
                 <ModelSwitcher />
               </Box>
 
-              <Box style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
-                <ScrollArea h="100%">
+              <Box style={{ flex: 1, minHeight: 0, overflow: "hidden" }} pl="xs">
+                <ScrollArea h="100%" offsetScrollbars="y">
                   <SchemaFormGenerator
                     schema={getSelectedModel().api?.schema}
                     generationType={getSelectedModel().generation_type as "image" | "video"}
@@ -354,7 +354,7 @@ export default function GenerateModel() {
                 </ScrollArea>
               </Box>
 
-              <Box>
+              <Box px="xs">
                 <SchemaFormGenerator
                   schema={getSelectedModel().api?.schema}
                   generationType={getSelectedModel().generation_type as "image" | "video"}
