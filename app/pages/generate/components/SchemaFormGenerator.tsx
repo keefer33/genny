@@ -80,6 +80,7 @@ interface StringArrayRendererProps {
 
 const OUTPUT_GROUP_FIELDS = [
   "aspect_ratio",
+  "aspectRatio",
   "duration",
   "resolution",
   "fps",
