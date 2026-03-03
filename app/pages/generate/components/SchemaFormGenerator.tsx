@@ -34,7 +34,6 @@ import { AgentPromptButton } from "./AgentPromptButton";
 import { UserGenerationsPicker } from "./UserGenerationsPicker";
 import type { GenerationFile } from "~/lib/stores/generateStore";
 import useAppStore from "~/lib/stores/appStore";
-import useFilesFoldersStore from "~/lib/stores/filesFoldersStore";
 import { FilePreviewModal } from "~/pages/files/components/FilePreviewModal";
 
 interface ToolSchema {
@@ -238,14 +237,30 @@ function FilePickerInput({
   const fullFieldName = fieldPrefix ? `${fieldPrefix}.${fieldName}` : fieldName;
   const pickerBorderColor = `var(--mantine-color-${themeColor}-6)`;
 
-  const currentValue = form.getInputProps(fullFieldName).value;
+  // When items.type === "array", store value as array (e.g. ["url"]); when items.type === "string" or unset, store as string
+  const storeAsArray = fieldSchema.items?.type === "array";
+  const rawValue = form.getInputProps(fullFieldName).value;
+  const currentValue = storeAsArray
+    ? Array.isArray(rawValue)
+      ? rawValue[0]
+      : typeof rawValue === "string"
+        ? rawValue
+        : ""
+    : (rawValue ?? "");
+
+  // Normalize so submission is always array when items.type is "array" (e.g. legacy string value from server)
+  useEffect(() => {
+    if (!storeAsArray) return;
+    if (Array.isArray(rawValue)) return;
+    form.setFieldValue(fullFieldName, rawValue ? [rawValue] : []);
+  }, [storeAsArray, fullFieldName, form, rawValue]);
 
   const handleFileSelect = (fileUrl: string, _file?: any) => {
-    form.setFieldValue(fullFieldName, fileUrl);
+    form.setFieldValue(fullFieldName, storeAsArray ? (fileUrl ? [fileUrl] : []) : fileUrl);
   };
 
   const handleClear = () => {
-    form.setFieldValue(fullFieldName, "");
+    form.setFieldValue(fullFieldName, storeAsArray ? [] : "");
   };
 
   // Get allowed types from fieldSchema.types, default to "all"
@@ -269,7 +284,7 @@ function FilePickerInput({
           </Text>
 
           <FilePickerPreview
-            fileUrl={currentValue || ""}
+            fileUrl={typeof currentValue === "string" ? currentValue : ""}
             placeholder={`Select ${fieldSchema.title || fieldName}`}
             onSelect={open}
             onClear={handleClear}
@@ -580,18 +595,6 @@ function FilePickerPreview({
     }
   }, [autoOpen, fileUrl, open]);
 
-  // Update file type filter when allowedTypes changes (even if modal is already open)
-  useEffect(() => {
-    if (allowedTypes === "images" || allowedTypes === "videos") {
-      useFilesFoldersStore.getState().setFileTypeFilter(allowedTypes);
-    } else {
-      // Only reset to "all" if currently showing a locked filter
-      const currentFilter = useFilesFoldersStore.getState().fileTypeFilter;
-      if (currentFilter === "images" || currentFilter === "videos") {
-        useFilesFoldersStore.getState().setFileTypeFilter("all");
-      }
-    }
-  }, [allowedTypes]);
   const [previewOpened, { open: openPreview, close: closePreview }] = useDisclosure(false);
   const [selectedFile, setSelectedFile] = useState<any>(null);
   const [loadingFile, setLoadingFile] = useState(false);
