@@ -38,8 +38,8 @@ export function FileFilters({
 
   return (
     <Stack gap="xl">
-      {/* File Type Filter */}
-      {showFileTypeFilter && (
+      {/* File Type Filter: hidden when schema locks to images or videos so user cannot change it */}
+      {showFileTypeFilter && !isFileTypeLocked && (
         <Stack gap="sm">
           <Group justify="space-between" align="center">
             <Text size="sm" fw={500}>
@@ -49,13 +49,8 @@ export function FileFilters({
                   ({fileTypeFilter})
                 </Text>
               )}
-              {isFileTypeLocked && (
-                <Text component="span" size="xs" c="dimmed" ml="xs">
-                  (required)
-                </Text>
-              )}
             </Text>
-            {!isFileTypeLocked && fileTypeFilter !== "all" && (
+            {fileTypeFilter !== "all" && (
               <Button
                 variant="light"
                 size="xs"
@@ -69,36 +64,31 @@ export function FileFilters({
           <Group gap="xs">
             {(["images", "videos", "all"] as const).map((type) => {
               const isSelected = fileTypeFilter === type;
-              const isDisabled = isFileTypeLocked && type !== lockFileType;
               return (
                 <Badge
                   key={type}
                   variant={isSelected ? "filled" : "light"}
                   color={isSelected ? "blue" : "gray"}
                   style={{
-                    cursor: isDisabled ? "not-allowed" : "pointer",
+                    cursor: "pointer",
                     transition: "all 0.2s ease",
                     userSelect: "none",
-                    opacity: isDisabled ? 0.5 : isSelected ? 1 : 0.7,
+                    opacity: isSelected ? 1 : 0.7,
                     textTransform: "capitalize",
                   }}
                   onMouseEnter={(e) => {
-                    if (!isSelected && !isDisabled) {
+                    if (!isSelected) {
                       e.currentTarget.style.opacity = "1";
                       e.currentTarget.style.transform = "scale(1.05)";
                     }
                   }}
                   onMouseLeave={(e) => {
-                    if (!isSelected && !isDisabled) {
+                    if (!isSelected) {
                       e.currentTarget.style.opacity = "0.7";
                       e.currentTarget.style.transform = "scale(1)";
                     }
                   }}
-                  onClick={() => {
-                    if (!isDisabled) {
-                      setFileTypeFilter(type);
-                    }
-                  }}
+                  onClick={() => setFileTypeFilter(type)}
                 >
                   {type === "images" ? (
                     <Group gap={4}>

@@ -1,23 +1,8 @@
-import {
-  Box,
-  Button,
-  Group,
-  Text,
-  Stack,
-  ActionIcon,
-  Badge,
-  Loader,
-  Alert,
-  Divider,
-  Collapse,
-} from "@mantine/core";
-import { RiArrowDownLine, RiArrowUpLine } from "@remixicon/react";
+import { Box, Group, Text, Stack, Loader, Alert, Divider } from "@mantine/core";
 import { useState, useEffect } from "react";
-import { useDisclosure } from "@mantine/hooks";
 import useAppStore from "~/lib/stores/appStore";
 import useFilesFoldersStore, { type FileData } from "~/lib/stores/filesFoldersStore";
 import { AppPagination } from "~/shared/AppPagination";
-import { FileFilters } from "./FileFilters";
 import { FileGrid } from "./FileGrid";
 import FileUpload from "./FileUpload";
 
@@ -35,79 +20,30 @@ export function FilePickerContent({
   onUploadComplete,
 }: FilePickerContentProps) {
   const { getUser } = useAppStore();
-  const {
-    paginationData,
-    loading,
-    loadUserFiles,
-    selectedTags,
-    selectedUploadType,
-    fileTypeFilter,
-    setSelectedTags,
-    setSelectedUploadType,
-  } = useFilesFoldersStore();
+  const { paginationData, loading, loadUserFiles } = useFilesFoldersStore();
   const [currentPage, setCurrentPage] = useState(1);
-  const [filtersOpened, { toggle: toggleFilters }] = useDisclosure(false);
 
   const user = getUser();
   const userId = user?.user?.id;
 
-  // Reset filters when component mounts if allowedTypes is locked
-  const isFileTypeLocked = allowedTypes === "images" || allowedTypes === "videos";
+  // Use allowedTypes for picker results only; do not read or set global store filters (so generation results are unaffected)
+  const effectiveFileType = allowedTypes === "all" ? null : allowedTypes;
 
-  useEffect(() => {
-    // Always update file type filter when allowedTypes changes
-    if (isFileTypeLocked) {
-      // Set file type filter to match allowedTypes
-      useFilesFoldersStore.getState().setFileTypeFilter(allowedTypes);
-    } else {
-      // If not locked, ensure filter is set to "all" (unless user has manually changed it)
-      const currentFilter = useFilesFoldersStore.getState().fileTypeFilter;
-      // Only reset to "all" if it's currently set to a locked type (images or videos)
-      // This allows users to manually filter when allowedTypes is "all"
-      if (currentFilter === "images" || currentFilter === "videos") {
-        useFilesFoldersStore.getState().setFileTypeFilter("all");
-      }
-    }
-  }, [allowedTypes, isFileTypeLocked]);
-
-  // Load files when filters change
   useEffect(() => {
     if (userId) {
-      loadUserFiles(
-        currentPage,
-        12,
-        userId,
-        selectedTags,
-        selectedUploadType || null,
-        fileTypeFilter || null
-      );
+      loadUserFiles(currentPage, 12, userId, [], null, effectiveFileType);
     }
-  }, [userId, currentPage, selectedTags, selectedUploadType, fileTypeFilter, loadUserFiles]);
+  }, [userId, currentPage, effectiveFileType, loadUserFiles]);
 
-  // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [selectedTags, selectedUploadType, fileTypeFilter]);
+  }, [effectiveFileType]);
 
-  // Files are filtered server-side
   const filteredFiles = paginationData.data;
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
   };
-
-  const handleClearAll = () => {
-    setSelectedTags([]);
-    setSelectedUploadType(null);
-    if (!isFileTypeLocked) {
-      useFilesFoldersStore.getState().setFileTypeFilter("all");
-    }
-  };
-
-  const hasActiveFilters =
-    selectedTags.length > 0 ||
-    selectedUploadType ||
-    (!isFileTypeLocked && fileTypeFilter !== "all");
 
   return (
     <Stack gap="md">
@@ -133,39 +69,6 @@ export function FilePickerContent({
         </>
       )}
 
-      {/* Filters Toggle */}
-      <Group justify="space-between" align="center">
-        <Group gap="xs">
-          <ActionIcon variant="light" onClick={toggleFilters}>
-            {filtersOpened ? <RiArrowUpLine size={16} /> : <RiArrowDownLine size={16} />}
-          </ActionIcon>
-          <Group gap="xs" align="center">
-            <Text size="sm" fw={500}>
-              Filters
-            </Text>
-            {hasActiveFilters && (
-              <Badge size="sm" variant="filled" color="blue">
-                {selectedTags.length +
-                  (selectedUploadType ? 1 : 0) +
-                  (!isFileTypeLocked && fileTypeFilter !== "all" ? 1 : 0)}
-              </Badge>
-            )}
-          </Group>
-        </Group>
-        {hasActiveFilters && (
-          <Button variant="light" size="xs" color="red" onClick={handleClearAll}>
-            Clear all
-          </Button>
-        )}
-      </Group>
-
-      <Collapse in={filtersOpened}>
-        <FileFilters
-          showFileTypeFilter={true}
-          lockFileType={isFileTypeLocked ? allowedTypes : null}
-        />
-      </Collapse>
-
       {/* Files Grid */}
       {loading ? (
         <Box ta="center" py="xl">
@@ -174,9 +77,7 @@ export function FilePickerContent({
         </Box>
       ) : filteredFiles.length === 0 ? (
         <Alert title="No files found" color="yellow">
-          {hasActiveFilters
-            ? "No files found matching your filters."
-            : "You haven't uploaded any files yet."}
+          You haven&apos;t uploaded any files yet.
         </Alert>
       ) : (
         <>
