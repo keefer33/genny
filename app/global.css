@@ -1,0 +1,6 @@
+/* Increase base font size on mobile for readability (below Mantine sm breakpoint: 48em / 768px) */
+@media (max-width: 47.999em) {
+  body {
+    font-size: var(--mantine-font-size-xl);
+  }
+}
