@@ -1,11 +1,11 @@
-import { Group, SegmentedControl, Text } from "@mantine/core";
+import { Group, SegmentedControl } from "@mantine/core";
 import { RiHistoryLine, RiImageLine, RiRobot2Line, RiVideoLine } from "@remixicon/react";
 import { useLocation, useNavigate } from "react-router";
 import type { ComponentType } from "react";
 import useAppStore from "~/lib/stores/appStore";
 import useGenerateStore from "~/lib/stores/generateStore";
 
-export const MOBILE_GLOBAL_NAV_HEIGHT = 65;
+export const MOBILE_GLOBAL_NAV_HEIGHT = 55;
 
 type GlobalNavItem = {
   key: "generate" | "image" | "video" | "generations";
@@ -18,10 +18,8 @@ type GlobalNavItem = {
 export function MobileFooterGlobalNav() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { getUser, themeColor } = useAppStore();
+  const { themeColor } = useAppStore();
   const { models } = useGenerateStore();
-
-  const user = getUser();
 
   const resolveModelRoute = (generationType: "image" | "video") => {
     const orderedModelsForType = (models || []).filter(
@@ -79,8 +77,8 @@ export function MobileFooterGlobalNav() {
   return (
     <SegmentedControl
       w="100%"
-      radius="md"
-      size="xl"
+      radius="sm"
+      size="md"
       color={themeColor}
       value={segmentedValue}
       onChange={(value) => {
@@ -95,12 +93,8 @@ export function MobileFooterGlobalNav() {
           value: item.key,
           label: (
             <Group gap={6} align="center" justify="center" wrap="nowrap">
-              <Icon size={18} />
-              {isActive && (
-                <Text size="xs" fw={600}>
-                  {item.label}
-                </Text>
-              )}
+              <Icon />
+              {isActive && item.label}
             </Group>
           ),
         };

@@ -82,7 +82,7 @@ export function GenerationsFileCard({
       radius="sm"
       padding={0}
       pos="relative"
-      //bg={colorScheme === "dark" ? "dark.6" : "gray.0"}
+      bg={colorScheme === "dark" ? "dark.6" : "gray.0"}
       style={{
         border: selected ? "2px solid var(--mantine-color-blue-6)" : undefined,
         cursor: onSelect ? "pointer" : undefined,

@@ -24,7 +24,7 @@ export function GenerateButton() {
   };
 
   return (
-    <Box pt="md">
+    <Box pt="lg" pb="xs">
       <Button
         type="submit"
         loading={generating}
@@ -32,6 +32,7 @@ export function GenerateButton() {
         rightSection={<TokensBadge tokens={tokensCost} clickable={false} />}
         fullWidth
         variant="dark"
+        size="md"
       >
         {getButtonText()}
       </Button>

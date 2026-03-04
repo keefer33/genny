@@ -1,4 +1,4 @@
-import { Box, Card, Container } from "@mantine/core";
+import { Box, Card, Container, useMantineColorScheme } from "@mantine/core";
 import { Outlet } from "react-router";
 import useAppStore from "~/lib/stores/appStore";
 import { GenerationResults } from "~/pages/generate/components/GenerationResults";
@@ -7,7 +7,7 @@ const DESKTOP_FORM_WIDTH = 420;
 
 export default function GenerateModelLayout() {
   const { isMobile } = useAppStore();
-
+  const { colorScheme } = useMantineColorScheme();
   return (
     <Box
       h="calc(100dvh - var(--app-shell-header-height, 0px) - var(--app-shell-footer-height, 0px))"
@@ -43,7 +43,7 @@ export default function GenerateModelLayout() {
               gap: "var(--mantine-spacing-md)",
             }}
           >
-            <Box
+            <Card
               w={DESKTOP_FORM_WIDTH}
               style={{
                 flex: "0 0 auto",
@@ -53,21 +53,8 @@ export default function GenerateModelLayout() {
                 flexDirection: "column",
               }}
             >
-              <Card
-                //radius={0}
-                h="100%"
-                px="0"
-                style={{
-                  flex: 1,
-                  minHeight: 0,
-                  overflow: "hidden",
-                  display: "flex",
-                  flexDirection: "column",
-                }}
-              >
-                <Outlet />
-              </Card>
-            </Box>
+              <Outlet />
+            </Card>
             <Box style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
               <GenerationResults />
             </Box>

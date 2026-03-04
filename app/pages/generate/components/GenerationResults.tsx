@@ -244,7 +244,7 @@ export function GenerationResults() {
       h="calc(100dvh - var(--app-shell-header-height, 0px) - var(--app-shell-footer-height, 0px))"
       style={{ minHeight: 0 }}
     >
-      <Stack gap="xs" h="100%" style={{ minHeight: 0 }}>
+      <Stack gap="lg" h="100%" style={{ minHeight: 0 }}>
         <Group justify="space-between" align="center">
           <GenerationsFiltersModal availableModels={availableModels} showTagManager />
 
@@ -269,8 +269,8 @@ export function GenerationResults() {
           </Group>
         </Group>
 
-        <ScrollArea h="90%" pr={!isMobile ? "xs" : 0}>
-          <SimpleGrid cols={{ base: 1, sm: 2, md: 1, lg: 2, xl: 3 }} spacing="md">
+        <ScrollArea pr={!isMobile ? "xs" : 0}>
+          <SimpleGrid cols={{ base: 1, sm: 2, md: 1, lg: 2, xl: 3 }} spacing="xl">
             {generations.map((file) => (
               <GenerationsFileCard
                 key={file.id}
