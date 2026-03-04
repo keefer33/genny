@@ -1,4 +1,4 @@
-import { AppShell, Container, useMantineColorScheme } from "@mantine/core";
+import { AppShell, Box, useMantineColorScheme } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useState } from "react";
 import { AppShellHeader } from "./AppShellHeader";
@@ -21,7 +21,7 @@ export default function GenerateLayout() {
   return (
     <AppShell
       layout="alt"
-      header={{ height: 60 }}
+      header={{ height: 70 }}
       {...(isMobile && {
         footer: { height: MOBILE_GLOBAL_NAV_HEIGHT },
       })}
@@ -49,9 +49,9 @@ export default function GenerateLayout() {
 
       {isMobile && (
         <AppShell.Footer>
-          <Container fluid p="xs">
-            <MobileFooterGlobalNav />
-          </Container>
+          <Box pt="xs">
+            <MobileFooterGlobalNav />{" "}
+          </Box>
         </AppShell.Footer>
       )}
 
