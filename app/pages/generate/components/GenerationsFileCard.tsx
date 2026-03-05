@@ -98,6 +98,7 @@ export function GenerationsFileCard({
               <div key={fileData.id} data-member-files-card>
                 <MemberFilesCard
                   file={fileData}
+                  modelName={file.models?.name}
                   onFileUpdate={onFileUpdate}
                   selected={selected}
                   onSelect={onSelect}

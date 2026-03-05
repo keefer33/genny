@@ -28,8 +28,14 @@ export default function GenerateModel() {
   const { slug } = useLoaderData<typeof clientLoader>();
   const navigate = useNavigate();
   const { getUser, isMobile, userTokens } = useAppStore();
-  const { modelLoading, generateContent, setCurrentTaskId, calculateTokens, getSelectedModel } =
-    useGenerateStore();
+  const {
+    modelLoading,
+    generateContent,
+    setCurrentTaskId,
+    calculateTokens,
+    getSelectedModel,
+    selectedModel,
+  } = useGenerateStore();
   const user = getUser();
   const currentTokens = userTokens || 0;
 
@@ -44,7 +50,7 @@ export default function GenerateModel() {
         return property.default;
       }
 
-      // For editable fields, set defaults based on type
+      // For editable fields, use schema default when defined, otherwise type-based empty
       if (property.default !== undefined) {
         return property.default;
       }
@@ -257,15 +263,16 @@ export default function GenerateModel() {
     },
   });
 
-  // clientLoader updates the store when params change; init form when the selected model is ready.
+  // When slug or selected model changes, reset form to a blank state (no schema defaults).
   useEffect(() => {
-    const model = getSelectedModel();
+    const model = selectedModel ?? getSelectedModel();
     const schema = model?.api?.schema || model?.schema;
     if (!model || model.slug !== slug || !schema) return;
-    const defaultValues = getDefaultValuesFromSchema(schema);
-    form.setInitialValues(defaultValues);
-    form.setValues(defaultValues);
-  }, [slug, getSelectedModel()?.id]);
+    const blankValues = getDefaultValuesFromSchema(schema);
+    form.setInitialValues(blankValues);
+    form.setValues(blankValues);
+    form.reset();
+  }, [slug, selectedModel?.id]);
 
   const handleSubmit = async (values: any) => {
     if (!getSelectedModel()) return;

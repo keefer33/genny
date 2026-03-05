@@ -50,20 +50,6 @@ export function GenerationResults() {
   const supabase = getApi();
   const availableModels = models.map((model) => ({ id: model.id, name: model.name }));
 
-  if (!userId) {
-    return (
-      <Center h={400}>
-        <Stack gap="md">
-          <LoginCTA
-            title="Login to View Generations"
-            subtitle="Sign in to access and manage your generated results."
-          />
-          <PromotionCard />
-        </Stack>
-      </Center>
-    );
-  }
-
   useEffect(() => {
     if (userId) {
       loadTags(userId);
@@ -95,6 +81,20 @@ export function GenerationResults() {
     supabase,
     loadGenerations,
   ]);
+
+  if (!userId) {
+    return (
+      <Center h={400}>
+        <Stack gap="md">
+          <LoginCTA
+            title="Login to View Generations"
+            subtitle="Sign in to access and manage your generated results."
+          />
+          <PromotionCard />
+        </Stack>
+      </Center>
+    );
+  }
 
   const handleFileUpdate = () => {
     // Refresh the generations when a file is updated
@@ -284,7 +284,7 @@ export function GenerationResults() {
         </ScrollArea>
 
         {pagination.totalPages > 1 && (
-          <Group justify="center" py="lg">
+          <Group justify="center" py="xs">
             <AppPagination
               total={pagination.totalPages}
               value={pagination.currentPage}
@@ -297,7 +297,7 @@ export function GenerationResults() {
                   selectedTags
                 )
               }
-              size="sm"
+              size="md"
               withEdges
             />
           </Group>
