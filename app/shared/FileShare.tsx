@@ -134,7 +134,7 @@ export default function FileShare({
     variant === "icon" ? (
       <Tooltip label="Share">
         <ActionIcon variant="transparent" size={size} onClick={handleNativeShare}>
-          <RiShareLine size={24} />
+          <RiShareLine />
         </ActionIcon>
       </Tooltip>
     ) : (

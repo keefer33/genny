@@ -49,6 +49,7 @@ interface FileData {
   created_at: string;
   user_file_tags?: UserFileTag[];
   thumbnail_url?: string;
+  model_name?: string | null;
   generated_info?: {
     payload: {
       prompt: string;
@@ -58,6 +59,7 @@ interface FileData {
 
 interface MemberFilesCardProps {
   file: FileData;
+  modelName?: string | null;
   onFileUpdate?: () => void;
   onTagsUpdated?: (fileId: string, updatedTags: UserFileTag[]) => void;
   selected?: boolean;
@@ -66,6 +68,7 @@ interface MemberFilesCardProps {
 
 export default function MemberFilesCard({
   file,
+  modelName: modelNameProp,
   onFileUpdate,
   onTagsUpdated,
   selected = false,
@@ -126,8 +129,20 @@ export default function MemberFilesCard({
     }
   };
 
-  const handleDownload = () => {
-    window.open(currentFile.file_path, "_blank");
+  const handleDownload = async () => {
+    try {
+      const res = await fetch(currentFile.file_path, { mode: "cors" });
+      if (!res.ok) throw new Error("Fetch failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = currentFile.file_name || "download";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      window.open(currentFile.file_path, "_blank");
+    }
   };
 
   const handleEdit = () => {
@@ -356,6 +371,7 @@ export default function MemberFilesCard({
         opened={opened}
         onClose={close}
         file={currentFile}
+        modelName={modelNameProp ?? currentFile?.model_name ?? undefined}
         onDownload={handleDownload}
         onEdit={handleEdit}
         onDelete={handleDelete}

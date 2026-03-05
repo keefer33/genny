@@ -3,19 +3,21 @@ import {
   Badge,
   Box,
   Button,
-  Card,
   Center,
+  Container,
   Group,
   Image,
   Modal,
   Stack,
   Table,
   Text,
+  ActionIcon,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import {
   RiDeleteBinLine,
   RiDownloadLine,
+  RiExternalLinkLine,
   RiFileCopyLine,
   RiFileLine,
   RiFilePdf2Fill,
@@ -62,6 +64,7 @@ interface FileDetailModalProps {
   opened: boolean;
   onClose: () => void;
   file: FileData;
+  modelName?: string | null;
   onDownload: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -73,6 +76,7 @@ export default function FileDetailModal({
   opened,
   onClose,
   file,
+  modelName,
   onDownload,
   onDelete,
   deleting = false,
@@ -135,7 +139,7 @@ export default function FileDetailModal({
     <Modal
       opened={opened}
       onClose={onClose}
-      title={file.file_name}
+      title={modelName ? `${file.file_name} · ${modelName}` : file.file_name}
       size="xl"
       fullScreen
       styles={{
@@ -183,23 +187,12 @@ export default function FileDetailModal({
         </Box>
 
         {/* File Information */}
-        <Card withBorder radius="md" p="md">
-          <Stack gap="md">
+        <Container>
+          <Stack gap="xs">
             <Group justify="space-between" align="flex-start">
-              <Stack gap="xs">
-                <Text size="xl" fw={600}>
-                  {file.file_name}
-                </Text>
-                <Group gap="xs">
-                  {getFileTypeBadge()}
-                  <Text size="sm" c="dimmed">
-                    {formatFileSize(file.file_size)}
-                  </Text>
-                  <Text size="sm" c="dimmed">
-                    {formatDate(file.created_at)}
-                  </Text>
-                </Group>
-              </Stack>
+              <Text size="xl" fw={600}>
+                {file.file_name}
+              </Text>
 
               {/* Action Buttons */}
               <Group gap="sm">
@@ -213,28 +206,32 @@ export default function FileDetailModal({
                         ? "video"
                         : "other"
                   }
-                  variant="button"
-                  size="sm"
+                  variant="icon"
+                  size="lg"
                 />
-                <Button
-                  leftSection={<RiDownloadLine size={16} />}
-                  onClick={onDownload}
-                  variant="light"
-                >
-                  Download
-                </Button>
-                <Button
-                  leftSection={<RiDeleteBinLine size={16} />}
+                <ActionIcon size="xl" onClick={onDownload} variant="transparent">
+                  <RiDownloadLine />
+                </ActionIcon>
+                <ActionIcon
+                  size="xl"
                   onClick={onDelete}
-                  variant="light"
+                  variant="transparent"
                   color="red"
                   loading={deleting}
                 >
-                  Delete
-                </Button>
+                  <RiDeleteBinLine />
+                </ActionIcon>
               </Group>
             </Group>
-
+            <Group gap="xs">
+              {getFileTypeBadge()}
+              <Text size="sm" c="dimmed">
+                {formatFileSize(file.file_size)}
+              </Text>
+              <Text size="sm" c="dimmed">
+                {formatDate(file.created_at)}
+              </Text>
+            </Group>
             {/* Tags Section */}
             <Box>
               <Group gap="xs" justify="space-between" align="center" mb="xs">
@@ -263,13 +260,21 @@ export default function FileDetailModal({
             </Box>
 
             {/* File Details Table */}
-            <Table variant="vertical" layout="fixed" withTableBorder>
+            <Table variant="vertical" layout="fixed" withTableBorder={true}>
               <Table.Tbody>
                 <Table.Tr>
-                  <Table.Th w={160}>File Name</Table.Th>
+                  <Table.Th w={120}>File Name</Table.Th>
+                  <Table.Td>{file.file_name}</Table.Td>
+                </Table.Tr>
+                <Table.Tr>
+                  <Table.Th>File Path</Table.Th>
                   <Table.Td>
                     <Anchor href={file.file_path} target="_blank">
-                      {file.file_name}
+                      <Group gap="xs">
+                        {file.file_path}
+
+                        <RiExternalLinkLine />
+                      </Group>
                     </Anchor>
                   </Table.Td>
                 </Table.Tr>
@@ -284,14 +289,6 @@ export default function FileDetailModal({
                 <Table.Tr>
                   <Table.Th>File Type</Table.Th>
                   <Table.Td>{file.file_type.toUpperCase()}</Table.Td>
-                </Table.Tr>
-                <Table.Tr>
-                  <Table.Th>File Path</Table.Th>
-                  <Table.Td>
-                    <Text size="sm" style={{ wordBreak: "break-all" }}>
-                      {file.file_path}
-                    </Text>
-                  </Table.Td>
                 </Table.Tr>
               </Table.Tbody>
             </Table>
@@ -335,7 +332,7 @@ export default function FileDetailModal({
               </Box>
             )}
           </Stack>
-        </Card>
+        </Container>
       </Stack>
     </Modal>
   );

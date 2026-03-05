@@ -1,4 +1,5 @@
 import {
+  Badge,
   Button,
   Checkbox,
   Grid,
@@ -25,6 +26,8 @@ export default function MemberFiles() {
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
   const [selectedFileData, setSelectedFileData] = useState<Map<string, any>>(new Map());
   const [deleteModalOpened, { open: openDeleteModal, close: closeDeleteModal }] =
+    useDisclosure(false);
+  const [filtersModalOpened, { open: openFiltersModal, close: closeFiltersModal }] =
     useDisclosure(false);
   const [bulkLoading, setBulkLoading] = useState(false);
 
@@ -166,17 +169,29 @@ export default function MemberFiles() {
     <Mounted size="xl" pt="md">
       <Grid gutter="xl">
         <Grid.Col span={{ base: 12, md: 4 }}>
-          {!isMobile && (
-            <Stack gap="xl">
-              <FileUpload onUploadComplete={handleFileUpdate} />
-              <FileFilters showTagManager />
-            </Stack>
-          )}
+          <Stack gap="xl">
+            <FileUpload onUploadComplete={handleFileUpdate} />
+            {!isMobile && <FileFilters showTagManager />}
+          </Stack>
         </Grid.Col>
         <Grid.Col span={{ base: 12, md: 8 }}>
           {/* Files Grid */}
           <ScrollArea>
             <Stack gap="md">
+              {/* Mobile: Filters button opens modal */}
+              {isMobile && (
+                <Group justify="flex-end" gap="xs">
+                  <Button variant="light" size="sm" onClick={openFiltersModal}>
+                    Filters
+                  </Button>
+                  {(selectedTags.length > 0 || fileTypeFilter !== "all") && (
+                    <Badge size="sm" variant="light" color="blue">
+                      {[selectedTags.length > 0, fileTypeFilter !== "all"].filter(Boolean).length}{" "}
+                      active
+                    </Badge>
+                  )}
+                </Group>
+              )}
               {/* Selection Controls */}
               {paginationData.data.length > 0 && (
                 <Group justify="space-between" align="center">
@@ -264,6 +279,22 @@ export default function MemberFiles() {
           </ScrollArea>
         </Grid.Col>
       </Grid>
+
+      {/* Mobile: Filters modal */}
+      <Modal
+        opened={filtersModalOpened}
+        onClose={closeFiltersModal}
+        title="Filters"
+        centered
+        size="sm"
+      >
+        <Stack gap="md">
+          <FileFilters showTagManager />
+          <Group justify="flex-end">
+            <Button onClick={closeFiltersModal}>Done</Button>
+          </Group>
+        </Stack>
+      </Modal>
 
       {/* Bulk Delete Modal */}
       <Modal
