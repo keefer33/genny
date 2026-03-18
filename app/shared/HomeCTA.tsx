@@ -1,4 +1,14 @@
-import { Box, Button, Container, Group, Stack, Text, Title, useMantineColorScheme, useMantineTheme } from "@mantine/core";
+import {
+  Box,
+  Button,
+  Container,
+  Group,
+  Stack,
+  Text,
+  Title,
+  useMantineColorScheme,
+  useMantineTheme,
+} from "@mantine/core";
 import { RiSparklingLine } from "@remixicon/react";
 import { Link } from "react-router";
 

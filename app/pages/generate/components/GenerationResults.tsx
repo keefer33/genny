@@ -286,6 +286,10 @@ export function GenerationResults() {
         {pagination.totalPages > 1 && (
           <Group justify="center" py="xs">
             <AppPagination
+              mobileVisibleItems={isMobile ? 4 : 7}
+              siblings={2}
+              boundaries={1}
+              withEdges={false}
               total={pagination.totalPages}
               value={pagination.currentPage}
               onChange={(page) =>
@@ -298,7 +302,6 @@ export function GenerationResults() {
                 )
               }
               size="md"
-              withEdges
             />
           </Group>
         )}

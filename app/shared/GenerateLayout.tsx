@@ -21,7 +21,7 @@ export default function GenerateLayout() {
   return (
     <AppShell
       layout="alt"
-      header={{ height: 70 }}
+      header={{ height: 60 }}
       {...(isMobile && {
         footer: { height: MOBILE_GLOBAL_NAV_HEIGHT },
       })}

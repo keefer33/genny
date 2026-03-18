@@ -2,8 +2,8 @@ import { Badge } from "@mantine/core";
 import { RiCoinsLine } from "@remixicon/react";
 import { usePaymentModal } from "./PaymentModal";
 
-interface TokensBadgeProps {
-  tokens?: number;
+interface UsageBadgeProps {
+  usage?: number;
   size?: "xs" | "sm" | "md" | "lg";
   variant?: "light" | "filled" | "outline" | "dot" | "gradient" | "subtle" | "default";
   color?: string;
@@ -11,23 +11,18 @@ interface TokensBadgeProps {
   clickable?: boolean;
 }
 
-export function TokensBadge({
-  tokens = 0,
+export function UsageBadge({
+  usage = 0,
   size = "lg",
   variant = "filled",
   color = "yellow.3",
   leftSection,
   clickable = true,
-}: TokensBadgeProps) {
+}: UsageBadgeProps) {
   const { openPaymentModal } = usePaymentModal();
-  //if (tokens === 0) return null;
-
   const handleClick = () => {
-    if (clickable) {
-      openPaymentModal(null);
-    }
+    openPaymentModal(null);
   };
-
   return (
     <Badge
       color={color}
@@ -38,7 +33,7 @@ export function TokensBadge({
       style={clickable ? { cursor: "pointer" } : undefined}
       onClick={clickable ? handleClick : undefined}
     >
-      {tokens * 0.005}
+      {usage}
     </Badge>
   );
 }

@@ -11,7 +11,7 @@ export default function Home() {
       <video
         src="https://aifile.link/ETVryC.mp4"
         autoPlay
-        muted
+        controls
         playsInline
         preload="auto"
         style={{

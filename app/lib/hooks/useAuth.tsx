@@ -9,6 +9,7 @@ export function useAuth() {
     getApi,
     userProfile,
     setUserTokens,
+    setUserUsageBalance,
     setAuthRealtimeChannel,
     checkApiHealth,
   } = useAppStore();
@@ -35,7 +36,11 @@ export function useAuth() {
 
     channel
       .on("broadcast", { event: "UPDATE" }, (payload: any) => {
+        console.log("UPDATE", payload);
         setUserTokens(payload.payload.record.token_balance);
+        if (payload?.payload?.record?.usage_balance != null) {
+          setUserUsageBalance(payload.payload.record.usage_balance);
+        }
       })
       .subscribe((status) => {
         if (status === "SUBSCRIBED") {

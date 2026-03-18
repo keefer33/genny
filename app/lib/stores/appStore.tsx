@@ -80,6 +80,9 @@ interface Profile {
   username: string;
   phone: string;
   tokens: number;
+  token_balance?: number;
+  usage_amount?: number;
+  api_key?: string | null;
   meta?: Record<string, any> | null;
 }
 
@@ -108,10 +111,12 @@ interface AppStoreState {
   isMobile: boolean;
   page: string | undefined;
   userTokens: number;
+  userUsageBalance: number;
   authApiKey: string | null;
   setAuthApiKey: (authApiKey: string | null) => void;
   getAuthApiKey: () => string | null;
   setUserTokens: (tokens: number) => void;
+  setUserUsageBalance: (usageBalance: number) => void;
   setLoading: (loading: boolean) => void;
   setThemeColor: (color: string) => void;
   setApi: () => void;
@@ -135,9 +140,8 @@ interface AppStoreState {
     username: string;
   }) => Promise<{ success: boolean; error?: string }>;
   createToken: (sessionData: any) => Promise<any>;
-  updateUserTokens: (tokens: number) => Promise<any>;
-  getUserTokens: () => Promise<number>;
   getCurrentUserTokens: () => number;
+  getCurrentUserUsageBalance: () => number;
   checkApiHealth: () => Promise<boolean>;
   getCurrentSession: () => Promise<Session | null>;
   setAuthRealtimeChannel: (channel: any) => void;
@@ -155,12 +159,14 @@ const useAppStoreBase = create<AppStoreState>((set, get) => ({
   isMobile: false,
   page: undefined,
   userTokens: 0,
+  userUsageBalance: 0,
   authApiKey: null,
   authRealtimeChannel: null as any,
   setAuthApiKey: (authApiKey: string | null) => set({ authApiKey }),
   setAuthRealtimeChannel: (channel: any) => set({ authRealtimeChannel: channel }),
   getAuthApiKey: () => get().authApiKey,
   setUserTokens: (tokens: number) => set({ userTokens: tokens }),
+  setUserUsageBalance: (usageBalance: number) => set({ userUsageBalance: usageBalance }),
   setThemeColor: (themeColor) => set({ themeColor }),
   setApi: () =>
     set({
@@ -175,24 +181,7 @@ const useAppStoreBase = create<AppStoreState>((set, get) => ({
   getApi: () => get().api,
   getUser: () => get().user,
   getCurrentUserTokens: () => get().userTokens,
-  getUserTokens: async () => {
-    const session = get().getUser();
-    if (!session?.user?.id) {
-      return 0;
-    }
-    const { data, error } = await get()
-      .getApi()
-      .from("user_profiles")
-      .select("tokens")
-      .eq("user_id", session.user.id)
-      .single();
-    if (error) {
-      console.error("Error getting user tokens:", error);
-      return 0;
-    }
-    set({ userTokens: data?.tokens || 0 });
-    return data?.tokens || 0;
-  },
+  getCurrentUserUsageBalance: () => get().userUsageBalance,
 
   generateRandomUsername: () => {
     const adjectives = [
@@ -425,7 +414,7 @@ const useAppStoreBase = create<AppStoreState>((set, get) => ({
       .getApi()
       .from("user_profiles")
       .select(
-        "id, user_id, first_name, last_name, bio, created_at, updated_at, email, username, token_balance, meta"
+        "id, user_id, first_name, last_name, bio, created_at, updated_at, email, username, token_balance, usage_balance, api_key, meta"
       )
       .eq("user_id", sessionData.user.id)
       .single();
@@ -435,7 +424,15 @@ const useAppStoreBase = create<AppStoreState>((set, get) => ({
     }
 
     set({ userTokens: data?.token_balance || 0 });
+    set({ userUsageBalance: data?.usage_balance || 0 });
     get().setUser({ ...sessionData, profile: data });
+
+    // Use stored api_key when present; only call createToken when missing (e.g. new or legacy profile)
+    if (data?.api_key) {
+      set({ authApiKey: data.api_key, appLoading: false });
+      return { success: true, profile: data };
+    }
+
     const tokenResult = await get().createToken(sessionData);
     if (!tokenResult.success) {
       get().setUser(null);
@@ -443,8 +440,18 @@ const useAppStoreBase = create<AppStoreState>((set, get) => ({
       return { success: false, error: tokenResult.error || "Failed to sign in" };
     }
     set({ authApiKey: tokenResult.token });
-    get().setAppLoading(false);
-    return { success: true, profile: data };
+    get().setUser({ ...sessionData, profile: { ...data, api_key: tokenResult.token } });
+    // Persist this app key to user_profiles so we don't need create-token again on next login
+    const { error: updateError } = await get()
+      .getApi()
+      .from("user_profiles")
+      .update({ api_key: tokenResult.token })
+      .eq("user_id", sessionData.user.id);
+    if (updateError) {
+      console.error("[userProfile] Failed to save api_key to user_profiles:", updateError.message);
+    }
+    set({ appLoading: false });
+    return { success: true, profile: { ...data, api_key: tokenResult.token } };
   },
 
   userLogin: async (sessionData: any) => {
@@ -474,13 +481,29 @@ const useAppStoreBase = create<AppStoreState>((set, get) => ({
           return { success: false, error: data.error || "Failed to create user" };
         }
         get().setUser({ ...sessionData, profile: data.data });
+        // New profile has no api_key; create one and persist to user_profiles on the frontend
         const tokenResult = await get().createToken(sessionData);
         if (!tokenResult.success) {
           get().setUser(null);
           set({ authApiKey: null });
           return { success: false, error: tokenResult.error || "Failed to sign in" };
         }
-        return { success: true, profile: data.data };
+        get().setUser({
+          ...sessionData,
+          profile: { ...data.data, api_key: tokenResult.token },
+        });
+        const { error: updateError } = await get()
+          .getApi()
+          .from("user_profiles")
+          .update({ api_key: tokenResult.token })
+          .eq("user_id", sessionData.user.id);
+        if (updateError) {
+          console.error(
+            "[userLogin] Failed to save api_key to user_profiles:",
+            updateError.message
+          );
+        }
+        return { success: true, profile: { ...data.data, api_key: tokenResult.token } };
       }
     } else {
       return checkForUserProfile;
@@ -552,45 +575,6 @@ const useAppStoreBase = create<AppStoreState>((set, get) => ({
     if (error) {
       console.error("Error signing out:", error);
       throw error;
-    }
-  },
-
-  updateUserTokens: async (tokens: number) => {
-    const api = get().getApi();
-    const session = get().getUser();
-
-    if (!api || !session?.user?.id) {
-      return { success: false, error: "Not authenticated" };
-    }
-
-    try {
-      const { error } = await api
-        .from("user_profiles")
-        .update({
-          tokens: tokens,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("user_id", session.user.id);
-
-      if (error) {
-        console.error("Error updating user tokens:", error);
-        return { success: false, error: "Failed to update tokens" };
-      }
-
-      // Update the user in the store
-      const updatedUser = {
-        ...session,
-        profile: {
-          ...session.profile,
-          tokens: tokens,
-        },
-      };
-      get().setUser(updatedUser);
-      set({ userTokens: tokens });
-      return { success: true };
-    } catch (error) {
-      console.error("Error updating user tokens:", error);
-      return { success: false, error: "Failed to update tokens" };
     }
   },
 

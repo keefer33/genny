@@ -20,6 +20,8 @@ import {
   RiLogoutBoxLine,
   RiCoinLine,
   RiCustomerService2Line,
+  RiChatSmile2Line,
+  RiToolsLine,
 } from "@remixicon/react";
 import { NavLink, useLocation } from "react-router";
 import useAppStore from "~/lib/stores/appStore";
@@ -100,6 +102,20 @@ export function Navbar({ toggleMobile, collapsed }: NavbarProps) {
 
   const loggedInItems = [
     {
+      to: "/chats",
+      icon: RiChatSmile2Line,
+      label: "Chats",
+      description: "AI chats",
+      matchPrefix: "/chats",
+    },
+    {
+      to: "/tools",
+      icon: RiToolsLine,
+      label: "Tools",
+      description: "Connect toolkits (Composio)",
+      matchPrefix: "/tools",
+    },
+    {
       to: "/account/tokens-log",
       icon: RiCoinLine,
       label: "Tokens",
@@ -132,7 +148,11 @@ export function Navbar({ toggleMobile, collapsed }: NavbarProps) {
     },
   ];
 
-  const NavItem = ({ item }: { item: (typeof navItems)[0] }) => {
+  const NavItem = ({
+    item,
+  }: {
+    item: (typeof navItems)[number] | (typeof loggedInItems)[number];
+  }) => {
     const IconComponent = item.icon;
     const isActive = item.matchPrefix
       ? location.pathname.startsWith(item.matchPrefix)
@@ -207,7 +227,7 @@ export function Navbar({ toggleMobile, collapsed }: NavbarProps) {
   };
 
   return (
-    <Stack gap="lg" p={isMobile ? "md" : "xs"}>
+    <Stack gap="sm" p={isMobile ? "md" : "xs"}>
       {isLoggedIn && isMobile && (
         <>
           <CurrentBalance />

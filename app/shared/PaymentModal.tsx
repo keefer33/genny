@@ -24,7 +24,6 @@ function PaymentForm({
 }) {
   const stripe = useStripe();
   const elements = useElements();
-  const { getUser, updateUserTokens } = useAppStore();
   const [isProcessing, setIsProcessing] = useState(false);
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -87,13 +86,6 @@ function PaymentForm({
       const result = await response.json();
 
       if (result.success) {
-        // Update the user's token balance in the app store
-        const currentUser = getUser();
-        if (currentUser?.profile) {
-          const newTokenBalance = (currentUser.profile.tokens || 0) + result.tokensAdded;
-          await updateUserTokens(newTokenBalance);
-        }
-
         notifications.show({
           title: "Payment Successful",
           message: `Successfully added ${result.tokensAdded} tokens to your account!`,

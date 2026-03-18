@@ -3,9 +3,9 @@ import { Link } from "react-router";
 import useAppStore from "~/lib/stores/appStore";
 
 export default function Logo({
-  size = 48,
+  size = 54,
   fontSize = "28px",
-  fontSizeSmall = "16px",
+  fontSizeSmall = "18px",
 }: {
   size?: number;
   fontSize?: string;
@@ -25,9 +25,9 @@ export default function Logo({
 
   return (
     <Link to="/" style={{ textDecoration: "none", color: "inherit" }}>
-      <Group gap="0">
+      <Group gap="0" align="center">
         <Box>
-          <Image src="https://aifile.link/ERaEOT.png" alt="Genny Bot" width={size} height={size} />
+          <Image src="https://aifile.link/LI1miK.png" alt="Genny Bot" width={size} height={size} />
         </Box>
         <Group gap={0} align="baseline">
           <Text
@@ -39,7 +39,7 @@ export default function Logo({
               letterSpacing: themeSettings.letterSpacing,
             }}
           >
-            genny
+            GENNY
           </Text>
           <Text
             size={themeSettings.fontSizeSmall}
