@@ -1,16 +1,16 @@
 import { create } from "zustand";
 import useAppStore from "./appStore";
 
-export interface TokensLogEntry {
+export interface UsageLogEntry {
   id: string;
   user_id: string;
   created_at: string;
   updated_at: string;
-  token_amount: number;
+  usage_amount: number;
   generation_id: string | null;
   transaction_id: string | null;
   type_id: number | null;
-  tokens_log_types?: {
+  usage_log_types?: {
     id: number;
     log_type: "credit" | "debit";
     reason_code: string;
@@ -31,39 +31,33 @@ export interface TokensLogEntry {
   } | null;
 }
 
-interface TokensLogStoreState {
-  // Tokens Log State
-  logs: TokensLogEntry[];
+interface UsageLogStoreState {
+  logs: UsageLogEntry[];
   currentPage: number;
   totalPages: number;
   logsLoading: boolean;
 
-  // Actions
-  setLogs: (logs: TokensLogEntry[]) => void;
+  setLogs: (logs: UsageLogEntry[]) => void;
   setCurrentPage: (page: number) => void;
   setTotalPages: (pages: number) => void;
   setLogsLoading: (loading: boolean) => void;
-  fetchTokensLog: (page?: number, limit?: number) => Promise<any>;
+  fetchUsageLog: (page?: number, limit?: number) => Promise<any>;
 
-  // Reset
-  resetTokensLogState: () => void;
+  resetUsageLogState: () => void;
 }
 
-const useTokensLogStore = create<TokensLogStoreState>((set, get) => ({
-  // Initial state
+const useUsageLogStore = create<UsageLogStoreState>((set) => ({
   logs: [],
   currentPage: 1,
   totalPages: 1,
   logsLoading: false,
 
-  // Actions
   setLogs: (logs) => set({ logs }),
   setCurrentPage: (page) => set({ currentPage: page }),
   setTotalPages: (pages) => set({ totalPages: pages }),
   setLogsLoading: (loading) => set({ logsLoading: loading }),
 
-  // Fetch tokens log from Supabase
-  fetchTokensLog: async (page: number = 1, limit: number = 10) => {
+  fetchUsageLog: async (page: number = 1, limit: number = 10) => {
     const appStore = useAppStore.getState();
     const api = appStore.getApi();
     const session = appStore.getUser();
@@ -75,24 +69,22 @@ const useTokensLogStore = create<TokensLogStoreState>((set, get) => ({
     try {
       const offset = (page - 1) * limit;
 
-      // Get total count
       const { count, error: countError } = await api
-        .from("user_tokens_log")
+        .from("user_usage_log")
         .select("*", { count: "exact", head: true })
         .eq("user_id", session.user.id);
 
       if (countError) {
-        console.error("Error getting tokens log count:", countError);
-        return { success: false, error: "Failed to fetch tokens log" };
+        console.error("Error getting usage log count:", countError);
+        return { success: false, error: "Failed to fetch usage log" };
       }
 
-      // Get tokens log entries with pagination and join with tokens_log_types, user_generations, and transactions
       const { data: logsData, error: logsError } = await api
-        .from("user_tokens_log")
+        .from("user_usage_log")
         .select(
           `
           *,
-          tokens_log_types (
+          usage_log_types (
             id,
             log_type,
             reason_code,
@@ -118,8 +110,8 @@ const useTokensLogStore = create<TokensLogStoreState>((set, get) => ({
         .range(offset, offset + limit - 1);
 
       if (logsError) {
-        console.error("Error fetching tokens log:", logsError);
-        return { success: false, error: "Failed to fetch tokens log" };
+        console.error("Error fetching usage log:", logsError);
+        return { success: false, error: "Failed to fetch usage log" };
       }
 
       return {
@@ -132,13 +124,12 @@ const useTokensLogStore = create<TokensLogStoreState>((set, get) => ({
         },
       };
     } catch (error) {
-      console.error("Error fetching tokens log:", error);
-      return { success: false, error: "Failed to fetch tokens log" };
+      console.error("Error fetching usage log:", error);
+      return { success: false, error: "Failed to fetch usage log" };
     }
   },
 
-  // Reset all tokens log state
-  resetTokensLogState: () =>
+  resetUsageLogState: () =>
     set({
       logs: [],
       currentPage: 1,
@@ -147,4 +138,5 @@ const useTokensLogStore = create<TokensLogStoreState>((set, get) => ({
     }),
 }));
 
-export default useTokensLogStore;
+export default useUsageLogStore;
+

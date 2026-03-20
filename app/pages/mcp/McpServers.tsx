@@ -138,7 +138,7 @@ export default function McpServers() {
             variant="light"
             color="gray"
             component={Link}
-            to="/agents"
+            to="/chats"
             leftSection={<RiArrowLeftLine size={16} />}
           >
             Back to Agents

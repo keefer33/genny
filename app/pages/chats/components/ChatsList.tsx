@@ -9,7 +9,14 @@ import {
   ActionIcon,
   useMantineTheme,
 } from "@mantine/core";
-import { RiAddLine, RiChatSmile2Line, RiDeleteBinLine, RiPencilLine } from "@remixicon/react";
+import {
+  RiAddLine,
+  RiChatSmile2Line,
+  RiCheckLine,
+  RiCloseLine,
+  RiDeleteBinLine,
+  RiPencilLine,
+} from "@remixicon/react";
 import { useState } from "react";
 import useAppStore from "~/lib/stores/appStore";
 import { useChatsStore, type ChatRow } from "~/lib/stores/chatsStore";
@@ -111,7 +118,7 @@ export default function ChatsList({ form, onSelectChat }: ChatsListProps) {
 
   return (
     <>
-      <Group gap="xs" justify="space-between" align="center">
+      <Group gap="xs" justify="space-between" align="center" py="xs">
         <Group gap="xs" align="center">
           <RiChatSmile2Line size={24} color={theme.colors[themeColor][7]} />
           <Text size="xl" fw={700}>
@@ -153,23 +160,49 @@ export default function ChatsList({ form, onSelectChat }: ChatsListProps) {
               <Group justify="space-between" wrap="nowrap" gap="xs">
                 <Group wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
                   {editingChatId === chat.id ? (
-                    <TextInput
-                      size="xs"
-                      value={editingTitle}
-                      onChange={(e) => setEditingTitle(e.currentTarget.value)}
-                      onBlur={saveEdit}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          saveEdit();
-                        } else if (e.key === "Escape") {
+                    <Group wrap="nowrap" gap={4} style={{ width: "100%" }}>
+                      <TextInput
+                        size="xs"
+                        value={editingTitle}
+                        onChange={(e) => setEditingTitle(e.currentTarget.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            saveEdit();
+                          } else if (e.key === "Escape") {
+                            cancelEdit();
+                          }
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        autoFocus
+                        styles={{ input: { minHeight: 28 } }}
+                        style={{ flex: 1 }}
+                      />
+                      <ActionIcon
+                        size="sm"
+                        variant="subtle"
+                        color="green"
+                        aria-label="Save chat name"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void saveEdit();
+                        }}
+                      >
+                        <RiCheckLine size={14} />
+                      </ActionIcon>
+                      <ActionIcon
+                        size="sm"
+                        variant="subtle"
+                        color="gray"
+                        aria-label="Cancel edit"
+                        onClick={(e) => {
+                          e.stopPropagation();
                           cancelEdit();
-                        }
-                      }}
-                      onClick={(e) => e.stopPropagation()}
-                      autoFocus
-                      styles={{ input: { minHeight: 28 } }}
-                    />
+                        }}
+                      >
+                        <RiCloseLine size={14} />
+                      </ActionIcon>
+                    </Group>
                   ) : (
                     <Text size="sm" truncate>
                       {(chat.metadata as { title?: string })?.title || formatDate(chat.updated_at)}

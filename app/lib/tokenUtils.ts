@@ -1,64 +1,34 @@
-// Token management utilities
+// Display helpers + balance top-up presets (must match backend `TOP_UP_AMOUNTS_DOLLARS`).
 
-interface TokenPackage {
+export interface CreditTopUpOption {
   id: string;
-  amount: number;
-  tokens: number;
+  /** Whole USD dollars added to usage balance (1:1 with amount charged). */
+  dollars: number;
+  /** Stripe amount in cents */
   price: number;
-  bonus: number;
   popular?: boolean;
 }
 
-export const TOKEN_PACKAGES: TokenPackage[] = [
-  {
-    id: "5",
-    amount: 5,
-    tokens: 1000,
-    price: 500, // cents
-    bonus: 0,
-    popular: false,
-  },
-  {
-    id: "10",
-    amount: 10,
-    tokens: 2050,
-    price: 1000, // cents
-    bonus: 50,
-    popular: true,
-  },
-  {
-    id: "25",
-    amount: 25,
-    tokens: 5200,
-    price: 2500, // cents
-    bonus: 200,
-    popular: false,
-  },
-  {
-    id: "50",
-    amount: 50,
-    tokens: 10700,
-    price: 5000, // cents
-    bonus: 700,
-    popular: false,
-  },
-  {
-    id: "100",
-    amount: 100,
-    tokens: 22000,
-    price: 10000, // cents
-    bonus: 2000,
-    popular: false,
-  },
+export const CREDIT_TOP_UP_OPTIONS: CreditTopUpOption[] = [
+  { id: "5", dollars: 5, price: 500, popular: false },
+  { id: "10", dollars: 10, price: 1000, popular: true },
+  { id: "25", dollars: 25, price: 2500, popular: false },
+  { id: "50", dollars: 50, price: 5000, popular: false },
+  { id: "100", dollars: 100, price: 10000, popular: false },
 ];
 
-export function formatTokens(tokens: number): string {
-  if (tokens >= 1000) {
-    return `${(tokens / 1000).toFixed(1)}k`;
-  }
-  return tokens.toString();
+/** Parse DB numeric / string dollar fields (e.g. promotions.dollar_amount). */
+export function parseDollarAmount(value: unknown): number | null {
+  if (value == null || value === "") return null;
+  const n = typeof value === "number" ? value : parseFloat(String(value));
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return n;
 }
 
 export function formatPrice(priceInCents: number): string {
   return `$${(priceInCents / 100).toFixed(2)}`;
+}
+
+export function formatCredits(dollars: number): string {
+  return `$${dollars.toFixed(2)}`;
 }

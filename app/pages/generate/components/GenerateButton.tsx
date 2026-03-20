@@ -1,6 +1,6 @@
 import { Box, Button } from "@mantine/core";
 import { RiImageLine, RiVideoLine } from "@remixicon/react";
-import { TokensBadge } from "../../../shared/TokensBadge";
+import { CostBadge } from "../../../shared/CostBadge";
 import useGenerateStore from "~/lib/stores/generateStore";
 
 export function GenerateButton() {
@@ -26,7 +26,7 @@ export function GenerateButton() {
         type="submit"
         loading={generating}
         leftSection={getIcon()}
-        rightSection={<TokensBadge tokens={tokensCost} clickable={false} />}
+        rightSection={<CostBadge cost={tokensCost} clickable={false} />}
         fullWidth
         variant="dark"
         size="md"

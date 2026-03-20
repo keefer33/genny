@@ -81,7 +81,7 @@ interface Profile {
   phone: string;
   tokens: number;
   token_balance?: number;
-  usage_amount?: number;
+  usage_balance?: number;
   api_key?: string | null;
   meta?: Record<string, any> | null;
 }
@@ -100,6 +100,23 @@ interface Session {
   id?: string;
 }
 
+interface AiModel {
+  id: string;
+  model_name: string;
+  model_type?: string | null;
+  order?: number | null;
+  meta?: {
+    tags?: string[];
+    context_window?: number;
+  } | null;
+  brand_name?: { name: string | null; logo: string | null } | null;
+  api_id?: {
+    pricing?: { input?: string; output?: string };
+    schema?: Record<string, unknown>;
+    meta?: Record<string, unknown>;
+  } | null;
+}
+
 interface AppStoreState {
   // Loading states
   loading: boolean;
@@ -112,11 +129,14 @@ interface AppStoreState {
   page: string | undefined;
   userTokens: number;
   userUsageBalance: number;
+  aiModels: AiModel[];
   authApiKey: string | null;
   setAuthApiKey: (authApiKey: string | null) => void;
   getAuthApiKey: () => string | null;
   setUserTokens: (tokens: number) => void;
   setUserUsageBalance: (usageBalance: number) => void;
+  setAgentModels: (aiModels: AiModel[]) => void;
+  getAgentModels: () => AiModel[];
   setLoading: (loading: boolean) => void;
   setThemeColor: (color: string) => void;
   setApi: () => void;
@@ -160,6 +180,7 @@ const useAppStoreBase = create<AppStoreState>((set, get) => ({
   page: undefined,
   userTokens: 0,
   userUsageBalance: 0,
+  aiModels: [],
   authApiKey: null,
   authRealtimeChannel: null as any,
   setAuthApiKey: (authApiKey: string | null) => set({ authApiKey }),
@@ -167,6 +188,8 @@ const useAppStoreBase = create<AppStoreState>((set, get) => ({
   getAuthApiKey: () => get().authApiKey,
   setUserTokens: (tokens: number) => set({ userTokens: tokens }),
   setUserUsageBalance: (usageBalance: number) => set({ userUsageBalance: usageBalance }),
+  setAgentModels: (aiModels: any[]) => set({ aiModels }),
+  getAgentModels: () => get().aiModels,
   setThemeColor: (themeColor) => set({ themeColor }),
   setApi: () =>
     set({

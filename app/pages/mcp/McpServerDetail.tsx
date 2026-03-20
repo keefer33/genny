@@ -253,7 +253,7 @@ export default function McpServerDetail() {
             >
               Back to MCP Servers
             </Button>
-            <Button variant="light" component={Link} to="/agents">
+            <Button variant="light" component={Link} to="/chats">
               Back to Agents
             </Button>
           </Group>

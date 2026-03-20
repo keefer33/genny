@@ -9,9 +9,9 @@ import {
   useMantineColorScheme,
 } from "@mantine/core";
 import { useEffect, useState } from "react";
-import { RiGiftLine, RiCoinsLine, RiMoneyDollarBoxLine, RiCalendarLine } from "@remixicon/react";
+import { RiGiftLine, RiMoneyDollarBoxLine, RiCalendarLine } from "@remixicon/react";
 import useAppStore from "~/lib/stores/appStore";
-import { formatTokens } from "~/lib/tokenUtils";
+import { formatCredits, parseDollarAmount } from "~/lib/tokenUtils";
 
 interface Promotion {
   id: string;
@@ -21,8 +21,7 @@ interface Promotion {
   promo_code: string | null;
   title: string | null;
   description: string | null;
-  token_amount: number | null;
-  dollar_amount: number | null;
+  dollar_amount: string | number | null;
   meta_data: any;
 }
 
@@ -104,86 +103,79 @@ export function PromotionCard() {
           <Title order={3}>Special Promotions</Title>
         </Group>
 
-        {promotions.map((promo) => (
-          <Card
-            key={promo.id}
-            radius="md"
-            p="md"
-            withBorder
-            style={{
-              backgroundColor: colorScheme === "dark" ? theme.colors.dark[6] : theme.colors.gray[0],
-            }}
-          >
-            <Stack gap="sm">
-              {promo.title && (
-                <Title order={4} size="h5">
-                  {promo.title}
-                </Title>
-              )}
-
-              {promo.description && (
-                <Text size="sm" c="dimmed">
-                  {promo.description}
-                </Text>
-              )}
-
-              <Group gap="md" mt="xs">
-                {promo.token_amount && (
-                  <Badge
-                    color="yellow"
-                    variant="light"
-                    leftSection={<RiCoinsLine size={14} />}
-                    size="lg"
-                  >
-                    {formatTokens(promo.token_amount)} tokens
-                  </Badge>
+        {promotions.map((promo) => {
+          const creditDollars = parseDollarAmount(promo.dollar_amount);
+          return (
+            <Card
+              key={promo.id}
+              radius="md"
+              p="md"
+              withBorder
+              style={{
+                backgroundColor:
+                  colorScheme === "dark" ? theme.colors.dark[6] : theme.colors.gray[0],
+              }}
+            >
+              <Stack gap="sm">
+                {promo.title && (
+                  <Title order={4} size="h5">
+                    {promo.title}
+                  </Title>
                 )}
 
-                {promo.dollar_amount && (
-                  <Badge
-                    color="green"
-                    variant="light"
-                    leftSection={<RiMoneyDollarBoxLine size={14} />}
-                    size="lg"
-                  >
-                    ${promo.dollar_amount.toFixed(2)}
-                  </Badge>
+                {promo.description && (
+                  <Text size="sm" c="dimmed">
+                    {promo.description}
+                  </Text>
                 )}
-              </Group>
 
-              {promo.promo_code && (
-                <Group gap="xs" mt="xs">
-                  <Text size="xs" c="dimmed">
-                    Promo Code:
-                  </Text>
-                  <Badge
-                    color="blue"
-                    variant="filled"
-                    style={{
-                      fontFamily: "monospace",
-                      fontSize: "12px",
-                      fontWeight: 600,
-                    }}
-                  >
-                    {promo.promo_code}
-                  </Badge>
-                </Group>
-              )}
+                {creditDollars != null && (
+                  <Group gap="md" mt="xs">
+                    <Badge
+                      color="green"
+                      variant="light"
+                      leftSection={<RiMoneyDollarBoxLine size={14} />}
+                      size="lg"
+                    >
+                      {formatCredits(creditDollars)} credits
+                    </Badge>
+                  </Group>
+                )}
 
-              {(promo.start_date || promo.end_date) && (
-                <Group gap="xs" mt="xs">
-                  <RiCalendarLine size={14} color={theme.colors.gray[6]} />
-                  <Text size="xs" c="dimmed">
-                    {promo.start_date &&
-                      `Starts: ${new Date(promo.start_date).toLocaleDateString()}`}
-                    {promo.start_date && promo.end_date && " • "}
-                    {promo.end_date && `Ends: ${new Date(promo.end_date).toLocaleDateString()}`}
-                  </Text>
-                </Group>
-              )}
-            </Stack>
-          </Card>
-        ))}
+                {promo.promo_code && (
+                  <Group gap="xs" mt="xs">
+                    <Text size="xs" c="dimmed">
+                      Promo Code:
+                    </Text>
+                    <Badge
+                      color="blue"
+                      variant="filled"
+                      style={{
+                        fontFamily: "monospace",
+                        fontSize: "12px",
+                        fontWeight: 600,
+                      }}
+                    >
+                      {promo.promo_code}
+                    </Badge>
+                  </Group>
+                )}
+
+                {(promo.start_date || promo.end_date) && (
+                  <Group gap="xs" mt="xs">
+                    <RiCalendarLine size={14} color={theme.colors.gray[6]} />
+                    <Text size="xs" c="dimmed">
+                      {promo.start_date &&
+                        `Starts: ${new Date(promo.start_date).toLocaleDateString()}`}
+                      {promo.start_date && promo.end_date && " • "}
+                      {promo.end_date && `Ends: ${new Date(promo.end_date).toLocaleDateString()}`}
+                    </Text>
+                  </Group>
+                )}
+              </Stack>
+            </Card>
+          );
+        })}
       </Stack>
     </Card>
   );

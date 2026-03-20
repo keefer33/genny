@@ -71,9 +71,16 @@ async function getModels(supabaseClient: any): Promise<Model[]> {
 export const loader = async () => {
   const supabaseUrl = process.env.VITE_SUPABASE_URL;
   const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
+  const apiEndpoint =
+    process.env.VITE_NODE_ENV === "development"
+      ? process.env.VITE_LOCAL_API_URL
+      : process.env.VITE_API_URL;
 
   if (!supabaseUrl || !supabaseKey) {
     throw new Error("Missing Supabase environment variables");
+  }
+  if (!apiEndpoint) {
+    throw new Error("Missing API endpoint environment variables");
   }
 
   // Create server client using service role key for server-side operations
@@ -85,7 +92,18 @@ export const loader = async () => {
   });
 
   const loaderModels = await getModels(supabaseClient);
-  return { loaderModels };
+  let loaderAiModelsData: unknown = [];
+  try {
+    const loaderAiModels = await fetch(`${apiEndpoint}/agents`);
+    if (loaderAiModels.ok) {
+      loaderAiModelsData = await loaderAiModels.json();
+    } else {
+      console.error("[root loader] Failed to fetch AI models:", loaderAiModels.status);
+    }
+  } catch (e) {
+    console.error("[root loader] Failed to fetch AI models:", e);
+  }
+  return { loaderModels, loaderAiModelsData };
 };
 
 function DynamicThemeProvider({ children }: { children: React.ReactNode }) {
@@ -140,10 +158,13 @@ export const links: Route.LinksFunction = () => [
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {
-  const { appLoading, setIsMobile } = useAppStore();
+  const { appLoading, setIsMobile, setAgentModels } = useAppStore();
   const { setModels } = useGenerateStore();
-  const { loaderModels } = useLoaderData<typeof loader>();
-
+  const data = useLoaderData<typeof loader>();
+  const loaderModels = data?.loaderModels ?? [];
+  const loaderAiModelsData = Array.isArray(data?.loaderAiModelsData)
+    ? data?.loaderAiModelsData
+    : [];
   useAuth();
 
   // Detect mobile screen size and update store
@@ -165,6 +186,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
       setModels(loaderModels);
     }
   }, [loaderModels, setModels]);
+
+  useEffect(() => {
+    setAgentModels(loaderAiModelsData as any[]);
+    console.log(loaderAiModelsData);
+  }, [loaderAiModelsData, setAgentModels]);
 
   return (
     <html lang="en">

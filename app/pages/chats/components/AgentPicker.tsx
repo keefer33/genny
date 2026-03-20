@@ -12,18 +12,24 @@ import {
 } from "@mantine/core";
 import { RiArrowDownSLine, RiChatSmile2Line, RiDeleteBinLine } from "@remixicon/react";
 import { useState } from "react";
-import { useChatsStore, type UserAgentRow, type AgentModelRow } from "~/lib/stores/chatsStore";
+import { useChatsStore, type UserAgentRow } from "~/lib/stores/chatsStore";
 import useAppStore from "~/lib/stores/appStore";
 import CreateAgent from "~/pages/chats/components/CreateAgent";
 import ToolsAttachButton from "~/pages/chats/components/ToolsAttachButton";
 import ChatSettings from "~/pages/chats/components/ChatSettings";
 import { useTheme } from "~/lib/hooks/useTheme";
 
-function getModelForAgent(
-  agent: UserAgentRow | null,
-  agentModels: AgentModelRow[]
-): AgentModelRow | null {
-  return agent ? (agentModels.find((m) => m.model_name === agent.model_name) ?? null) : null;
+type AiModelRow = {
+  id: string;
+  model_name: string;
+  model_type?: string | null;
+  order?: number | null;
+  meta?: Record<string, unknown> | null;
+  brand_name?: { name: string | null; logo: string | null } | null;
+};
+
+function getModelForAgent(agent: UserAgentRow | null, aiModels: AiModelRow[]): AiModelRow | null {
+  return agent ? (aiModels.find((m) => m.model_name === agent.model_name) ?? null) : null;
 }
 
 interface AgentPickerProps {
@@ -34,27 +40,23 @@ interface AgentPickerProps {
 }
 
 export default function AgentPicker({ onSelectAgent, onOpenChatsList }: AgentPickerProps) {
-  const { isMobile, getUser } = useAppStore();
+  const { isMobile, getUser, getAgentModels } = useAppStore();
   const user = getUser();
-  const {
-    agents,
-    selectedAgent,
-    agentModels,
-    agentPickerOpen,
-    setAgentPickerOpen,
-    deleteUserAgent,
-  } = useChatsStore();
+  const aiModels = (getAgentModels?.() ?? []).filter(
+    (m: any) => m?.model_type === "text"
+  ) as AiModelRow[];
+  const { agents, selectedAgent, agentPickerOpen, setAgentPickerOpen, deleteUserAgent } =
+    useChatsStore();
   const theme = useMantineTheme();
   const { themeColor, colorScheme } = useTheme();
   const [createAgentModalOpen, setCreateAgentModalOpen] = useState(false);
   const [agentToDelete, setAgentToDelete] = useState<UserAgentRow | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const selectedModel = selectedAgent ? getModelForAgent(selectedAgent, agentModels) : null;
-  const selectedModelConfig = selectedModel?.meta as { owned_by?: string; name?: string } | null;
-  const selectedBrand =
-    selectedModel?.brand?.name ?? selectedModelConfig?.owned_by ?? selectedModel?.model_name ?? "";
-  const selectedLogo = selectedModel?.brand?.logo ?? null;
+  const selectedModel = selectedAgent ? getModelForAgent(selectedAgent, aiModels) : null;
+  const selectedBrandObj = selectedModel?.brand_name ?? null;
+  const selectedBrand = selectedBrandObj?.name ?? null;
+  const selectedLogo = selectedBrandObj?.logo ?? null;
 
   const handlePickAgent = (agent: UserAgentRow) => {
     onSelectAgent(agent);
@@ -151,10 +153,10 @@ export default function AgentPicker({ onSelectAgent, onOpenChatsList }: AgentPic
               Create Agent
             </Button>
             {agents.map((agent) => {
-              const model = getModelForAgent(agent, agentModels);
-              const cfg = model?.meta as { owned_by?: string; name?: string } | null;
-              const brand = model?.brand?.name ?? cfg?.owned_by ?? model?.model_name ?? "";
-              const logoUrl = model?.brand?.logo ?? null;
+              const model = getModelForAgent(agent, aiModels);
+              const brandObj = model?.brand_name ?? null;
+              const brand = brandObj?.name ?? model?.model_name ?? "";
+              const logoUrl = brandObj?.logo ?? null;
               const initial = (brand || agent.name || "?")[0].toUpperCase();
               const isSelected = selectedAgent?.id === agent.id;
               return (
@@ -179,9 +181,7 @@ export default function AgentPicker({ onSelectAgent, onOpenChatsList }: AgentPic
                           {agent.name}
                         </Text>
                         <Text size="xs" c="dimmed" truncate>
-                          {model?.model_name ??
-                            (cfg as { name?: string })?.name ??
-                            agent.model_name}
+                          {model?.model_name ?? agent.model_name}
                           {brand ? ` · ${brand}` : ""}
                         </Text>
                       </Stack>

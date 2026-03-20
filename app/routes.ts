@@ -13,7 +13,7 @@ export default [
     layout("shared/AuthWrapper.tsx", [
       route("/account/profile", "pages/account/UserProfile.tsx"),
       route("/account/billing", "pages/account/Billing.tsx"),
-      route("/account/tokens-log", "pages/account/TokensLog.tsx"),
+      route("/account/usage-log", "pages/account/UsageLog.tsx"),
       route("/account/support", "pages/account/Support.tsx"),
       route("/account/support/:ticketId", "pages/account/SupportTicket.tsx"),
       route("/mcpservers", "pages/mcp/McpServers.tsx"),

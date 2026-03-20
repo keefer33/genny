@@ -38,9 +38,11 @@ export default function CreateAgent({
   onClose,
   renderTriggerOnly = false,
 }: CreateAgentProps) {
-  const { getUser, isMobile } = useAppStore();
+  const { getUser, isMobile, getAgentModels } = useAppStore();
   const user = getUser();
-  const { agentModels, createUserAgent } = useChatsStore();
+  const agentModelsAll = getAgentModels?.() ?? [];
+  const agentModels = agentModelsAll.filter((m) => m?.model_type === "text");
+  const { createUserAgent } = useChatsStore();
   const {
     connectedAccounts,
     loadConnectedAccounts,
@@ -73,11 +75,7 @@ export default function CreateAgent({
   const selectedModel = form.values.selectedModelName
     ? agentModels.find((m) => m.model_name === form.values.selectedModelName)
     : null;
-  const selectedModelDisplayName = selectedModel
-    ? (selectedModel.meta as { name?: string })?.name?.trim() ||
-      selectedModel.model_name ||
-      selectedModel.id
-    : "";
+  const selectedModelDisplayName = selectedModel ? selectedModel.model_name : "";
 
   useEffect(() => {
     if (step === 2 && selectedModelDisplayName && !(form.values.name ?? "").trim()) {
@@ -185,86 +183,87 @@ export default function CreateAgent({
                 {step === 0 && (
                   <Stack gap="sm" mt="sm">
                     {[...agentModels]
-                      .sort((a, b) => (a.order ?? Number.POSITIVE_INFINITY) - (b.order ?? Number.POSITIVE_INFINITY))
+                      .sort(
+                        (a, b) =>
+                          (a.order ?? Number.POSITIVE_INFINITY) -
+                          (b.order ?? Number.POSITIVE_INFINITY)
+                      )
                       .map((m) => {
-                      const cfg = m.meta as {
-                        name?: string;
-                        description?: string;
-                        owned_by?: string;
-                        tags?: string[];
-                        pricing?: { input?: string; output?: string };
-                        context_window?: number;
-                      } | null;
-                      const isSelected = m.model_name === form.values.selectedModelName;
-                      return (
-                        <Card
-                          key={m.id}
-                          onClick={() => form.setFieldValue("selectedModelName", m.model_name)}
-                          style={{
-                            cursor: "pointer",
-                            borderColor: isSelected ? "var(--mantine-color-blue-6)" : undefined,
-                            backgroundColor: isSelected
-                              ? "var(--mantine-color-blue-light)"
-                              : undefined,
-                          }}
-                        >
-                          <Stack gap={4}>
-                            <Group justify="space-between" align="flex-start" wrap="nowrap">
-                              <Group wrap="nowrap" gap="sm" style={{ minWidth: 0 }}>
-                                <Avatar src={m.brand?.logo} radius="sm" size="md" color="blue">
-                                  {(m.brand?.name || cfg?.owned_by || "?")[0].toUpperCase()}
-                                </Avatar>
-                                <Stack gap={0} style={{ minWidth: 0 }}>
-                                  <Text fw={600} size="sm" truncate>
-                                    {cfg?.name?.trim() || m.model_name || m.id}
-                                  </Text>
-                                  {(m.brand?.name ?? cfg?.owned_by) && (
-                                    <Text size="xs" c="dimmed" truncate>
-                                      {m.brand?.name ?? cfg?.owned_by}
+                        const isSelected = m.model_name === form.values.selectedModelName;
+                        return (
+                          <Card
+                            key={m.id}
+                            onClick={() => form.setFieldValue("selectedModelName", m.model_name)}
+                            style={{
+                              cursor: "pointer",
+                              borderColor: isSelected ? "var(--mantine-color-blue-6)" : undefined,
+                              backgroundColor: isSelected
+                                ? "var(--mantine-color-blue-light)"
+                                : undefined,
+                            }}
+                          >
+                            <Stack gap={4}>
+                              <Group justify="space-between" align="flex-start" wrap="nowrap">
+                                <Group wrap="nowrap" gap="sm" style={{ minWidth: 0 }}>
+                                  <Avatar
+                                    src={m.brand_name?.logo}
+                                    radius="sm"
+                                    size="md"
+                                    color="blue"
+                                  >
+                                    {(m.brand_name?.name || "?")[0].toUpperCase()}
+                                  </Avatar>
+                                  <Stack gap={0} style={{ minWidth: 0 }}>
+                                    <Text fw={600} size="sm" truncate>
+                                      {m.model_name || m.id}
                                     </Text>
-                                  )}
-                                </Stack>
+                                    {m.brand_name?.name && (
+                                      <Text size="xs" c="dimmed" truncate>
+                                        {m.brand_name?.name}
+                                      </Text>
+                                    )}
+                                  </Stack>
+                                </Group>
                               </Group>
-                            </Group>
-                            <Group gap="xs">
-                              {cfg?.pricing?.input && (
-                                <Group gap="xs">
-                                  <Text size="xs">Input:</Text>
-                                  <Text size="xs" c="dimmed">
-                                    {cfg.pricing.input}
-                                  </Text>
-                                </Group>
-                              )}
-                              {cfg?.pricing?.output && (
-                                <Group gap="xs">
-                                  <Text size="xs">Output:</Text>
-                                  <Text size="xs" c="dimmed">
-                                    {cfg.pricing.output}
-                                  </Text>
-                                </Group>
-                              )}
-                              {cfg?.context_window && (
-                                <Group gap="xs">
-                                  <Text size="xs">Context:</Text>
-                                  <Text size="xs" c="dimmed">
-                                    {cfg.context_window.toLocaleString()} tokens
-                                  </Text>
-                                </Group>
-                              )}
-                            </Group>
-                            {cfg?.tags && cfg.tags.length > 0 && (
-                              <Group gap="xs" mt={4}>
-                                {cfg.tags.map((tag) => (
-                                  <Badge key={tag} size="sm" variant="light" color="gray">
-                                    {tag}
-                                  </Badge>
-                                ))}
+                              <Group gap="xs">
+                                {m.api_id?.pricing?.input && (
+                                  <Group gap="xs">
+                                    <Text size="xs">Input:</Text>
+                                    <Text size="xs" c="dimmed">
+                                      {m.api_id.pricing.input}
+                                    </Text>
+                                  </Group>
+                                )}
+                                {m.api_id?.pricing?.output && (
+                                  <Group gap="xs">
+                                    <Text size="xs">Output:</Text>
+                                    <Text size="xs" c="dimmed">
+                                      {m.api_id.pricing.output}
+                                    </Text>
+                                  </Group>
+                                )}
+                                {m.meta?.context_window && (
+                                  <Group gap="xs">
+                                    <Text size="xs">Context:</Text>
+                                    <Text size="xs" c="dimmed">
+                                      {m.meta.context_window.toLocaleString()} tokens
+                                    </Text>
+                                  </Group>
+                                )}
                               </Group>
-                            )}
-                          </Stack>
-                        </Card>
-                      );
-                    })}
+                              {m.meta?.tags && m.meta.tags.length > 0 && (
+                                <Group gap="xs" mt={4}>
+                                  {m.meta.tags.map((tag) => (
+                                    <Badge key={tag} size="sm" variant="light" color="gray">
+                                      {tag}
+                                    </Badge>
+                                  ))}
+                                </Group>
+                              )}
+                            </Stack>
+                          </Card>
+                        );
+                      })}
                   </Stack>
                 )}
                 {step === 1 && (

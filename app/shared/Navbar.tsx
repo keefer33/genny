@@ -116,10 +116,10 @@ export function Navbar({ toggleMobile, collapsed }: NavbarProps) {
       matchPrefix: "/tools",
     },
     {
-      to: "/account/tokens-log",
+      to: "/account/usage-log",
       icon: RiCoinLine,
-      label: "Tokens",
-      description: "Token usage history",
+      label: "Usage",
+      description: "Usage history",
     },
     {
       to: "/account/billing",

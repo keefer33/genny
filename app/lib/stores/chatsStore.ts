@@ -46,15 +46,6 @@ export interface ChatUIMessage {
   };
 }
 
-/** Agent model from GET /agents/agent-models (agent_models + brands). */
-export interface AgentModelRow {
-  id: string;
-  model_name: string;
-  order?: number | null;
-  meta: Record<string, unknown> | null;
-  brand?: { name: string | null; logo: string | null } | null;
-}
-
 /** User agent row from user_agents table. */
 export interface UserAgentRow {
   id: string;
@@ -139,8 +130,6 @@ interface ChatsState {
   chats: ChatRow[];
   getChats: () => ChatRow[];
   chatsLoading: boolean;
-  agentModels: AgentModelRow[];
-  agentModelsLoading: boolean;
   agents: UserAgentRow[];
   agentsLoading: boolean;
   messages: ChatUIMessage[];
@@ -198,7 +187,6 @@ interface ChatsState {
     },
     usage?: Record<string, unknown>
   ) => Promise<ChatMessageRow | null>;
-  loadAgentModels: () => Promise<void>;
   loadAgents: (userId: string) => Promise<void>;
   createUserAgent: (
     userId: string,
@@ -228,8 +216,6 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
   chats: [],
   getChats: () => get().chats,
   chatsLoading: false,
-  agentModels: [],
-  agentModelsLoading: false,
   agents: [],
   agentsLoading: false,
   messages: [],
@@ -269,7 +255,7 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
     set((s) => ({ messages: [...s.messages, userMessage] }));
 
     try {
-      const res = await authFetch(`${endpoint}/chats/run`, {
+      const res = await authFetch(`${endpoint}/agents/run`, {
         method: "POST",
         body: JSON.stringify({
           chat_id: chatId,
@@ -402,7 +388,7 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
     set({ chatsLoading: true });
     try {
       const q = agentId ? `?agent_id=${encodeURIComponent(agentId)}` : "";
-      const res = await authFetch(`${endpoint}/chats/chats${q}`);
+      const res = await authFetch(`${endpoint}/chats${q}`);
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error((err as { error?: string }).error ?? "Failed to list chats");
@@ -422,7 +408,7 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
 
   createChat: async (userId: string, agentId: string, metadata?: Record<string, unknown>) => {
     try {
-      const res = await authFetch(`${endpoint}/chats/chats`, {
+      const res = await authFetch(`${endpoint}/chats`, {
         method: "POST",
         body: JSON.stringify({ agent_id: agentId, metadata: metadata ?? {} }),
       });
@@ -442,7 +428,7 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
 
   getChat: async (userId: string, chatId: string) => {
     try {
-      const res = await authFetch(`${endpoint}/chats/chats/${encodeURIComponent(chatId)}`);
+      const res = await authFetch(`${endpoint}/chats/${encodeURIComponent(chatId)}`);
       if (!res.ok) return null;
       return (await res.json()) as ChatRow;
     } catch {
@@ -452,7 +438,7 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
 
   updateChat: async (userId: string, chatId: string, metadata: Record<string, unknown>) => {
     try {
-      const res = await authFetch(`${endpoint}/chats/chats/${encodeURIComponent(chatId)}`, {
+      const res = await authFetch(`${endpoint}/chats/chat/${encodeURIComponent(chatId)}`, {
         method: "PATCH",
         body: JSON.stringify({ metadata }),
       });
@@ -469,7 +455,7 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
 
   deleteChat: async (userId: string, chatId: string) => {
     try {
-      const res = await authFetch(`${endpoint}/chats/chats/${encodeURIComponent(chatId)}`, {
+      const res = await authFetch(`${endpoint}/chats/chat/${encodeURIComponent(chatId)}`, {
         method: "DELETE",
       });
       if (!res.ok) {
@@ -495,7 +481,7 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
     if (options?.order) params.set("order", options.order);
     const q = params.toString() ? `?${params.toString()}` : "";
     const res = await authFetch(
-      `${endpoint}/chats/chats/${encodeURIComponent(chatId)}/messages${q}`
+      `${endpoint}/chats/chat/${encodeURIComponent(chatId)}/messages${q}`
     );
     if (!res.ok) return [];
     const data = await res.json();
@@ -514,13 +500,10 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
     usage?: Record<string, unknown>
   ) => {
     try {
-      const res = await authFetch(
-        `${endpoint}/chats/chats/${encodeURIComponent(chatId)}/messages`,
-        {
-          method: "POST",
-          body: JSON.stringify({ message, usage: usage ?? null }),
-        }
-      );
+      const res = await authFetch(`${endpoint}/chats/chat/${encodeURIComponent(chatId)}/messages`, {
+        method: "POST",
+        body: JSON.stringify({ message, usage: usage ?? null }),
+      });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error((err as { error?: string }).error ?? "Failed to create message");
@@ -529,21 +512,6 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
     } catch (err) {
       console.error("[chatsStore] createChatMessage:", err);
       return null;
-    }
-  },
-
-  loadAgentModels: async () => {
-    set({ agentModelsLoading: true });
-    try {
-      const res = await fetch(`${endpoint}/agents/agent-models`);
-      if (!res.ok) throw new Error("Failed to fetch agent models");
-      const data = await res.json();
-      set({ agentModels: (data.data as AgentModelRow[]) ?? [] });
-    } catch (err) {
-      console.error("[chatsStore] loadAgentModels:", err);
-      set({ agentModels: [] });
-    } finally {
-      set({ agentModelsLoading: false });
     }
   },
   loadAgents: async (userId: string) => {

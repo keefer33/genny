@@ -9,17 +9,16 @@ import {
   Title,
   useMantineTheme,
   Divider,
+  Table,
 } from "@mantine/core";
 import { RiHistoryLine, RiAddLine, RiSubtractLine } from "@remixicon/react";
 import { useEffect } from "react";
 import useAppStore from "~/lib/stores/appStore";
-import useTokensLogStore, { type TokensLogEntry } from "~/lib/stores/tokensLogStore";
-import { Table } from "@mantine/core";
-import { formatTokens } from "~/lib/tokenUtils";
+import useUsageLogStore, { type UsageLogEntry } from "~/lib/stores/usageLogStore";
 import { CurrentBalance } from "~/shared/CurrentBalance";
 import { AppPagination } from "~/shared/AppPagination";
 
-export default function TokensLog() {
+export default function UsageLog() {
   const { getUser, isMobile } = useAppStore();
   const {
     logs,
@@ -29,68 +28,61 @@ export default function TokensLog() {
     setCurrentPage,
     setTotalPages,
     setLogsLoading,
-    fetchTokensLog,
-  } = useTokensLogStore();
+    fetchUsageLog,
+  } = useUsageLogStore();
   const theme = useMantineTheme();
   const itemsPerPage = 10;
 
   const user = getUser();
 
-  // Load tokens log when component mounts
   useEffect(() => {
-    loadTokensLog(currentPage);
+    loadUsageLog(currentPage);
   }, [currentPage, user?.user?.id]);
 
-  const loadTokensLog = async (page: number = 1) => {
+  const loadUsageLog = async (page: number = 1) => {
     if (!user?.user?.id) return;
 
     setLogsLoading(true);
     try {
-      const result = await fetchTokensLog(page, itemsPerPage);
+      const result = await fetchUsageLog(page, itemsPerPage);
 
       if (result.success) {
         setLogs(result.data.logs);
         setTotalPages(Math.ceil(result.data.total / itemsPerPage));
       }
     } catch (error) {
-      console.error("Error fetching tokens log:", error);
+      console.error("Error fetching usage log:", error);
     } finally {
       setLogsLoading(false);
     }
   };
 
-  const getLogType = (entry: TokensLogEntry): string => {
-    // Use log_type from tokens_log_types if available
-    if (entry.tokens_log_types?.log_type) {
-      const logType = entry.tokens_log_types.log_type;
+  const getLogType = (entry: UsageLogEntry): string => {
+    if (entry.usage_log_types?.log_type) {
+      const logType = entry.usage_log_types.log_type;
       return logType.charAt(0).toUpperCase() + logType.slice(1);
     }
-    // Fallback based on token_amount sign
-    return entry.token_amount > 0 ? "Credit" : "Debit";
+    return entry.usage_amount > 0 ? "Credit" : "Debit";
   };
 
-  const getReasonCode = (entry: TokensLogEntry): string => {
-    return entry.tokens_log_types?.reason_code || "—";
+  const getReasonCode = (entry: UsageLogEntry): string => {
+    return entry.usage_log_types?.reason_code || "—";
   };
 
-  const getDisplayAmount = (entry: TokensLogEntry): number => {
-    // Credits should be positive, debits should be negative
-    if (entry.tokens_log_types?.log_type === "credit") {
-      return Math.abs(entry.token_amount);
-    } else if (entry.tokens_log_types?.log_type === "debit") {
-      return -Math.abs(entry.token_amount);
+  const getDisplayAmount = (entry: UsageLogEntry): number => {
+    if (entry.usage_log_types?.log_type === "credit") {
+      return Math.abs(entry.usage_amount);
+    } else if (entry.usage_log_types?.log_type === "debit") {
+      return -Math.abs(entry.usage_amount);
     }
-    // Fallback: use token_amount as-is (should already be correct)
-    return entry.token_amount;
+    return entry.usage_amount;
   };
 
-  const getTypeColor = (entry: TokensLogEntry): string => {
-    // Use log_type from tokens_log_types if available
-    if (entry.tokens_log_types?.log_type) {
-      return entry.tokens_log_types.log_type === "credit" ? "green" : "red";
+  const getTypeColor = (entry: UsageLogEntry): string => {
+    if (entry.usage_log_types?.log_type) {
+      return entry.usage_log_types.log_type === "credit" ? "green" : "red";
     }
-    // Fallback to token_amount sign
-    if (entry.token_amount > 0) {
+    if (entry.usage_amount > 0) {
       return "green";
     }
     return "red";
@@ -112,11 +104,7 @@ export default function TokensLog() {
         h={isMobile ? "100%" : undefined}
         style={isMobile ? { minHeight: 0 } : undefined}
       >
-        {/* Current Balance */}
-
         <CurrentBalance />
-
-        {/* Tokens Log History */}
 
         <Stack
           gap="md"
@@ -124,17 +112,17 @@ export default function TokensLog() {
           style={isMobile ? { flex: 1, minHeight: 0 } : undefined}
         >
           <Group justify="space-between" mb="md">
-            <Title order={3}>Token Activity</Title>
+            <Title order={3}>Usage Activity</Title>
           </Group>
 
           {logs.length === 0 ? (
             <Stack align="center" py="xl">
               <RiHistoryLine size={48} color={theme.colors.gray[5]} />
               <Text size="lg" c="dimmed">
-                No token activity found
+                No usage activity found
               </Text>
               <Text size="sm" c="dimmed">
-                Your token usage and purchases will appear here
+                Your usage debits and credits will appear here
               </Text>
             </Stack>
           ) : isMobile ? (
@@ -170,7 +158,7 @@ export default function TokensLog() {
                                 <RiSubtractLine size={18} color={theme.colors.red[6]} />
                               )}
                               <Text fw={700} size="lg" c={isCredit ? "green" : "red"}>
-                                {formatTokens(Math.abs(displayAmount))}
+                                ${Math.abs(displayAmount).toFixed(2)}
                               </Text>
                             </Group>
                           </Group>
@@ -233,7 +221,6 @@ export default function TokensLog() {
               )}
             </>
           ) : (
-            // Desktop: Table layout
             <>
               <Table>
                 <Table.Thead>
@@ -241,7 +228,7 @@ export default function TokensLog() {
                     <Table.Th>Date</Table.Th>
                     <Table.Th>Type</Table.Th>
                     <Table.Th>Reason Code</Table.Th>
-                    <Table.Th>Tokens</Table.Th>
+                    <Table.Th>Amount</Table.Th>
                     <Table.Th>Related ID</Table.Th>
                   </Table.Tr>
                 </Table.Thead>
@@ -279,7 +266,7 @@ export default function TokensLog() {
                               <RiSubtractLine size={16} color={theme.colors.red[6]} />
                             )}
                             <Text fw={600} c={isCredit ? "green" : "red"}>
-                              {formatTokens(Math.abs(displayAmount))}
+                              ${Math.abs(displayAmount).toFixed(2)}
                             </Text>
                           </Group>
                         </Table.Td>
@@ -316,7 +303,6 @@ export default function TokensLog() {
                 </Table.Tbody>
               </Table>
 
-              {/* Pagination */}
               {totalPages > 1 && (
                 <Group justify="center" mt="md">
                   <AppPagination

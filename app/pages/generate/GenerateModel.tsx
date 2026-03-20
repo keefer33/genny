@@ -32,7 +32,7 @@ export default function GenerateModel() {
     modelLoading,
     generateContent,
     setCurrentTaskId,
-    calculateTokens,
+    calculateCost,
     getSelectedModel,
     selectedModel,
   } = useGenerateStore();
@@ -258,7 +258,7 @@ export default function GenerateModel() {
       const noTriggerKeys = getNoTriggerKeysFromSchema(schema);
       const hasTriggerChange = changedKeys.some((k) => !noTriggerKeys.has(k));
       if (hasTriggerChange && user?.user?.id) {
-        calculateTokens(values);
+        calculateCost(values);
       }
     },
   });

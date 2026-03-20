@@ -26,7 +26,6 @@ export default function Chats() {
   const {
     getChats: _getChats,
     agents,
-    agentModels: _agentModels,
     agentsLoading: _agentsLoading,
     messages,
     streamingContent,
@@ -42,7 +41,6 @@ export default function Chats() {
     setAgentPickerOpen,
     listChats,
     createChat,
-    loadAgentModels,
     loadAgents,
     loadMessagesForChat,
     runChat,
@@ -131,12 +129,11 @@ export default function Chats() {
 
   useEffect(() => {
     (async () => {
-      await loadAgentModels();
       if (user?.user?.id) {
         await loadAgents(user.user.id);
       }
     })();
-  }, [loadAgentModels, loadAgents, user?.user?.id]);
+  }, [loadAgents, user?.user?.id]);
 
   useEffect(() => {
     if (!selectedAgent && agents.length && user?.user?.id) {
@@ -182,8 +179,7 @@ export default function Chats() {
           opened={chatsListModalOpen}
           onClose={() => setChatsListModalOpen(false)}
           title="Chats"
-          size="sm"
-          radius="md"
+          fullScreen
         >
           <ChatsList form={form} onSelectChat={() => setChatsListModalOpen(false)} />
         </Modal>
