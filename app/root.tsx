@@ -5,106 +5,20 @@ import {
   Outlet,
   Scripts,
   ScrollRestoration,
-  useLoaderData,
 } from "react-router";
 import mantine from "@mantine/core/styles.css?url";
 import notifications from "@mantine/notifications/styles.css?url";
 import carousel from "@mantine/carousel/styles.css?url";
 import globalStyles from "./global.css?url";
 import useAppStore from "~/lib/stores/appStore";
-import useGenerateStore from "~/lib/stores/generateStore";
-import type { Route } from "./+types/root";
 import { useEffect } from "react";
 import { MantineProvider } from "@mantine/core";
 import { createThemeWithColor } from "./lib/theme";
 import PageLoader from "./shared/PageLoader";
 import { useAuth } from "./lib/hooks/useAuth";
-import { createClient } from "@supabase/supabase-js";
-import type { Model } from "./lib/stores/generateStore";
 import { Notifications } from "@mantine/notifications";
 import { PWAInstallPrompt } from "./shared/PWAInstallPrompt";
-
-// Function to fetch all models from Supabase
-async function getModels(supabaseClient: any): Promise<Model[]> {
-  try {
-    const { data, error } = await supabaseClient
-      .from("models")
-      .select(
-        `
-        *,
-        brands (
-          id,
-          name,
-          logo
-        ),
-        api(schema,pricing)
-      `
-      )
-      .neq("status", false)
-      .order("order", { ascending: true, nullsFirst: false });
-
-    if (error) {
-      console.error("Error fetching models:", error);
-      return [];
-    }
-
-    // Filter out any null or invalid models
-    const validModels = (data || []).filter(
-      (model) => model && model.id && model.name && model.generation_type
-    );
-
-    // Keep DB-driven order first, then fallback by name for stable rendering.
-    const sortedModels = validModels.sort((a, b) => {
-      const orderA = typeof a.order === "number" ? a.order : Number.MAX_SAFE_INTEGER;
-      const orderB = typeof b.order === "number" ? b.order : Number.MAX_SAFE_INTEGER;
-      if (orderA !== orderB) return orderA - orderB;
-      return (a.name || "").localeCompare(b.name || "");
-    });
-
-    return sortedModels;
-  } catch (error) {
-    console.error("Error fetching models:", error);
-    return [];
-  }
-}
-
-export const loader = async () => {
-  const supabaseUrl = process.env.VITE_SUPABASE_URL;
-  const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
-  const apiEndpoint =
-    process.env.VITE_NODE_ENV === "development"
-      ? process.env.VITE_LOCAL_API_URL
-      : process.env.VITE_API_URL;
-
-  if (!supabaseUrl || !supabaseKey) {
-    throw new Error("Missing Supabase environment variables");
-  }
-  if (!apiEndpoint) {
-    throw new Error("Missing API endpoint environment variables");
-  }
-
-  // Create server client using service role key for server-side operations
-  const supabaseClient = createClient(supabaseUrl, supabaseKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  });
-
-  const loaderModels = await getModels(supabaseClient);
-  let loaderAiModelsData: unknown = [];
-  try {
-    const loaderAiModels = await fetch(`${apiEndpoint}/agents`);
-    if (loaderAiModels.ok) {
-      loaderAiModelsData = await loaderAiModels.json();
-    } else {
-      console.error("[root loader] Failed to fetch AI models:", loaderAiModels.status);
-    }
-  } catch (e) {
-    console.error("[root loader] Failed to fetch AI models:", e);
-  }
-  return { loaderModels, loaderAiModelsData };
-};
+import type { Route } from "./+types/root";
 
 function DynamicThemeProvider({ children }: { children: React.ReactNode }) {
   const { themeColor, setThemeColor } = useAppStore();
@@ -158,13 +72,7 @@ export const links: Route.LinksFunction = () => [
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {
-  const { appLoading, setIsMobile, setAgentModels } = useAppStore();
-  const { setModels } = useGenerateStore();
-  const data = useLoaderData<typeof loader>();
-  const loaderModels = data?.loaderModels ?? [];
-  const loaderAiModelsData = Array.isArray(data?.loaderAiModelsData)
-    ? data?.loaderAiModelsData
-    : [];
+  const { appLoading, setIsMobile } = useAppStore();
   useAuth();
 
   // Detect mobile screen size and update store
@@ -173,24 +81,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
       const isMobile = window.innerWidth < 992;
       setIsMobile(isMobile);
     };
-    // Check on mount
     checkIsMobile();
-    // Add resize listener
     window.addEventListener("resize", checkIsMobile);
-    // Cleanup
     return () => window.removeEventListener("resize", checkIsMobile);
   }, [setIsMobile]);
-
-  useEffect(() => {
-    if (loaderModels) {
-      setModels(loaderModels);
-    }
-  }, [loaderModels, setModels]);
-
-  useEffect(() => {
-    setAgentModels(loaderAiModelsData as any[]);
-    console.log(loaderAiModelsData);
-  }, [loaderAiModelsData, setAgentModels]);
 
   return (
     <html lang="en">

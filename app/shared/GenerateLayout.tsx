@@ -1,15 +1,43 @@
 import { AppShell, Box, useMantineColorScheme } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AppShellHeader } from "./AppShellHeader";
 import { AppShellNavbar } from "./AppShellNavbar";
 import useAppStore from "~/lib/stores/appStore";
-import { Outlet } from "react-router";
+import { Outlet, useLoaderData } from "react-router";
 import { usePaymentModal } from "./PaymentModal";
 import { MOBILE_GLOBAL_NAV_HEIGHT, MobileFooterGlobalNav } from "./MobileFooterGlobalNav";
+import useGenerateStore from "~/lib/stores/generateStore";
+import type { Model } from "~/lib/stores/generateStore";
+import {
+  fetchAgentModelsFromApi,
+  fetchGenerationModelsFromSupabase,
+  getApiEndpointForLoader,
+  getSupabaseAnonClientForLoader,
+} from "~/lib/fetchGenerationCatalog";
+
+export type GenerateLayoutLoaderData = {
+  loaderModels: Model[];
+  loaderAiModelsData: unknown[];
+};
+
+/** Load heavy catalog only for authenticated app shell — not on landing/login. */
+export async function loader(): Promise<GenerateLayoutLoaderData> {
+  const supabase = getSupabaseAnonClientForLoader();
+  const apiEndpoint = getApiEndpointForLoader();
+
+  const [loaderModels, loaderAiModelsData] = await Promise.all([
+    fetchGenerationModelsFromSupabase(supabase),
+    fetchAgentModelsFromApi(apiEndpoint),
+  ]);
+
+  return { loaderModels, loaderAiModelsData };
+}
 
 export default function GenerateLayout() {
-  const { isMobile } = useAppStore();
+  const { loaderModels, loaderAiModelsData } = useLoaderData<GenerateLayoutLoaderData>();
+  const { setModels } = useGenerateStore();
+  const { isMobile, setAgentModels } = useAppStore();
   const { colorScheme } = useMantineColorScheme();
   const [mobileOpened, { toggle: toggleMobile }] = useDisclosure();
   const [desktopCollapsed, setDesktopCollapsed] = useState(true);
@@ -17,6 +45,16 @@ export default function GenerateLayout() {
   const toggleDesktop = () => {
     setDesktopCollapsed(!desktopCollapsed);
   };
+
+  useEffect(() => {
+    if (loaderModels?.length) {
+      setModels(loaderModels);
+    }
+  }, [loaderModels, setModels]);
+
+  useEffect(() => {
+    setAgentModels(Array.isArray(loaderAiModelsData) ? (loaderAiModelsData as any[]) : []);
+  }, [loaderAiModelsData, setAgentModels]);
 
   return (
     <AppShell
