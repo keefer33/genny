@@ -2,15 +2,20 @@ import { type RouteConfig, layout, route } from "@react-router/dev/routes";
 
 export default [
   route("/api-health-error", "pages/root/ApiHealthError.tsx"),
-  layout("shared/GenerateLayout.tsx", [
+  layout("shared/LandingLayout.tsx", [
     route("/", "pages/root/Home.tsx"),
-    route("/generate", "pages/generate/Generate.tsx"),
     route("/login", "pages/root/Login.tsx"),
-    route("/generate/:generation_type", "pages/generate/GenerateType.tsx"),
-    layout("pages/generate/GenerateModelLayout.tsx", [
-      route("/generate/:generation_type/:slug", "pages/generate/GenerateModel.tsx"),
-    ]),
+    route("/privacy", "pages/root/PrivacyPolicy.tsx"),
+    route("/terms", "pages/root/TermsOfService.tsx"),
+    route("/contact", "pages/root/Contact.tsx"),
+  ]),
+  layout("shared/GenerateLayout.tsx", [
     layout("shared/AuthWrapper.tsx", [
+      route("/generate", "pages/generate/Generate.tsx"),
+      route("/generate/:generation_type", "pages/generate/GenerateType.tsx"),
+      layout("pages/generate/GenerateModelLayout.tsx", [
+        route("/generate/:generation_type/:slug", "pages/generate/GenerateModel.tsx"),
+      ]),
       route("/account/profile", "pages/account/UserProfile.tsx"),
       route("/account/billing", "pages/account/Billing.tsx"),
       route("/account/usage-log", "pages/account/UsageLog.tsx"),

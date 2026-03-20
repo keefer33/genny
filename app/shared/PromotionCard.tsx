@@ -1,17 +1,8 @@
-import {
-  Badge,
-  Card,
-  Group,
-  Stack,
-  Text,
-  Title,
-  useMantineTheme,
-  useMantineColorScheme,
-} from "@mantine/core";
+import { Card, Stack, Text, Title, Box, Button } from "@mantine/core";
 import { useEffect, useState } from "react";
-import { RiGiftLine, RiMoneyDollarBoxLine, RiCalendarLine } from "@remixicon/react";
+import { RiSparklingLine } from "@remixicon/react";
 import useAppStore from "~/lib/stores/appStore";
-import { formatCredits, parseDollarAmount } from "~/lib/tokenUtils";
+import { Link } from "react-router";
 
 interface Promotion {
   id: string;
@@ -26,8 +17,6 @@ interface Promotion {
 }
 
 export function PromotionCard() {
-  const theme = useMantineTheme();
-  const { colorScheme } = useMantineColorScheme();
   const { getApi } = useAppStore();
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [loading, setLoading] = useState(true);
@@ -96,87 +85,32 @@ export function PromotionCard() {
   }
 
   return (
-    <Card radius="md" p="lg" style={{ minWidth: "300px", maxWidth: "400px" }}>
-      <Stack gap="md">
-        <Group gap="xs">
-          <RiGiftLine size={24} color={theme.colors.blue[6]} />
-          <Title order={3}>Special Promotions</Title>
-        </Group>
+    <Box>
+      {promotions.map((promo) => {
+        return (
+          <Card key={promo.id} radius="md" p="xl">
+            <Stack gap="sm" align="center" ta="center">
+              {promo.title && <Title order={1}>{promo.title}</Title>}
 
-        {promotions.map((promo) => {
-          const creditDollars = parseDollarAmount(promo.dollar_amount);
-          return (
-            <Card
-              key={promo.id}
-              radius="md"
-              p="md"
-              withBorder
-              style={{
-                backgroundColor:
-                  colorScheme === "dark" ? theme.colors.dark[6] : theme.colors.gray[0],
-              }}
-            >
-              <Stack gap="sm">
-                {promo.title && (
-                  <Title order={4} size="h5">
-                    {promo.title}
-                  </Title>
-                )}
+              {promo.description && (
+                <Text size="lg" c="dimmed">
+                  {promo.description}
+                </Text>
+              )}
 
-                {promo.description && (
-                  <Text size="sm" c="dimmed">
-                    {promo.description}
-                  </Text>
-                )}
-
-                {creditDollars != null && (
-                  <Group gap="md" mt="xs">
-                    <Badge
-                      color="green"
-                      variant="light"
-                      leftSection={<RiMoneyDollarBoxLine size={14} />}
-                      size="lg"
-                    >
-                      {formatCredits(creditDollars)} credits
-                    </Badge>
-                  </Group>
-                )}
-
-                {promo.promo_code && (
-                  <Group gap="xs" mt="xs">
-                    <Text size="xs" c="dimmed">
-                      Promo Code:
-                    </Text>
-                    <Badge
-                      color="blue"
-                      variant="filled"
-                      style={{
-                        fontFamily: "monospace",
-                        fontSize: "12px",
-                        fontWeight: 600,
-                      }}
-                    >
-                      {promo.promo_code}
-                    </Badge>
-                  </Group>
-                )}
-
-                {(promo.start_date || promo.end_date) && (
-                  <Group gap="xs" mt="xs">
-                    <RiCalendarLine size={14} color={theme.colors.gray[6]} />
-                    <Text size="xs" c="dimmed">
-                      {promo.start_date &&
-                        `Starts: ${new Date(promo.start_date).toLocaleDateString()}`}
-                      {promo.start_date && promo.end_date && " • "}
-                      {promo.end_date && `Ends: ${new Date(promo.end_date).toLocaleDateString()}`}
-                    </Text>
-                  </Group>
-                )}
-              </Stack>
-            </Card>
-          );
-        })}
-      </Stack>
-    </Card>
+              <Button
+                component={Link}
+                to="/login"
+                size="lg"
+                variant="filled"
+                leftSection={<RiSparklingLine size={20} />}
+              >
+                Create For Free!
+              </Button>
+            </Stack>
+          </Card>
+        );
+      })}
+    </Box>
   );
 }

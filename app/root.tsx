@@ -201,12 +201,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
           name="description"
           content="A modern generative AI application for creating stunning images and videos using the latest AI models"
         />
-        <meta name="theme-color" content="#00b8d4" />
+        <meta name="theme-color" content="#ffffff" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="Genny" />
         <meta name="mobile-web-app-capable" content="yes" />
-        <meta name="msapplication-TileColor" content="#00b8d4" />
+        <meta name="msapplication-TileColor" content="#ffffff" />
         <meta name="msapplication-config" content="/browserconfig.xml" />
         <Meta />
         <Links />

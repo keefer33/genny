@@ -1,7 +1,5 @@
 import {
-  Badge,
   Button,
-  Card,
   Group,
   Modal,
   ScrollArea,
@@ -10,7 +8,6 @@ import {
   TextInput,
   Textarea,
   Stepper,
-  Avatar,
   Container,
 } from "@mantine/core";
 import { useState, useEffect } from "react";
@@ -21,6 +18,7 @@ import { FormProvider, useForm } from "~/lib/ContextForm";
 import ToolkitSelectorList, {
   buildToolkitsFromConnections,
 } from "~/pages/chats/components/ToolkitSelectorList";
+import { AgentModelCard } from "~/shared/AgentModelCard";
 
 interface CreateAgentProps {
   /** When inside agent picker modal, parent closes it before opening this modal */
@@ -191,77 +189,12 @@ export default function CreateAgent({
                       .map((m) => {
                         const isSelected = m.model_name === form.values.selectedModelName;
                         return (
-                          <Card
+                          <AgentModelCard
                             key={m.id}
-                            onClick={() => form.setFieldValue("selectedModelName", m.model_name)}
-                            style={{
-                              cursor: "pointer",
-                              borderColor: isSelected ? "var(--mantine-color-blue-6)" : undefined,
-                              backgroundColor: isSelected
-                                ? "var(--mantine-color-blue-light)"
-                                : undefined,
-                            }}
-                          >
-                            <Stack gap={4}>
-                              <Group justify="space-between" align="flex-start" wrap="nowrap">
-                                <Group wrap="nowrap" gap="sm" style={{ minWidth: 0 }}>
-                                  <Avatar
-                                    src={m.brand_name?.logo}
-                                    radius="sm"
-                                    size="md"
-                                    color="blue"
-                                  >
-                                    {(m.brand_name?.name || "?")[0].toUpperCase()}
-                                  </Avatar>
-                                  <Stack gap={0} style={{ minWidth: 0 }}>
-                                    <Text fw={600} size="sm" truncate>
-                                      {m.model_name || m.id}
-                                    </Text>
-                                    {m.brand_name?.name && (
-                                      <Text size="xs" c="dimmed" truncate>
-                                        {m.brand_name?.name}
-                                      </Text>
-                                    )}
-                                  </Stack>
-                                </Group>
-                              </Group>
-                              <Group gap="xs">
-                                {m.api_id?.pricing?.input && (
-                                  <Group gap="xs">
-                                    <Text size="xs">Input:</Text>
-                                    <Text size="xs" c="dimmed">
-                                      {m.api_id.pricing.input}
-                                    </Text>
-                                  </Group>
-                                )}
-                                {m.api_id?.pricing?.output && (
-                                  <Group gap="xs">
-                                    <Text size="xs">Output:</Text>
-                                    <Text size="xs" c="dimmed">
-                                      {m.api_id.pricing.output}
-                                    </Text>
-                                  </Group>
-                                )}
-                                {m.meta?.context_window && (
-                                  <Group gap="xs">
-                                    <Text size="xs">Context:</Text>
-                                    <Text size="xs" c="dimmed">
-                                      {m.meta.context_window.toLocaleString()} tokens
-                                    </Text>
-                                  </Group>
-                                )}
-                              </Group>
-                              {m.meta?.tags && m.meta.tags.length > 0 && (
-                                <Group gap="xs" mt={4}>
-                                  {m.meta.tags.map((tag) => (
-                                    <Badge key={tag} size="sm" variant="light" color="gray">
-                                      {tag}
-                                    </Badge>
-                                  ))}
-                                </Group>
-                              )}
-                            </Stack>
-                          </Card>
+                            model={m as any}
+                            isSelected={isSelected}
+                            onSelect={() => form.setFieldValue("selectedModelName", m.model_name)}
+                          />
                         );
                       })}
                   </Stack>

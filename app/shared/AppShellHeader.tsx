@@ -1,5 +1,4 @@
-import { Box, Group } from "@mantine/core";
-import { ActionIcon, Burger } from "@mantine/core";
+import { Box, Burger, Button, Group } from "@mantine/core";
 import { RiLoginBoxLine } from "@remixicon/react";
 import { Link } from "react-router";
 import Logo from "./Logo";
@@ -27,11 +26,20 @@ export function AppShellHeader({ mobileOpened, toggleMobile }: AppShellHeaderPro
               <UsageBadge usage={getCurrentUserUsageBalance()} />
             </>
           ) : (
-            <ActionIcon component={Link} to="/login" variant="subtle" aria-label="Login" size="lg">
-              <RiLoginBoxLine size={20} />
-            </ActionIcon>
+            <Button
+              component={Link}
+              to="/login"
+              variant="subtle"
+              size="sm"
+              leftSection={<RiLoginBoxLine size={18} />}
+              aria-label="Login / Register"
+            >
+              Login / Register
+            </Button>
           )}
-          <Burger opened={mobileOpened} onClick={toggleMobile} size="sm" hiddenFrom="md" />
+          {isLoggedIn && (
+            <Burger opened={mobileOpened} onClick={toggleMobile} size="sm" hiddenFrom="md" />
+          )}
         </Group>
       </Group>
     </Box>

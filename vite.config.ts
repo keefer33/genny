@@ -23,8 +23,8 @@ export default defineConfig({
         short_name: "Genny",
         description:
           "A modern generative AI application for creating stunning images and videos using the latest AI models",
-        theme_color: "#c1c6c7",
-        background_color: "#c1c6c7",
+        theme_color: "#ffffff",
+        background_color: "#ffffff",
         display: "standalone",
         orientation: "portrait-primary",
         scope: "/",
