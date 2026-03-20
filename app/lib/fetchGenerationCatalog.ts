@@ -1,5 +1,21 @@
 import { createClient } from "@supabase/supabase-js";
 import type { Model } from "~/lib/stores/generateStore";
+import { endpoint } from "./utils";
+
+/** Browser Supabase client for catalog fetch (anon, no session — same as loader). */
+export function getSupabaseAnonClientForBrowser() {
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error("Missing Supabase environment variables");
+  }
+  return createClient(supabaseUrl, supabaseKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+}
 
 /** Server-side Supabase client for loaders (anon key, no session). */
 export function getSupabaseAnonClientForLoader() {
@@ -83,4 +99,25 @@ export async function fetchAgentModelsFromApi(apiEndpoint: string): Promise<unkn
     console.error("[fetchAgentModelsFromApi] Error:", e);
     return [];
   }
+}
+
+/**
+ * Load generation models + agent models on the client (not via layout loader).
+ * Uses the same queries as the old GenerateLayout loader so `.data` navigations stay light.
+ */
+export async function fetchGenerationCatalogClient(): Promise<{
+  models: Model[];
+  agentModels: unknown[];
+}> {
+  const supabase = getSupabaseAnonClientForBrowser();
+  const apiBase = endpoint;
+  if (!apiBase) {
+    console.error("[fetchGenerationCatalogClient] Missing API endpoint env");
+    return { models: [], agentModels: [] };
+  }
+  const [models, agentModels] = await Promise.all([
+    fetchGenerationModelsFromSupabase(supabase),
+    fetchAgentModelsFromApi(apiBase),
+  ]);
+  return { models, agentModels };
 }

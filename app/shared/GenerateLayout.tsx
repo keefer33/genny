@@ -4,38 +4,13 @@ import { useEffect, useState } from "react";
 import { AppShellHeader } from "./AppShellHeader";
 import { AppShellNavbar } from "./AppShellNavbar";
 import useAppStore from "~/lib/stores/appStore";
-import { Outlet, useLoaderData } from "react-router";
+import { Outlet } from "react-router";
 import { usePaymentModal } from "./PaymentModal";
 import { MOBILE_GLOBAL_NAV_HEIGHT, MobileFooterGlobalNav } from "./MobileFooterGlobalNav";
 import useGenerateStore from "~/lib/stores/generateStore";
-import type { Model } from "~/lib/stores/generateStore";
-import {
-  fetchAgentModelsFromApi,
-  fetchGenerationModelsFromSupabase,
-  getApiEndpointForLoader,
-  getSupabaseAnonClientForLoader,
-} from "~/lib/fetchGenerationCatalog";
-
-export type GenerateLayoutLoaderData = {
-  loaderModels: Model[];
-  loaderAiModelsData: unknown[];
-};
-
-/** Load heavy catalog only for authenticated app shell — not on landing/login. */
-export async function loader(): Promise<GenerateLayoutLoaderData> {
-  const supabase = getSupabaseAnonClientForLoader();
-  const apiEndpoint = getApiEndpointForLoader();
-
-  const [loaderModels, loaderAiModelsData] = await Promise.all([
-    fetchGenerationModelsFromSupabase(supabase),
-    fetchAgentModelsFromApi(apiEndpoint),
-  ]);
-
-  return { loaderModels, loaderAiModelsData };
-}
+import { fetchGenerationCatalogClient } from "~/lib/fetchGenerationCatalog";
 
 export default function GenerateLayout() {
-  const { loaderModels, loaderAiModelsData } = useLoaderData<GenerateLayoutLoaderData>();
   const { setModels } = useGenerateStore();
   const { isMobile, setAgentModels } = useAppStore();
   const { colorScheme } = useMantineColorScheme();
@@ -47,14 +22,23 @@ export default function GenerateLayout() {
   };
 
   useEffect(() => {
-    if (loaderModels?.length) {
-      setModels(loaderModels);
-    }
-  }, [loaderModels, setModels]);
-
-  useEffect(() => {
-    setAgentModels(Array.isArray(loaderAiModelsData) ? (loaderAiModelsData as any[]) : []);
-  }, [loaderAiModelsData, setAgentModels]);
+    let cancelled = false;
+    (async () => {
+      try {
+        const { models, agentModels } = await fetchGenerationCatalogClient();
+        if (cancelled) return;
+        if (models.length) {
+          setModels(models);
+        }
+        setAgentModels(Array.isArray(agentModels) ? (agentModels as any[]) : []);
+      } catch (e) {
+        console.error("[GenerateLayout] Failed to load generation catalog:", e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [setModels, setAgentModels]);
 
   return (
     <AppShell
