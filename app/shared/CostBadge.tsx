@@ -1,9 +1,9 @@
 import { Badge } from "@mantine/core";
-import { RiCoinLine } from "@remixicon/react";
+import { RiCoinsLine } from "@remixicon/react";
 import { usePaymentModal } from "./PaymentModal";
 
-interface TokensBadgeProps {
-  tokens?: number;
+interface CostBadgeProps {
+  cost?: number;
   size?: "xs" | "sm" | "md" | "lg";
   variant?: "light" | "filled" | "outline" | "dot" | "gradient" | "subtle" | "default";
   color?: string;
@@ -11,16 +11,15 @@ interface TokensBadgeProps {
   clickable?: boolean;
 }
 
-export function TokensBadge({
-  tokens = 0,
+export function CostBadge({
+  cost = 0,
   size = "lg",
   variant = "filled",
   color = "yellow.3",
   leftSection,
   clickable = true,
-}: TokensBadgeProps) {
+}: CostBadgeProps) {
   const { openPaymentModal } = usePaymentModal();
-  //if (tokens === 0) return null;
 
   const handleClick = () => {
     if (clickable) {
@@ -32,13 +31,14 @@ export function TokensBadge({
     <Badge
       color={color}
       variant={variant}
-      leftSection={leftSection || <RiCoinLine size={18} />}
+      leftSection={leftSection || <RiCoinsLine size={18} />}
       size={size}
       component="span"
       style={clickable ? { cursor: "pointer" } : undefined}
       onClick={clickable ? handleClick : undefined}
     >
-      {tokens}
+      {cost.toFixed(2)}
     </Badge>
   );
 }
+

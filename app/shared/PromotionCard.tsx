@@ -1,17 +1,8 @@
-import {
-  Badge,
-  Card,
-  Group,
-  Stack,
-  Text,
-  Title,
-  useMantineTheme,
-  useMantineColorScheme,
-} from "@mantine/core";
+import { Card, Stack, Text, Title, Box, Button } from "@mantine/core";
 import { useEffect, useState } from "react";
-import { RiGiftLine, RiCoinsLine, RiMoneyDollarBoxLine, RiCalendarLine } from "@remixicon/react";
+import { RiSparklingLine } from "@remixicon/react";
 import useAppStore from "~/lib/stores/appStore";
-import { formatTokens } from "~/lib/tokenUtils";
+import { Link } from "react-router";
 
 interface Promotion {
   id: string;
@@ -21,14 +12,11 @@ interface Promotion {
   promo_code: string | null;
   title: string | null;
   description: string | null;
-  token_amount: number | null;
-  dollar_amount: number | null;
+  dollar_amount: string | number | null;
   meta_data: any;
 }
 
 export function PromotionCard() {
-  const theme = useMantineTheme();
-  const { colorScheme } = useMantineColorScheme();
   const { getApi } = useAppStore();
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [loading, setLoading] = useState(true);
@@ -97,94 +85,32 @@ export function PromotionCard() {
   }
 
   return (
-    <Card radius="md" p="lg" style={{ minWidth: "300px", maxWidth: "400px" }}>
-      <Stack gap="md">
-        <Group gap="xs">
-          <RiGiftLine size={24} color={theme.colors.blue[6]} />
-          <Title order={3}>Special Promotions</Title>
-        </Group>
-
-        {promotions.map((promo) => (
-          <Card
-            key={promo.id}
-            radius="md"
-            p="md"
-            withBorder
-            style={{
-              backgroundColor: colorScheme === "dark" ? theme.colors.dark[6] : theme.colors.gray[0],
-            }}
-          >
-            <Stack gap="sm">
-              {promo.title && (
-                <Title order={4} size="h5">
-                  {promo.title}
-                </Title>
-              )}
+    <Box>
+      {promotions.map((promo) => {
+        return (
+          <Card key={promo.id} radius="md" p="xl">
+            <Stack gap="sm" align="center" ta="center">
+              {promo.title && <Title order={1}>{promo.title}</Title>}
 
               {promo.description && (
-                <Text size="sm" c="dimmed">
+                <Text size="lg" c="dimmed">
                   {promo.description}
                 </Text>
               )}
 
-              <Group gap="md" mt="xs">
-                {promo.token_amount && (
-                  <Badge
-                    color="yellow"
-                    variant="light"
-                    leftSection={<RiCoinsLine size={14} />}
-                    size="lg"
-                  >
-                    {formatTokens(promo.token_amount)} tokens
-                  </Badge>
-                )}
-
-                {promo.dollar_amount && (
-                  <Badge
-                    color="green"
-                    variant="light"
-                    leftSection={<RiMoneyDollarBoxLine size={14} />}
-                    size="lg"
-                  >
-                    ${promo.dollar_amount.toFixed(2)}
-                  </Badge>
-                )}
-              </Group>
-
-              {promo.promo_code && (
-                <Group gap="xs" mt="xs">
-                  <Text size="xs" c="dimmed">
-                    Promo Code:
-                  </Text>
-                  <Badge
-                    color="blue"
-                    variant="filled"
-                    style={{
-                      fontFamily: "monospace",
-                      fontSize: "12px",
-                      fontWeight: 600,
-                    }}
-                  >
-                    {promo.promo_code}
-                  </Badge>
-                </Group>
-              )}
-
-              {(promo.start_date || promo.end_date) && (
-                <Group gap="xs" mt="xs">
-                  <RiCalendarLine size={14} color={theme.colors.gray[6]} />
-                  <Text size="xs" c="dimmed">
-                    {promo.start_date &&
-                      `Starts: ${new Date(promo.start_date).toLocaleDateString()}`}
-                    {promo.start_date && promo.end_date && " • "}
-                    {promo.end_date && `Ends: ${new Date(promo.end_date).toLocaleDateString()}`}
-                  </Text>
-                </Group>
-              )}
+              <Button
+                component={Link}
+                to="/login"
+                size="lg"
+                variant="filled"
+                leftSection={<RiSparklingLine size={20} />}
+              >
+                Create For Free!
+              </Button>
             </Stack>
           </Card>
-        ))}
-      </Stack>
-    </Card>
+        );
+      })}
+    </Box>
   );
 }

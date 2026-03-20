@@ -13,7 +13,7 @@ export default function Mounted({ children, pageLoading, size = "md", pt = "xs" 
   const mounted = useMounted();
 
   return (
-    <Container size={size === "full" ? undefined : size} fluid={size === "full"} pt={pt}>
+    <Container size={size === "full" ? undefined : size} fluid={size === "full"} pt={pt} pb="xl">
       {mounted && !pageLoading ? children : <PageLoader />}
     </Container>
   );

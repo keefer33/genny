@@ -5,88 +5,20 @@ import {
   Outlet,
   Scripts,
   ScrollRestoration,
-  useLoaderData,
 } from "react-router";
 import mantine from "@mantine/core/styles.css?url";
 import notifications from "@mantine/notifications/styles.css?url";
 import carousel from "@mantine/carousel/styles.css?url";
 import globalStyles from "./global.css?url";
 import useAppStore from "~/lib/stores/appStore";
-import useGenerateStore from "~/lib/stores/generateStore";
-import type { Route } from "./+types/root";
 import { useEffect } from "react";
 import { MantineProvider } from "@mantine/core";
 import { createThemeWithColor } from "./lib/theme";
 import PageLoader from "./shared/PageLoader";
 import { useAuth } from "./lib/hooks/useAuth";
-import { createClient } from "@supabase/supabase-js";
-import type { Model } from "./lib/stores/generateStore";
 import { Notifications } from "@mantine/notifications";
 import { PWAInstallPrompt } from "./shared/PWAInstallPrompt";
-
-// Function to fetch all models from Supabase
-async function getModels(supabaseClient: any): Promise<Model[]> {
-  try {
-    const { data, error } = await supabaseClient
-      .from("models")
-      .select(
-        `
-        *,
-        brands (
-          id,
-          name,
-          logo
-        ),
-        api(schema,pricing)
-      `
-      )
-      .neq("status", false)
-      .order("order", { ascending: true, nullsFirst: false });
-
-    if (error) {
-      console.error("Error fetching models:", error);
-      return [];
-    }
-
-    // Filter out any null or invalid models
-    const validModels = (data || []).filter(
-      (model) => model && model.id && model.name && model.generation_type
-    );
-
-    // Keep DB-driven order first, then fallback by name for stable rendering.
-    const sortedModels = validModels.sort((a, b) => {
-      const orderA = typeof a.order === "number" ? a.order : Number.MAX_SAFE_INTEGER;
-      const orderB = typeof b.order === "number" ? b.order : Number.MAX_SAFE_INTEGER;
-      if (orderA !== orderB) return orderA - orderB;
-      return (a.name || "").localeCompare(b.name || "");
-    });
-
-    return sortedModels;
-  } catch (error) {
-    console.error("Error fetching models:", error);
-    return [];
-  }
-}
-
-export const loader = async () => {
-  const supabaseUrl = process.env.VITE_SUPABASE_URL;
-  const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !supabaseKey) {
-    throw new Error("Missing Supabase environment variables");
-  }
-
-  // Create server client using service role key for server-side operations
-  const supabaseClient = createClient(supabaseUrl, supabaseKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  });
-
-  const loaderModels = await getModels(supabaseClient);
-  return { loaderModels };
-};
+import type { Route } from "./+types/root";
 
 function DynamicThemeProvider({ children }: { children: React.ReactNode }) {
   const { themeColor, setThemeColor } = useAppStore();
@@ -141,9 +73,6 @@ export const links: Route.LinksFunction = () => [
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const { appLoading, setIsMobile } = useAppStore();
-  const { setModels } = useGenerateStore();
-  const { loaderModels } = useLoaderData<typeof loader>();
-
   useAuth();
 
   // Detect mobile screen size and update store
@@ -152,19 +81,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
       const isMobile = window.innerWidth < 992;
       setIsMobile(isMobile);
     };
-    // Check on mount
     checkIsMobile();
-    // Add resize listener
     window.addEventListener("resize", checkIsMobile);
-    // Cleanup
     return () => window.removeEventListener("resize", checkIsMobile);
   }, [setIsMobile]);
-
-  useEffect(() => {
-    if (loaderModels) {
-      setModels(loaderModels);
-    }
-  }, [loaderModels, setModels]);
 
   return (
     <html lang="en">
@@ -175,12 +95,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
           name="description"
           content="A modern generative AI application for creating stunning images and videos using the latest AI models"
         />
-        <meta name="theme-color" content="#00b8d4" />
+        <meta name="theme-color" content="#ffffff" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="Genny" />
         <meta name="mobile-web-app-capable" content="yes" />
-        <meta name="msapplication-TileColor" content="#00b8d4" />
+        <meta name="msapplication-TileColor" content="#ffffff" />
         <meta name="msapplication-config" content="/browserconfig.xml" />
         <Meta />
         <Links />

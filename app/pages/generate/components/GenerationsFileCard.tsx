@@ -15,7 +15,7 @@ import { useEffect } from "react";
 import useAppStore from "~/lib/stores/appStore";
 import useGenerateStore, { type GenerationFile } from "~/lib/stores/generateStore";
 import MemberFilesCard from "~/pages/files/MemberFilesCard";
-import { TokensBadge } from "~/shared/TokensBadge";
+import { CostBadge } from "~/shared/CostBadge";
 import FileShare from "~/shared/FileShare";
 
 interface GenerationsFileCardProps {
@@ -143,7 +143,7 @@ export function GenerationsFileCard({
               {file.cost !== null && (
                 <Group gap={4}>
                   <Text size="xs" c="dimmed">
-                    <TokensBadge size="xs" tokens={file.cost} />
+                    <CostBadge size="xs" cost={file.cost} />
                   </Text>
                 </Group>
               )}

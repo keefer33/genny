@@ -1,4 +1,4 @@
-import { Box, Card, Container, useMantineColorScheme } from "@mantine/core";
+import { Box, Card, Container } from "@mantine/core";
 import { Outlet } from "react-router";
 import useAppStore from "~/lib/stores/appStore";
 import { GenerationResults } from "~/pages/generate/components/GenerationResults";
@@ -7,7 +7,6 @@ const DESKTOP_FORM_WIDTH = 420;
 
 export default function GenerateModelLayout() {
   const { isMobile } = useAppStore();
-  const { colorScheme } = useMantineColorScheme();
   return (
     <Box
       h="calc(100dvh - var(--app-shell-header-height, 0px) - var(--app-shell-footer-height, 0px))"

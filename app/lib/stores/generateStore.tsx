@@ -121,7 +121,7 @@ interface GenerateStoreState {
   handlePageChange: (page: number) => void;
   refreshGeneration: (generationId: string, userId: string, supabase: any) => Promise<void>;
   deleteGeneration: (generationId: string) => Promise<boolean>;
-  calculateTokens: (formValues: any) => void;
+  calculateCost: (formValues: any) => void;
 
   // Reset
   resetGenerateState: () => void;
@@ -196,7 +196,7 @@ const useGenerateStoreBase = create<GenerateStoreState>((set, get) => ({
     const session = useAppStore.getState().getUser();
     const apiKey = useAppStore.getState().getAuthApiKey();
     set({ generating: true });
-    get().calculateTokens(values);
+    get().calculateCost(values);
     try {
       const response = await fetch(`${endpoint}/generations/generate`, {
         method: "POST",
@@ -741,12 +741,12 @@ const useGenerateStoreBase = create<GenerateStoreState>((set, get) => ({
     }
   },
 
-  // Calculate tokens based on form values
-  calculateTokens: async (formValues) => {
+  // Calculate cost based on form values
+  calculateCost: async (formValues) => {
     const pricing = get().selectedModel?.api?.pricing || {};
     try {
       const response = await axios.post(
-        `${endpoint}/generations/calculate-tokens`,
+        `${endpoint}/generations/calculate-cost`,
         {
           formValues,
           pricing,
@@ -758,10 +758,10 @@ const useGenerateStoreBase = create<GenerateStoreState>((set, get) => ({
           },
         }
       );
-      const tokensCost = response?.data?.data?.tokensCost ?? 0;
+      const tokensCost = response?.data?.data?.cost ?? 0;
       set({ tokensCost });
     } catch (err) {
-      console.error("Error calculating tokens:", err);
+      console.error("Error calculating cost:", err);
       set({ tokensCost: 0 });
     }
   },

@@ -1,13 +1,10 @@
-import { Box, Button, useMantineColorScheme } from "@mantine/core";
+import { Box, Button } from "@mantine/core";
 import { RiImageLine, RiVideoLine } from "@remixicon/react";
-import { TokensBadge } from "../../../shared/TokensBadge";
+import { CostBadge } from "../../../shared/CostBadge";
 import useGenerateStore from "~/lib/stores/generateStore";
-import useAppStore from "~/lib/stores/appStore";
 
 export function GenerateButton() {
-  const { isMobile } = useAppStore();
   const { getSelectedModel, generating, tokensCost } = useGenerateStore();
-  const { colorScheme } = useMantineColorScheme();
   const getIcon = () => {
     return getSelectedModel().generation_type === "video" ? (
       <RiVideoLine size={16} />
@@ -29,7 +26,7 @@ export function GenerateButton() {
         type="submit"
         loading={generating}
         leftSection={getIcon()}
-        rightSection={<TokensBadge tokens={tokensCost} clickable={false} />}
+        rightSection={<CostBadge cost={tokensCost} clickable={false} />}
         fullWidth
         variant="dark"
         size="md"

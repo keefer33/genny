@@ -1,10 +1,10 @@
 import { Avatar, Badge, Button, Group, Stack, Text, useMantineTheme } from "@mantine/core";
-import { RiCoinsLine } from "@remixicon/react";
+import { RiMoneyDollarCircleLine } from "@remixicon/react";
 import { useEffect } from "react";
 import { Link } from "react-router";
 import useAppStore from "~/lib/stores/appStore";
 import { getInitials } from "~/lib/utils";
-import { formatTokens } from "~/lib/tokenUtils";
+import { formatCredits } from "~/lib/tokenUtils";
 import Mounted from "~/shared/Mounted";
 import { PageTitle } from "~/shared/PageTitle";
 import AccountInformation from "./components/AccountInformation";
@@ -85,9 +85,13 @@ export default function UserProfile() {
                     @{user.profile.username}
                   </Badge>
                 )}
-                {typeof user?.profile?.tokens === "number" && (
-                  <Badge color="blue" variant="light" leftSection={<RiCoinsLine size={12} />}>
-                    {formatTokens(user.profile.tokens)} tokens
+                {typeof user?.profile?.usage_balance === "number" && (
+                  <Badge
+                    color="blue"
+                    variant="light"
+                    leftSection={<RiMoneyDollarCircleLine size={12} />}
+                  >
+                    {formatCredits(user.profile.usage_balance)} balance
                   </Badge>
                 )}
               </Group>
@@ -102,11 +106,11 @@ export default function UserProfile() {
             </Button>
             <Button
               component={Link}
-              to="/account/tokens-log"
-              leftSection={<RiCoinsLine size={16} />}
+              to="/account/usage-log"
+              leftSection={<RiMoneyDollarCircleLine size={16} />}
               variant="light"
             >
-              View Tokens log
+              View Usage log
             </Button>
             <Button component={Link} to="/account/support" variant="light">
               Support
