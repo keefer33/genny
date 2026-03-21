@@ -47,7 +47,6 @@ export function GenerationResults() {
   const { isMobile } = useAppStore();
   const user = getUser();
   const userId = user?.user?.id;
-  const supabase = getApi();
   const availableModels = models.map((model) => ({ id: model.id, name: model.name }));
 
   useEffect(() => {
@@ -63,7 +62,7 @@ export function GenerationResults() {
 
   // Load generations using active filters (model filter optional from modal).
   useEffect(() => {
-    if (userId && supabase) {
+    if (userId) {
       loadGenerations(
         1,
         selectedFilterModelId || undefined,
@@ -72,15 +71,7 @@ export function GenerationResults() {
         selectedTags
       );
     }
-  }, [
-    currentTaskId,
-    fileTypeFilter,
-    selectedTags,
-    selectedFilterModelId,
-    userId,
-    supabase,
-    loadGenerations,
-  ]);
+  }, [currentTaskId, fileTypeFilter, selectedTags, selectedFilterModelId, userId, loadGenerations]);
 
   if (!userId) {
     return (
@@ -98,7 +89,7 @@ export function GenerationResults() {
 
   const handleFileUpdate = () => {
     // Refresh the generations when a file is updated
-    if (userId && supabase) {
+    if (userId) {
       loadGenerations(
         pagination.currentPage,
         selectedFilterModelId || undefined,
@@ -188,7 +179,7 @@ export function GenerationResults() {
         setSelectedGenerations(new Set());
         setSelectedGenerationData(new Map());
         closeDeleteModal();
-        if (userId && supabase) {
+        if (userId) {
           loadGenerations(
             pagination.currentPage,
             selectedFilterModelId || undefined,

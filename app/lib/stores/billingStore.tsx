@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { CreditTopUpOption } from "~/lib/tokenUtils";
 import useAppStore from "./appStore";
+import { assertAuthFetchOk, authFetch } from "./authFetch";
 import { endpoint } from "../utils";
 
 interface Transaction {
@@ -71,75 +72,70 @@ const useBillingStore = create<BillingStoreState>((set) => ({
 
   fetchTransactions: async (page: number = 1, limit: number = 10) => {
     const appStore = useAppStore.getState();
-    const api = appStore.getApi();
-    const session = appStore.getUser();
-
-    if (!api || !session?.user?.id) {
+    if (!appStore.getAuthApiKey()) {
       return { success: false, error: "Not authenticated" };
     }
 
     try {
-      const offset = (page - 1) * limit;
+      const params = new URLSearchParams();
+      params.set("page", String(page));
+      params.set("limit", String(limit));
+      const response = await authFetch(`${endpoint}/user/transactions?${params.toString()}`);
+      await assertAuthFetchOk(response, "Failed to fetch transactions");
+      const json = (await response.json()) as {
+        success?: boolean;
+        data?: {
+          transactions: Transaction[];
+          total: number;
+          page: number;
+          limit: number;
+        };
+        error?: string;
+        message?: string;
+      };
 
-      const { count, error: countError } = await api
-        .from("transactions")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", session.user.id);
-
-      if (countError) {
-        console.error("Error getting transaction count:", countError);
-        return { success: false, error: "Failed to fetch transactions" };
-      }
-
-      const { data: transactions, error: transactionsError } = await api
-        .from("transactions")
-        .select("*")
-        .eq("user_id", session.user.id)
-        .order("created_at", { ascending: false })
-        .range(offset, offset + limit - 1);
-
-      if (transactionsError) {
-        console.error("Error fetching transactions:", transactionsError);
-        return { success: false, error: "Failed to fetch transactions" };
+      if (!json.success || !json.data) {
+        return {
+          success: false,
+          error: json.error || json.message || "Failed to fetch transactions",
+        };
       }
 
       return {
         success: true,
         data: {
-          transactions: transactions || [],
-          total: count || 0,
-          page,
-          limit,
+          transactions: json.data.transactions ?? [],
+          total: json.data.total ?? 0,
+          page: json.data.page ?? page,
+          limit: json.data.limit ?? limit,
         },
       };
     } catch (error) {
       console.error("Error fetching transactions:", error);
-      return { success: false, error: "Failed to fetch transactions" };
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to fetch transactions",
+      };
     }
   },
 
   createPaymentIntent: async (amountDollars: number) => {
     try {
-      const apiKey = useAppStore.getState().getAuthApiKey();
-      const response = await fetch(`${endpoint}/stripe/create-payment-intent`, {
+      const response = await authFetch(`${endpoint}/stripe/create-payment-intent`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey || ""}`,
-        },
         body: JSON.stringify({ amount: amountDollars }),
       });
 
+      await assertAuthFetchOk(response, "Failed to create payment intent");
       const data = await response.json();
-
-      if (!response.ok) {
-        return { success: false, error: data.error || "Failed to create payment intent" };
-      }
 
       return { success: true, data };
     } catch (error) {
       console.error("Error creating payment intent:", error);
-      return { success: false, error: "Network error" };
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Network error",
+      };
     }
   },
 

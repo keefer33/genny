@@ -16,7 +16,9 @@ import {
 } from "@mantine/core";
 import { useEffect, useState } from "react";
 import useAppStore from "~/lib/stores/appStore";
+import { assertAuthFetchOk, authFetch } from "~/lib/stores/authFetch";
 import type { GenerationFile } from "~/lib/stores/generateStore";
+import { endpoint } from "~/lib/utils";
 import { RiCheckLine, RiTimeLine } from "@remixicon/react";
 import { AppPagination } from "~/shared/AppPagination";
 
@@ -40,7 +42,7 @@ export function UserGenerationsPicker({
   displayFilter,
   displayFieldValue,
 }: UserGenerationsPickerProps) {
-  const { getUser, getApi, isMobile } = useAppStore();
+  const { getUser, isMobile } = useAppStore();
   const { colorScheme } = useMantineColorScheme();
   const [generations, setGenerations] = useState<GenerationFile[]>([]);
   const [loading, setLoading] = useState(false);
@@ -50,64 +52,46 @@ export function UserGenerationsPicker({
 
   const user = getUser();
   const userId = user?.user?.id;
-  const supabase = getApi();
 
   // Load generations when modal opens
   useEffect(() => {
-    if (opened && userId && supabase && displayFilter.values.length > 0) {
+    if (opened && userId && useAppStore.getState().getAuthApiKey() && displayFilter.values.length > 0) {
       loadGenerations(1);
     }
-  }, [opened, userId, supabase, displayFilter.values]);
+  }, [opened, userId, displayFilter.values]);
 
   const loadGenerations = async (page: number = 1) => {
-    if (!userId || !supabase) return;
+    if (!userId || !useAppStore.getState().getAuthApiKey() || displayFilter.values.length === 0) return;
 
     setLoading(true);
     try {
       const limit = 12;
-      const from = (page - 1) * limit;
-      const to = from + limit - 1;
+      const params = new URLSearchParams();
+      params.set("page", String(page));
+      params.set("limit", String(limit));
+      params.set("status", "completed");
+      params.set("filterField", displayFilter.field);
+      params.set("filterValues", displayFilter.values.join(","));
 
-      const query = supabase
-        .from("user_generations")
-        .select(
-          `
-          *,
-          models(*),
-          user_generation_files(
-            file_id,
-            user_files(
-              *,
-              user_file_tags(
-                tag_id,
-                created_at,
-                user_tags(*)
-              )
-            )
-          )
-        `,
-          { count: "exact" }
-        )
-        .eq("user_id", userId)
-        .eq("status", "completed")
-        .in(displayFilter.field, displayFilter.values)
-        .order("created_at", { ascending: false });
+      const res = await authFetch(`${endpoint}/generations/list?${params.toString()}`);
+      await assertAuthFetchOk(res, "Failed to load generations");
+      const json = (await res.json()) as {
+        data?: {
+          generations: GenerationFile[];
+          pagination: { total: number; totalPages: number; currentPage: number };
+        };
+      };
+      const payload = json.data;
+      if (!payload) return;
 
-      const { data, error, count } = await query.range(from, to);
+      const totalCount = payload.pagination?.total ?? 0;
+      const totalPagesCount = payload.pagination?.totalPages ?? 1;
 
-      if (error) {
-        console.error("Error fetching generations:", error);
-        return;
-      }
-
-      const totalCount = count || 0;
-      const totalPagesCount = Math.ceil(totalCount / limit);
-
-      setGenerations(data || []);
+      setGenerations(payload.generations ?? []);
       setTotal(totalCount);
       setTotalPages(totalPagesCount);
-      setCurrentPage(page);
-    } catch (err: any) {
+      setCurrentPage(payload.pagination?.currentPage ?? page);
+    } catch (err: unknown) {
       console.error("Error fetching generations:", err);
     } finally {
       setLoading(false);

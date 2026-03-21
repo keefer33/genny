@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import createUniversalSelectors from "./universalSelectors";
 import { createClient } from "@supabase/supabase-js";
-import axios from "axios";
+import { assertAuthFetchOk, authFetch } from "./authFetch";
 import { endpoint } from "../utils";
 
 // Types matching provided User/session payload
@@ -100,26 +100,31 @@ interface Session {
   id?: string;
 }
 
-interface AiModel {
-  id: string;
-  model_name: string;
-  model_type?: string | null;
-  order?: number | null;
-  meta?: {
-    tags?: string[];
-    context_window?: number;
-  } | null;
-  brand_name?: { name: string | null; logo: string | null } | null;
-  api_id?: {
-    pricing?: { input?: string; output?: string };
-    schema?: Record<string, unknown>;
-    meta?: Record<string, unknown>;
-  } | null;
+/** POST /user/api-key — uses Supabase access_token. Best-effort; logs on failure. */
+async function persistApiKeyToProfile(
+  sessionData: { access_token?: string },
+  apiKey: string,
+  logPrefix: string
+) {
+  try {
+    const res = await authFetch(
+      `${endpoint}/user/api-key`,
+      { method: "POST", body: JSON.stringify({ api_key: apiKey }) },
+      { accessToken: sessionData?.access_token ?? undefined }
+    );
+    await assertAuthFetchOk(res, "Failed to save api_key");
+  } catch (e) {
+    console.error(`${logPrefix} Failed to save api_key to user_profiles:`, e);
+  }
 }
 
 interface AppStoreState {
   // Loading states
   loading: boolean;
+  /**
+   * True until session + user_profiles row + generation/agent catalogs are ready
+   * (`useAuth` → `userProfile` → `loadCatalogsAndFinishAppLoading`). Not used in root Layout.
+   */
   appLoading: boolean;
   pageLoading: boolean;
   themeColor: string;
@@ -129,14 +134,10 @@ interface AppStoreState {
   page: string | undefined;
   userTokens: number;
   userUsageBalance: number;
-  aiModels: AiModel[];
   authApiKey: string | null;
   setAuthApiKey: (authApiKey: string | null) => void;
   getAuthApiKey: () => string | null;
-  setUserTokens: (tokens: number) => void;
   setUserUsageBalance: (usageBalance: number) => void;
-  setAgentModels: (aiModels: AiModel[]) => void;
-  getAgentModels: () => AiModel[];
   setLoading: (loading: boolean) => void;
   setThemeColor: (color: string) => void;
   setApi: () => void;
@@ -160,7 +161,6 @@ interface AppStoreState {
     username: string;
   }) => Promise<{ success: boolean; error?: string }>;
   createToken: (sessionData: any) => Promise<any>;
-  getCurrentUserTokens: () => number;
   getCurrentUserUsageBalance: () => number;
   checkApiHealth: () => Promise<boolean>;
   getCurrentSession: () => Promise<Session | null>;
@@ -180,16 +180,12 @@ const useAppStoreBase = create<AppStoreState>((set, get) => ({
   page: undefined,
   userTokens: 0,
   userUsageBalance: 0,
-  aiModels: [],
   authApiKey: null,
   authRealtimeChannel: null as any,
   setAuthApiKey: (authApiKey: string | null) => set({ authApiKey }),
   setAuthRealtimeChannel: (channel: any) => set({ authRealtimeChannel: channel }),
   getAuthApiKey: () => get().authApiKey,
-  setUserTokens: (tokens: number) => set({ userTokens: tokens }),
   setUserUsageBalance: (usageBalance: number) => set({ userUsageBalance: usageBalance }),
-  setAgentModels: (aiModels: any[]) => set({ aiModels }),
-  getAgentModels: () => get().aiModels,
   setThemeColor: (themeColor) => set({ themeColor }),
   setApi: () =>
     set({
@@ -203,7 +199,6 @@ const useAppStoreBase = create<AppStoreState>((set, get) => ({
   getPage: () => get().page,
   getApi: () => get().api,
   getUser: () => get().user,
-  getCurrentUserTokens: () => get().userTokens,
   getCurrentUserUsageBalance: () => get().userUsageBalance,
 
   generateRandomUsername: () => {
@@ -332,13 +327,12 @@ const useAppStoreBase = create<AppStoreState>((set, get) => ({
       requestBody.inviteCode = inviteCode;
     }
 
-    const response = await axios.post(`${endpoint}/zipline/auth/register`, requestBody, {
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${session?.access_token || ""}`,
-      },
-    });
-    return response.data;
+    const response = await authFetch(
+      `${endpoint}/zipline/auth/register`,
+      { method: "POST", body: JSON.stringify(requestBody) },
+      { accessToken: session?.access_token ?? undefined }
+    );
+    return await response.json();
   },
 
   updateUserProfile: async (values: {
@@ -347,134 +341,153 @@ const useAppStoreBase = create<AppStoreState>((set, get) => ({
     bio: string;
     username: string;
   }) => {
-    const api = get().getApi();
     const session = get().getUser();
-    if (!api || !session?.user?.id) {
+    if (!session?.user?.id || !get().getAuthApiKey()) {
       return { success: false, error: "Not authenticated" };
     }
 
-    // Username uniqueness check
-    if (values.username !== (session.profile?.username || "")) {
-      const { count, error: countError } = await api
-        .from("user_profiles")
-        .select("id", { count: "exact", head: true })
-        .eq("username", values.username)
-        .neq("user_id", session.user.id);
-      if (countError) return { success: false, error: "Failed to validate username" };
-      if ((count || 0) > 0) return { success: false, error: "Username is already taken" };
-    }
-
-    // Update or create profile
-    if (session.profile?.id) {
-      const { error: profileError } = await api
-        .from("user_profiles")
-        .update({
+    try {
+      const res = await authFetch(`${endpoint}/user/profile`, {
+        method: "PATCH",
+        body: JSON.stringify({
           first_name: values.first_name,
           last_name: values.last_name,
           bio: values.bio,
           username: values.username,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", session.profile.id);
-      if (profileError) return { success: false, error: "Failed to update profile information" };
-    } else {
-      const { error: profileError } = await api.from("user_profiles").insert({
-        user_id: session.user.id,
-        first_name: values.first_name,
-        last_name: values.last_name,
-        bio: values.bio,
-        username: values.username,
+        }),
       });
-      if (profileError) return { success: false, error: "Failed to create profile information" };
-    }
 
-    //update ziplineuser
-
-    // Sync Zipline username if it changed (best-effort)
-    try {
-      if (values.username !== (session.profile?.username || "")) {
-        const apiKey = get().getAuthApiKey();
-        const zipRes = await axios.patch(
-          `${endpoint}/zipline/user/update`,
-          {
-            username: values.username,
-          },
-          {
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${apiKey || ""}`,
-            },
-          }
-        );
-        const zipData = zipRes.data;
-        if (!zipData?.success) {
-          return { success: false, error: zipData?.error || "Failed to sync username to Zipline" };
-        }
+      if (res.status === 409) {
+        const j = (await res.json().catch(() => ({}))) as { error?: string };
+        return { success: false, error: j.error || "Username is already taken" };
       }
-    } catch (error: any) {
-      console.error("Error syncing username to Zipline:", error);
-      return { success: false, error: "Failed to sync username to Zipline" };
-    }
 
-    // Update store
-    const updated: Session = {
-      ...(session as Session),
-      profile: {
-        ...(session.profile || ({} as any)),
-        first_name: values.first_name || null,
-        last_name: values.last_name || null,
-        bio: values.bio || null,
-        username: values.username,
-        email: session.profile?.email || session.user.email,
-      },
-    };
-    set({ user: updated });
-    return { success: true };
+      await assertAuthFetchOk(res, "Failed to update profile");
+      const json = (await res.json()) as {
+        success?: boolean;
+        data?: { profile?: Record<string, unknown> };
+      };
+      const row = json.data?.profile;
+
+      // Sync Zipline username if it changed (best-effort)
+      try {
+        if (values.username !== (session.profile?.username || "")) {
+          const zipRes = await authFetch(`${endpoint}/zipline/user/update`, {
+            method: "PATCH",
+            body: JSON.stringify({
+              username: values.username,
+            }),
+          });
+          await assertAuthFetchOk(zipRes, "Failed to sync username to Zipline");
+          const zipData = await zipRes.json();
+          if (!zipData?.success) {
+            return {
+              success: false,
+              error: zipData?.error || "Failed to sync username to Zipline",
+            };
+          }
+        }
+      } catch (error: any) {
+        console.error("Error syncing username to Zipline:", error);
+        return { success: false, error: "Failed to sync username to Zipline" };
+      }
+
+      const base = session.profile || ({} as Profile);
+      const updated: Session = {
+        ...(session as Session),
+        profile: row
+          ? ({
+              ...base,
+              id: (row.id as Profile["id"]) ?? base.id,
+              user_id: (row.user_id as string) ?? session.user.id,
+              first_name: (row.first_name as string | null) ?? null,
+              last_name: (row.last_name as string | null) ?? null,
+              bio: (row.bio as string | null) ?? null,
+              username: (row.username as string) ?? values.username,
+              email: (row.email as string) ?? base.email ?? session.user.email,
+              created_at: (row.created_at as string) ?? base.created_at,
+              updated_at: (row.updated_at as string) ?? base.updated_at,
+              phone: (row.phone as string) ?? base.phone ?? "",
+              tokens: (row.token_balance as number) ?? base.tokens ?? 0,
+              token_balance: row.token_balance as number | undefined,
+              usage_balance: row.usage_balance as number | undefined,
+              api_key: (row.api_key as string | null | undefined) ?? base.api_key,
+              meta: (row.meta as Profile["meta"]) ?? base.meta,
+            } as Profile)
+          : {
+              ...base,
+              first_name: values.first_name || null,
+              last_name: values.last_name || null,
+              bio: values.bio || null,
+              username: values.username,
+              email: base.email || session.user.email,
+            },
+      };
+      set({ user: updated });
+      return { success: true };
+    } catch (error: any) {
+      console.error("Error updating profile:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to update profile information",
+      };
+    }
   },
 
   userProfile: async (sessionData: any) => {
-    const { data, error } = await get()
-      .getApi()
-      .from("user_profiles")
-      .select(
-        "id, user_id, first_name, last_name, bio, created_at, updated_at, email, username, token_balance, usage_balance, api_key, meta"
-      )
-      .eq("user_id", sessionData.user.id)
-      .single();
-    if (error) {
-      console.error("Error getting user:", error);
-      return { success: false, error: "Profile does not exist" };
+    const accessToken = sessionData?.access_token;
+    if (!accessToken) {
+      set({ appLoading: false });
+      return { success: false, error: "No session token" };
     }
 
-    set({ userTokens: data?.token_balance || 0 });
-    set({ userUsageBalance: data?.usage_balance || 0 });
-    get().setUser({ ...sessionData, profile: data });
+    try {
+      const res = await authFetch(`${endpoint}/user/profile`, {}, { accessToken: accessToken });
 
-    // Use stored api_key when present; only call createToken when missing (e.g. new or legacy profile)
-    if (data?.api_key) {
-      set({ authApiKey: data.api_key, appLoading: false });
-      return { success: true, profile: data };
-    }
+      const body = (await res.json().catch(() => ({}))) as {
+        success?: boolean;
+        data?: Record<string, unknown>;
+        error?: string;
+        message?: string;
+      };
 
-    const tokenResult = await get().createToken(sessionData);
-    if (!tokenResult.success) {
-      get().setUser(null);
-      set({ authApiKey: null });
-      return { success: false, error: tokenResult.error || "Failed to sign in" };
+      if (res.status !== 200 || !body?.success || !body?.data) {
+        set({ appLoading: false });
+        return {
+          success: false,
+          error: body?.error || body?.message || "Profile does not exist",
+        };
+      }
+
+      const data = body.data as Record<string, unknown>;
+      set({ userUsageBalance: (data?.usage_balance as number) || 0 });
+      get().setUser({ ...sessionData, profile: data });
+
+      // Use stored api_key when present; only call createToken when missing (e.g. new or legacy profile)
+      if (data?.api_key) {
+        set({ authApiKey: data.api_key as string });
+        return { success: true, profile: data };
+      }
+
+      const tokenResult = await get().createToken(sessionData);
+      if (!tokenResult.success) {
+        get().setUser(null);
+        set({ authApiKey: null, appLoading: false });
+        return { success: false, error: tokenResult.error || "Failed to sign in" };
+      }
+      set({ authApiKey: tokenResult.token });
+      get().setUser({ ...sessionData, profile: { ...data, api_key: tokenResult.token } });
+      // Persist this app key to user_profiles so we don't need create-token again on next login
+      await persistApiKeyToProfile(sessionData, tokenResult.token, "[userProfile]");
+      return { success: true, profile: { ...data, api_key: tokenResult.token } };
+    } catch (err: unknown) {
+      console.error("[userProfile]", err);
+      set({ appLoading: false });
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : "Failed to load profile",
+      };
     }
-    set({ authApiKey: tokenResult.token });
-    get().setUser({ ...sessionData, profile: { ...data, api_key: tokenResult.token } });
-    // Persist this app key to user_profiles so we don't need create-token again on next login
-    const { error: updateError } = await get()
-      .getApi()
-      .from("user_profiles")
-      .update({ api_key: tokenResult.token })
-      .eq("user_id", sessionData.user.id);
-    if (updateError) {
-      console.error("[userProfile] Failed to save api_key to user_profiles:", updateError.message);
-    }
-    set({ appLoading: false });
-    return { success: true, profile: { ...data, api_key: tokenResult.token } };
   },
 
   userLogin: async (sessionData: any) => {
@@ -493,13 +506,13 @@ const useAppStoreBase = create<AppStoreState>((set, get) => ({
           username: username,
           email: sessionData.user.email,
         };
-        const response = await axios.post(`${endpoint}/user/create-user`, requestBody, {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${sessionData?.access_token || ""}`,
-          },
-        });
-        const data = response.data;
+        const response = await authFetch(
+          `${endpoint}/user/create-user`,
+          { method: "POST", body: JSON.stringify(requestBody) },
+          { accessToken: sessionData?.access_token ?? undefined }
+        );
+        await assertAuthFetchOk(response, "Failed to create user");
+        const data = await response.json();
         if (!data?.success) {
           return { success: false, error: data.error || "Failed to create user" };
         }
@@ -515,17 +528,7 @@ const useAppStoreBase = create<AppStoreState>((set, get) => ({
           ...sessionData,
           profile: { ...data.data, api_key: tokenResult.token },
         });
-        const { error: updateError } = await get()
-          .getApi()
-          .from("user_profiles")
-          .update({ api_key: tokenResult.token })
-          .eq("user_id", sessionData.user.id);
-        if (updateError) {
-          console.error(
-            "[userLogin] Failed to save api_key to user_profiles:",
-            updateError.message
-          );
-        }
+        await persistApiKeyToProfile(sessionData, tokenResult.token, "[userLogin]");
         return { success: true, profile: { ...data.data, api_key: tokenResult.token } };
       }
     } else {
@@ -535,18 +538,12 @@ const useAppStoreBase = create<AppStoreState>((set, get) => ({
 
   createToken: async (sessionData: any) => {
     try {
-      const res = await axios.post(
+      const res = await authFetch(
         `${endpoint}/user/create-token`,
-        {},
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${sessionData?.access_token || ""}`,
-          },
-          validateStatus: () => true,
-        }
+        { method: "POST", body: JSON.stringify({}) },
+        { accessToken: sessionData?.access_token ?? undefined }
       );
-      const data = res.data;
+      const data = await res.json().catch(() => ({}));
       if (!data?.success || !data?.data?.token) {
         const message = data?.message || data?.error || "Failed to create token";
         set({ authApiKey: null });
@@ -554,12 +551,8 @@ const useAppStoreBase = create<AppStoreState>((set, get) => ({
       }
       set({ authApiKey: data.data.token });
       return { success: true, token: data.data.token };
-    } catch (err: any) {
-      const message =
-        err?.response?.data?.message ??
-        err?.response?.data?.error ??
-        err?.message ??
-        "Failed to create token";
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to create token";
       set({ authApiKey: null });
       return { success: false, error: message };
     }

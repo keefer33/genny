@@ -2,6 +2,8 @@ import { create } from "zustand";
 import createUniversalSelectors from "./universalSelectors";
 import { showNotification } from "../notificationUtils";
 import useAppStore from "./appStore";
+import { assertAuthFetchOk, authFetch } from "./authFetch";
+import { endpoint } from "../utils";
 
 interface UserTag {
   id: string;
@@ -54,30 +56,28 @@ const useTagStoreBase = create<TagState>((set, get) => ({
   setLoading: (loading) => set({ loading }),
   setError: (error) => set({ error }),
 
-  // Load all tags for a user
+  // Load all tags for a user (JWT identifies user; userId must match session)
   loadTags: async (userId) => {
     if (!userId) return;
 
+    const appStore = useAppStore.getState();
+    const session = appStore.getUser();
+    if (!session?.user?.id || session.user.id !== userId || !appStore.getAuthApiKey()) {
+      return;
+    }
+
     set({ loading: true, error: null });
     try {
-      const { data, error } = await useAppStore
-        .getState()
-        .getApi()
-        .from("user_tags")
-        .select("*")
-        .eq("user_id", userId)
-        .order("tag_name", { ascending: true });
-
-      if (error) {
-        console.error("Error loading tags:", error);
-        set({ error: error.message });
-        return;
-      }
-
-      set({ tags: data || [] });
-    } catch (err: any) {
+      const res = await authFetch(`${endpoint}/user/tags`);
+      await assertAuthFetchOk(res, "Failed to load tags");
+      const json = (await res.json()) as {
+        success?: boolean;
+        data?: { tags: UserTag[] };
+      };
+      set({ tags: json.data?.tags ?? [] });
+    } catch (err: unknown) {
       console.error("Error loading tags:", err);
-      set({ error: "Failed to load tags" });
+      set({ error: err instanceof Error ? err.message : "Failed to load tags" });
     } finally {
       set({ loading: false });
     }
@@ -87,29 +87,32 @@ const useTagStoreBase = create<TagState>((set, get) => ({
   createTag: async (userId, tagName) => {
     if (!userId || !tagName.trim()) return null;
 
-    try {
-      const { data, error } = await useAppStore
-        .getState()
-        .getApi()
-        .from("user_tags")
-        .insert({
-          user_id: userId,
-          tag_name: tagName.trim(),
-        })
-        .select()
-        .single();
+    const appStore = useAppStore.getState();
+    const session = appStore.getUser();
+    if (!session?.user?.id || session.user.id !== userId || !appStore.getAuthApiKey()) {
+      return null;
+    }
 
-      if (error) {
-        console.error("Error creating tag:", error);
+    try {
+      const res = await authFetch(`${endpoint}/user/tags`, {
+        method: "POST",
+        body: JSON.stringify({ tag_name: tagName.trim() }),
+      });
+      await assertAuthFetchOk(res, "Failed to create tag");
+      const json = (await res.json()) as {
+        success?: boolean;
+        data?: { tag: UserTag };
+      };
+      const data = json.data?.tag;
+      if (!data) {
         showNotification({
           title: "Error",
-          message: error.message,
+          message: "Invalid response from server",
           type: "error",
         });
         return null;
       }
 
-      // Add to local state
       const { tags } = get();
       set({ tags: [...tags, data] });
 
@@ -120,11 +123,11 @@ const useTagStoreBase = create<TagState>((set, get) => ({
       });
 
       return data;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error creating tag:", err);
       showNotification({
         title: "Error",
-        message: "Failed to create tag",
+        message: err instanceof Error ? err.message : "Failed to create tag",
         type: "error",
       });
       return null;
@@ -135,29 +138,32 @@ const useTagStoreBase = create<TagState>((set, get) => ({
   updateTag: async (tagId, newTagName) => {
     if (!newTagName.trim()) return null;
 
-    try {
-      const { data, error } = await useAppStore
-        .getState()
-        .getApi()
-        .from("user_tags")
-        .update({
-          tag_name: newTagName.trim(),
-        })
-        .eq("id", tagId)
-        .select()
-        .single();
+    const appStore = useAppStore.getState();
+    const session = appStore.getUser();
+    if (!session?.user?.id || !appStore.getAuthApiKey()) {
+      return null;
+    }
 
-      if (error) {
-        console.error("Error updating tag:", error);
+    try {
+      const res = await authFetch(`${endpoint}/user/tags/${encodeURIComponent(tagId)}`, {
+        method: "PATCH",
+        body: JSON.stringify({ tag_name: newTagName.trim() }),
+      });
+      await assertAuthFetchOk(res, "Failed to update tag");
+      const json = (await res.json()) as {
+        success?: boolean;
+        data?: { tag: UserTag };
+      };
+      const data = json.data?.tag;
+      if (!data) {
         showNotification({
           title: "Error",
-          message: error.message,
+          message: "Invalid response from server",
           type: "error",
         });
         return null;
       }
 
-      // Update local state
       const { tags } = get();
       set({
         tags: tags.map((tag) => (tag.id === tagId ? data : tag)),
@@ -170,11 +176,11 @@ const useTagStoreBase = create<TagState>((set, get) => ({
       });
 
       return data;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error updating tag:", err);
       showNotification({
         title: "Error",
-        message: "Failed to update tag",
+        message: err instanceof Error ? err.message : "Failed to update tag",
         type: "error",
       });
       return null;
@@ -183,25 +189,18 @@ const useTagStoreBase = create<TagState>((set, get) => ({
 
   // Delete a tag
   deleteTag: async (tagId) => {
+    const appStore = useAppStore.getState();
+    const session = appStore.getUser();
+    if (!session?.user?.id || !appStore.getAuthApiKey()) {
+      return false;
+    }
+
     try {
-      const { error } = await useAppStore
-        .getState()
-        .getApi()
-        .from("user_tags")
-        .delete()
-        .eq("id", tagId);
+      const res = await authFetch(`${endpoint}/user/tags/${encodeURIComponent(tagId)}`, {
+        method: "DELETE",
+      });
+      await assertAuthFetchOk(res, "Failed to delete tag");
 
-      if (error) {
-        console.error("Error deleting tag:", error);
-        showNotification({
-          title: "Error",
-          message: error.message,
-          type: "error",
-        });
-        return false;
-      }
-
-      // Remove from local state
       const { tags } = get();
       set({ tags: tags.filter((tag) => tag.id !== tagId) });
 
@@ -212,11 +211,11 @@ const useTagStoreBase = create<TagState>((set, get) => ({
       });
 
       return true;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error deleting tag:", err);
       showNotification({
         title: "Error",
-        message: "Failed to delete tag",
+        message: err instanceof Error ? err.message : "Failed to delete tag",
         type: "error",
       });
       return false;
@@ -225,28 +224,25 @@ const useTagStoreBase = create<TagState>((set, get) => ({
 
   // Add tag to file
   addTagToFile: async (fileId, tagId) => {
-    try {
-      const { error } = await useAppStore.getState().getApi().from("user_file_tags").insert({
-        file_id: fileId,
-        tag_id: tagId,
-      });
+    const appStore = useAppStore.getState();
+    const session = appStore.getUser();
+    if (!session?.user?.id || !appStore.getAuthApiKey()) {
+      return false;
+    }
 
-      if (error) {
-        console.error("Error adding tag to file:", error);
-        showNotification({
-          title: "Error",
-          message: error.message,
-          type: "error",
-        });
-        return false;
-      }
+    try {
+      const res = await authFetch(`${endpoint}/user/tags/file-links`, {
+        method: "POST",
+        body: JSON.stringify({ file_id: fileId, tag_id: tagId }),
+      });
+      await assertAuthFetchOk(res, "Failed to add tag to file");
 
       return true;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error adding tag to file:", err);
       showNotification({
         title: "Error",
-        message: "Failed to add tag to file",
+        message: err instanceof Error ? err.message : "Failed to add tag to file",
         type: "error",
       });
       return false;
@@ -255,31 +251,25 @@ const useTagStoreBase = create<TagState>((set, get) => ({
 
   // Remove tag from file
   removeTagFromFile: async (fileId, tagId) => {
-    try {
-      const { error } = await useAppStore
-        .getState()
-        .getApi()
-        .from("user_file_tags")
-        .delete()
-        .eq("file_id", fileId)
-        .eq("tag_id", tagId);
+    const appStore = useAppStore.getState();
+    const session = appStore.getUser();
+    if (!session?.user?.id || !appStore.getAuthApiKey()) {
+      return false;
+    }
 
-      if (error) {
-        console.error("Error removing tag from file:", error);
-        showNotification({
-          title: "Error",
-          message: error.message,
-          type: "error",
-        });
-        return false;
-      }
+    try {
+      const res = await authFetch(`${endpoint}/user/tags/file-links`, {
+        method: "DELETE",
+        body: JSON.stringify({ file_id: fileId, tag_id: tagId }),
+      });
+      await assertAuthFetchOk(res, "Failed to remove tag from file");
 
       return true;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error removing tag from file:", err);
       showNotification({
         title: "Error",
-        message: "Failed to remove tag from file",
+        message: err instanceof Error ? err.message : "Failed to remove tag from file",
         type: "error",
       });
       return false;
@@ -288,27 +278,21 @@ const useTagStoreBase = create<TagState>((set, get) => ({
 
   // Get tags for a specific file
   getFileTags: async (fileId) => {
+    const appStore = useAppStore.getState();
+    const session = appStore.getUser();
+    if (!session?.user?.id || !appStore.getAuthApiKey()) {
+      return [];
+    }
+
     try {
-      const { data, error } = await useAppStore
-        .getState()
-        .getApi()
-        .from("user_file_tags")
-        .select(
-          `
-          tag_id,
-          created_at,
-          user_tags(*)
-        `
-        )
-        .eq("file_id", fileId);
-
-      if (error) {
-        console.error("Error getting file tags:", error);
-        return [];
-      }
-
-      return data || [];
-    } catch (err: any) {
+      const res = await authFetch(`${endpoint}/user/tags/files/${encodeURIComponent(fileId)}`);
+      await assertAuthFetchOk(res, "Failed to load file tags");
+      const json = (await res.json()) as {
+        success?: boolean;
+        data?: { tags: UserFileTag[] };
+      };
+      return json.data?.tags ?? [];
+    } catch (err: unknown) {
       console.error("Error getting file tags:", err);
       return [];
     }

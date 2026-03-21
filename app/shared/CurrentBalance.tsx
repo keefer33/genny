@@ -4,8 +4,8 @@ import { CostBadge } from "./CostBadge";
 import { usePaymentModal } from "./PaymentModal";
 
 export function CurrentBalance() {
-  const { getCurrentUserTokens } = useAppStore();
-  const currentBalance = getCurrentUserTokens() || 0;
+  const { getCurrentUserUsageBalance } = useAppStore();
+  const currentBalance = getCurrentUserUsageBalance() || 0;
   const { openPaymentModal } = usePaymentModal();
 
   return (

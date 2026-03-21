@@ -12,24 +12,15 @@ import {
 } from "@mantine/core";
 import { RiArrowDownSLine, RiChatSmile2Line, RiDeleteBinLine } from "@remixicon/react";
 import { useState } from "react";
-import { useChatsStore, type UserAgentRow } from "~/lib/stores/chatsStore";
+import { useChatsStore, type AgentModel, type UserAgentRow } from "~/lib/stores/chatsStore";
 import useAppStore from "~/lib/stores/appStore";
 import CreateAgent from "~/pages/chats/components/CreateAgent";
 import ToolsAttachButton from "~/pages/chats/components/ToolsAttachButton";
 import ChatSettings from "~/pages/chats/components/ChatSettings";
 import { useTheme } from "~/lib/hooks/useTheme";
 
-type AiModelRow = {
-  id: string;
-  model_name: string;
-  model_type?: string | null;
-  order?: number | null;
-  meta?: Record<string, unknown> | null;
-  brand_name?: { name: string | null; logo: string | null } | null;
-};
-
-function getModelForAgent(agent: UserAgentRow | null, aiModels: AiModelRow[]): AiModelRow | null {
-  return agent ? (aiModels.find((m) => m.model_name === agent.model_name) ?? null) : null;
+function getModelForAgent(agent: UserAgentRow | null, models: AgentModel[]): AgentModel | null {
+  return agent ? (models.find((m) => m.model_name === agent.model_name) ?? null) : null;
 }
 
 interface AgentPickerProps {
@@ -40,11 +31,10 @@ interface AgentPickerProps {
 }
 
 export default function AgentPicker({ onSelectAgent, onOpenChatsList }: AgentPickerProps) {
-  const { isMobile, getUser, getAgentModels } = useAppStore();
+  const { isMobile, getUser } = useAppStore();
   const user = getUser();
-  const aiModels = (getAgentModels?.() ?? []).filter(
-    (m: any) => m?.model_type === "text"
-  ) as AiModelRow[];
+  const agentModels = useChatsStore((s) => s.agentModels);
+  const textModels = agentModels.filter((m) => m?.model_type === "text");
   const { agents, selectedAgent, agentPickerOpen, setAgentPickerOpen, deleteUserAgent } =
     useChatsStore();
   const theme = useMantineTheme();
@@ -53,7 +43,7 @@ export default function AgentPicker({ onSelectAgent, onOpenChatsList }: AgentPic
   const [agentToDelete, setAgentToDelete] = useState<UserAgentRow | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const selectedModel = selectedAgent ? getModelForAgent(selectedAgent, aiModels) : null;
+  const selectedModel = selectedAgent ? getModelForAgent(selectedAgent, textModels) : null;
   const selectedBrandObj = selectedModel?.brand_name ?? null;
   const selectedBrand = selectedBrandObj?.name ?? null;
   const selectedLogo = selectedBrandObj?.logo ?? null;
@@ -153,7 +143,7 @@ export default function AgentPicker({ onSelectAgent, onOpenChatsList }: AgentPic
               Create Agent
             </Button>
             {agents.map((agent) => {
-              const model = getModelForAgent(agent, aiModels);
+              const model = getModelForAgent(agent, textModels);
               const brandObj = model?.brand_name ?? null;
               const brand = brandObj?.name ?? model?.model_name ?? "";
               const logoUrl = brandObj?.logo ?? null;

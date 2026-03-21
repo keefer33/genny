@@ -9,6 +9,7 @@ import {
   Textarea,
   Modal,
   ActionIcon,
+  Container,
 } from "@mantine/core";
 import { RiSendPlane2Line } from "@remixicon/react";
 import { useRef, useEffect, useState } from "react";
@@ -311,34 +312,36 @@ export default function Chats() {
         ) : (
           <Box h="100%" style={{ minHeight: 0, display: "flex", flexDirection: "column" }}>
             <Grid gutter={0} style={{ flex: 1, minHeight: 0 }}>
-              <Grid.Col span={3}>
+              <Grid.Col span={4}>
                 <ScrollArea h={mainHeight} offsetScrollbars scrollbarSize={8}>
                   {sidebarContent}
                 </ScrollArea>
               </Grid.Col>
-              <Grid.Col span={9}>
-                <Stack
-                  gap={0}
-                  h={mainHeight}
-                  style={{ overflow: "hidden", display: "flex", flexDirection: "column" }}
-                >
-                  {!selectedModelName ? (
-                    <Card
-                      padding="lg"
-                      radius="md"
-                      style={{
-                        flex: 1,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      <Text c="dimmed">Select a model to start chatting.</Text>
-                    </Card>
-                  ) : (
-                    messagesContent
-                  )}
-                </Stack>
+              <Grid.Col span={8}>
+                <Container size="md">
+                  <Stack
+                    gap={0}
+                    h={mainHeight}
+                    style={{ overflow: "hidden", display: "flex", flexDirection: "column" }}
+                  >
+                    {!selectedModelName ? (
+                      <Card
+                        padding="lg"
+                        radius="md"
+                        style={{
+                          flex: 1,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <Text c="dimmed">Select a model to start chatting.</Text>
+                      </Card>
+                    ) : (
+                      messagesContent
+                    )}
+                  </Stack>
+                </Container>
               </Grid.Col>
             </Grid>
           </Box>

@@ -1,7 +1,26 @@
 import { create } from "zustand";
 import { notifications } from "@mantine/notifications";
 import useAppStore from "~/lib/stores/appStore";
+import { assertAuthFetchOk, authFetch } from "~/lib/stores/authFetch";
 import { endpoint } from "~/lib/utils";
+
+/** Catalog rows from GET /agents (models available for user agents / chats). */
+export interface AgentModel {
+  id: string;
+  model_name: string;
+  model_type?: string | null;
+  order?: number | null;
+  meta?: {
+    tags?: string[];
+    context_window?: number;
+  } | null;
+  brand_name?: { name: string | null; logo: string | null } | null;
+  api_id?: {
+    pricing?: { input?: string; output?: string };
+    schema?: Record<string, unknown>;
+    meta?: Record<string, unknown>;
+  } | null;
+}
 
 /** Chat row from GET /chats (user_models_chats). */
 export interface ChatRow {
@@ -127,6 +146,12 @@ function chatMessageRowToUIMessage(row: ChatMessageRow): ChatUIMessage {
 }
 
 interface ChatsState {
+  /** Catalog from GET /agents (e.g. text models for picker / create agent). */
+  agentModels: AgentModel[];
+  setAgentModels: (models: AgentModel[]) => void;
+  getAgentModels: () => AgentModel[];
+  loadAgentModels: () => Promise<void>;
+
   chats: ChatRow[];
   getChats: () => ChatRow[];
   chatsLoading: boolean;
@@ -202,17 +227,24 @@ interface ChatsState {
   deleteUserAgent: (userId: string, agentId: string) => Promise<boolean>;
 }
 
-async function authFetch(url: string, init?: RequestInit): Promise<Response> {
-  const token = useAppStore.getState().getAuthApiKey();
-  const headers = new Headers(init?.headers);
-  if (token) headers.set("Authorization", `Bearer ${token}`);
-  headers.set("Content-Type", "application/json");
-  return fetch(url, { ...init, headers });
-}
-
 const userChoseNewChatRef = { current: false };
 
 export const useChatsStore = create<ChatsState>((set, get) => ({
+  agentModels: [],
+  setAgentModels: (agentModels) => set({ agentModels }),
+  getAgentModels: () => get().agentModels,
+  loadAgentModels: async () => {
+    try {
+      const res = await authFetch(`${endpoint}/agents`);
+      await assertAuthFetchOk(res, "Failed to load agent models");
+      const data = await res.json();
+
+      set({ agentModels: data as AgentModel[] });
+    } catch (err) {
+      console.error("[chatsStore] loadAgentModels:", err);
+      set({ agentModels: [] });
+    }
+  },
   chats: [],
   getChats: () => get().chats,
   chatsLoading: false,
@@ -264,10 +296,7 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
         }),
       });
 
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error((err as { error?: string }).error ?? res.statusText);
-      }
+      await assertAuthFetchOk(res, "Failed to run agent");
 
       const reader = res.body?.getReader();
       const decoder = new TextDecoder();
@@ -412,10 +441,7 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
         method: "POST",
         body: JSON.stringify({ agent_id: agentId, metadata: metadata ?? {} }),
       });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error((err as { error?: string }).error ?? "Failed to create chat");
-      }
+      await assertAuthFetchOk(res, "Failed to create chat");
       const chat = (await res.json()) as ChatRow;
       set((s) => ({ chats: [chat, ...s.chats] }));
       return chat;
@@ -458,10 +484,7 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
       const res = await authFetch(`${endpoint}/chats/chat/${encodeURIComponent(chatId)}`, {
         method: "DELETE",
       });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error((err as { error?: string }).error ?? "Failed to delete chat");
-      }
+      await assertAuthFetchOk(res, "Failed to delete chat");
       set((s) => ({ chats: s.chats.filter((c) => c.id !== chatId) }));
       return true;
     } catch (err) {
@@ -519,10 +542,7 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
     set({ agentsLoading: true });
     try {
       const res = await authFetch(`${endpoint}/agents/user-agents`);
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error((err as { error?: string }).error ?? "Failed to load agents");
-      }
+      await assertAuthFetchOk(res, "Failed to load agents");
       const data = await res.json();
       const list = (Array.isArray(data) ? data : []) as UserAgentRow[];
       set({ agents: list });
@@ -549,10 +569,7 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
           config: config ?? null,
         }),
       });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error((err as { error?: string }).error ?? "Failed to create agent");
-      }
+      await assertAuthFetchOk(res, "Failed to create agent");
       const agent = (await res.json()) as UserAgentRow;
       set((s) => ({
         agents: [agent, ...s.agents],
@@ -589,10 +606,7 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
         method: "PATCH",
         body: JSON.stringify(body),
       });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error((err as { error?: string }).error ?? "Failed to update agent");
-      }
+      await assertAuthFetchOk(res, "Failed to update agent");
       const updated = (await res.json()) as UserAgentRow;
       set((s) => ({
         agents: s.agents.map((a) => (a.id === agentId ? updated : a)),
@@ -614,10 +628,7 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
       const res = await authFetch(`${endpoint}/agents/user-agents/${encodeURIComponent(agentId)}`, {
         method: "DELETE",
       });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error((err as { error?: string }).error ?? "Failed to delete agent");
-      }
+      await assertAuthFetchOk(res, "Failed to delete agent");
       set((s) => {
         const wasSelected = s.selectedAgent?.id === agentId;
         return {

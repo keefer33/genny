@@ -3,16 +3,21 @@ import { useDisclosure } from "@mantine/hooks";
 import { useEffect, useState } from "react";
 import { AppShellHeader } from "./AppShellHeader";
 import { AppShellNavbar } from "./AppShellNavbar";
+import PageLoader from "./PageLoader";
 import useAppStore from "~/lib/stores/appStore";
-import { Outlet } from "react-router";
+import { Outlet, useNavigate } from "react-router";
 import { usePaymentModal } from "./PaymentModal";
 import { MOBILE_GLOBAL_NAV_HEIGHT, MobileFooterGlobalNav } from "./MobileFooterGlobalNav";
-import useGenerateStore from "~/lib/stores/generateStore";
-import { fetchGenerationCatalogClient } from "~/lib/fetchGenerationCatalog";
 
-export default function GenerateLayout() {
-  const { setModels } = useGenerateStore();
-  const { isMobile, setAgentModels } = useAppStore();
+/**
+ * Authenticated app shell: waits for session/profile + catalog bootstrap (`appLoading` from useAuth),
+ * redirects guests to /login, and renders child routes in the main area.
+ */
+export default function AuthedLayout() {
+  const navigate = useNavigate();
+  const { getUser, appLoading, isMobile } = useAppStore();
+  const userId = getUser()?.user?.id;
+
   const { colorScheme } = useMantineColorScheme();
   const [mobileOpened, { toggle: toggleMobile }] = useDisclosure();
   const [desktopCollapsed, setDesktopCollapsed] = useState(true);
@@ -21,24 +26,21 @@ export default function GenerateLayout() {
     setDesktopCollapsed(!desktopCollapsed);
   };
 
+  /** Only redirect after auth bootstrap finished — avoids sending users to login while profile is still loading. */
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const { models, agentModels } = await fetchGenerationCatalogClient();
-        if (cancelled) return;
-        if (models.length) {
-          setModels(models);
-        }
-        setAgentModels(Array.isArray(agentModels) ? (agentModels as any[]) : []);
-      } catch (e) {
-        console.error("[GenerateLayout] Failed to load generation catalog:", e);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [setModels, setAgentModels]);
+    if (appLoading) return;
+    if (!userId) {
+      navigate("/login", { replace: true });
+    }
+  }, [appLoading, userId, navigate]);
+
+  if (appLoading) {
+    return <PageLoader />;
+  }
+
+  if (!userId) {
+    return null;
+  }
 
   return (
     <AppShell
@@ -65,19 +67,16 @@ export default function GenerateLayout() {
           toggleMobile={toggleMobile}
         />
       </AppShell.Navbar>
-      <AppShell.Main>
-        <Outlet />
-      </AppShell.Main>
+      <AppShell.Main>{userId ? <Outlet /> : null}</AppShell.Main>
 
       {isMobile && (
         <AppShell.Footer>
           <Box pt="xs">
-            <MobileFooterGlobalNav />{" "}
+            <MobileFooterGlobalNav />
           </Box>
         </AppShell.Footer>
       )}
 
-      {/* Global Payment Modal */}
       <PaymentModalComponent showPackageSelection={true} />
     </AppShell>
   );

@@ -31,12 +31,12 @@ export function GenerationsFileCard({
   selected = false,
   onSelect,
 }: GenerationsFileCardProps) {
-  const { getUser, getApi } = useAppStore();
+  const { getUser } = useAppStore();
+  const authApiKey = useAppStore((s) => s.authApiKey);
   const { refreshGeneration, deleteGeneration } = useGenerateStore();
   const { colorScheme } = useMantineColorScheme();
   const user = getUser();
   const userId = user?.user?.id;
-  const supabase = getApi();
   // Check if file is in a processing state (pending or processing)
   const isProcessing = file.status === "pending" || file.status === "processing";
   const isFailed = file.status === "failed" || file.status === "error";
@@ -66,16 +66,16 @@ export function GenerationsFileCard({
 
   // Poll for updates if status is pending or processing
   useEffect(() => {
-    if (!userId || !supabase || !isProcessing) {
+    if (!userId || !authApiKey || !isProcessing) {
       return;
     }
 
     const interval = setInterval(() => {
-      refreshGeneration(file.id, userId, supabase);
+      refreshGeneration(file.id);
     }, 5000); // Poll every 5 seconds
 
     return () => clearInterval(interval);
-  }, [file.id, isProcessing, userId, supabase, refreshGeneration]);
+  }, [file.id, isProcessing, userId, authApiKey, refreshGeneration]);
 
   return (
     <Card
