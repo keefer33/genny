@@ -1,9 +1,9 @@
 import { create } from "zustand";
 import createUniversalSelectors from "./universalSelectors";
 import useAppStore from "./appStore";
+import { assertAuthFetchOk, authFetch } from "./authFetch";
 import { endpoint } from "../utils";
 import { showNotification } from "../notificationUtils";
-import axios from "axios";
 
 export interface Model {
   id: string;
@@ -106,6 +106,7 @@ interface GenerateStoreState {
   getGenerations: () => GenerationFile[];
   getHasMoreGenerations: () => boolean;
   // Async actions
+  loadGenerationModels: () => Promise<void>;
   loadModel: (slug: string) => Model | null;
   generateContent: (
     modelId: string,
@@ -119,7 +120,7 @@ interface GenerateStoreState {
     selectedTags?: string[]
   ) => Promise<void>;
   handlePageChange: (page: number) => void;
-  refreshGeneration: (generationId: string, userId: string, supabase: any) => Promise<void>;
+  refreshGeneration: (generationId: string) => Promise<void>;
   deleteGeneration: (generationId: string) => Promise<boolean>;
   calculateCost: (formValues: any) => void;
 
@@ -191,19 +192,40 @@ const useGenerateStoreBase = create<GenerateStoreState>((set, get) => ({
     return model;
   },
 
+  loadGenerationModels: async () => {
+    try {
+      const response = await authFetch(`${endpoint}/generations/models`);
+      await assertAuthFetchOk(response, "Failed to load models");
+      const json = (await response.json()) as { success?: boolean; data?: Model[]; error?: string };
+      if (json.success) {
+        set({ models: json.data ?? [] });
+      } else {
+        showNotification({
+          title: "Error",
+          message: json.error ?? "Failed to load models",
+          type: "error",
+        });
+        set({ models: [] });
+      }
+    } catch (err) {
+      console.error("[generateStore] loadGenerationModels:", err);
+      showNotification({
+        title: "Error",
+        message: err instanceof Error ? err.message : "Failed to load models",
+        type: "error",
+      });
+      set({ models: [] });
+    }
+  },
+
   // Generate content
   generateContent: async (modelId, values) => {
     const session = useAppStore.getState().getUser();
-    const apiKey = useAppStore.getState().getAuthApiKey();
     set({ generating: true });
     get().calculateCost(values);
     try {
-      const response = await fetch(`${endpoint}/generations/generate`, {
+      const response = await authFetch(`${endpoint}/generations/generate`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey || ""}`,
-        },
         body: JSON.stringify({
           model_id: modelId,
           payload: {
@@ -213,6 +235,7 @@ const useGenerateStoreBase = create<GenerateStoreState>((set, get) => ({
         }),
       });
 
+      await assertAuthFetchOk(response, "Generation failed");
       const result = await response.json();
 
       if (result.success) {
@@ -238,383 +261,56 @@ const useGenerateStoreBase = create<GenerateStoreState>((set, get) => ({
   ) => {
     const session = useAppStore.getState().getUser();
     const userId = session?.user?.id;
-    const supabase = useAppStore.getState().getApi();
-    if (!userId || !supabase) return;
+    if (!userId || !useAppStore.getState().getAuthApiKey()) return;
 
     const limit = 9;
-    const from = (page - 1) * limit;
-    const to = from + limit - 1;
 
     set({ loadingGenerations: true });
-    // Clear previous generations when loading page 1 so we don't show stale data after model switch
     if (page === 1) {
       set({ generations: [] });
     }
     try {
-      // If filtering by file type or tags, we need to filter by the files within generations
-      if (fileTypeFilter && fileTypeFilter !== "all") {
-        // First get file IDs that match the file type filter
-        let fileTypeQuery = supabase
-          .from("user_files")
-          .select("id")
-          .eq("user_id", userId)
-          .eq("status", "active")
-          .eq("upload_type", "generation");
-
-        if (fileTypeFilter === "images") {
-          fileTypeQuery = fileTypeQuery.ilike("file_type", "image/%");
-        } else if (fileTypeFilter === "videos") {
-          fileTypeQuery = fileTypeQuery.ilike("file_type", "video/%");
-        }
-
-        const { data: matchingFiles, error: fileError } = await fileTypeQuery;
-
-        if (fileError) {
-          console.error("Error fetching files for filter:", fileError);
-          set({ loadingGenerations: false });
-          return;
-        }
-
-        if (!matchingFiles || matchingFiles.length === 0) {
-          // No files match, so no generations to show
-          set({
-            generations: [],
-            pagination: {
-              currentPage: page,
-              totalPages: 0,
-              hasNextPage: false,
-              hasPrevPage: false,
-              total: 0,
-            },
-          });
-          set({ loadingGenerations: false });
-          return;
-        }
-
-        const matchingFileIds = matchingFiles.map((f) => f.id);
-
-        // Now get generation file IDs that reference these files
-        const { data: generationFiles, error: genFileError } = await supabase
-          .from("user_generation_files")
-          .select("generation_id")
-          .in("file_id", matchingFileIds);
-
-        if (genFileError) {
-          console.error("Error fetching generation files:", genFileError);
-          set({ loadingGenerations: false });
-          return;
-        }
-
-        if (!generationFiles || generationFiles.length === 0) {
-          set({
-            generations: [],
-            pagination: {
-              currentPage: page,
-              totalPages: 0,
-              hasNextPage: false,
-              hasPrevPage: false,
-              total: 0,
-            },
-          });
-          set({ loadingGenerations: false });
-          return;
-        }
-
-        const generationIds = [...new Set(generationFiles.map((gf) => gf.generation_id))];
-
-        // If also filtering by tags, further filter the file IDs
-        if (selectedTags && selectedTags.length > 0) {
-          const { data: taggedFiles } = await supabase
-            .from("user_file_tags")
-            .select("file_id")
-            .in("tag_id", selectedTags);
-
-          const taggedFileIds = taggedFiles?.map((ft) => ft.file_id) || [];
-          const intersection = matchingFileIds.filter((id) => taggedFileIds.includes(id));
-
-          if (intersection.length === 0) {
-            set({
-              generations: [],
-              pagination: {
-                currentPage: page,
-                totalPages: 0,
-                hasNextPage: false,
-                hasPrevPage: false,
-                total: 0,
-              },
-            });
-            set({ loadingGenerations: false });
-            return;
-          }
-
-          // Get generation IDs for the intersected files
-          const { data: filteredGenFiles } = await supabase
-            .from("user_generation_files")
-            .select("generation_id")
-            .in("file_id", intersection);
-
-          const filteredGenIds = filteredGenFiles
-            ? [...new Set(filteredGenFiles.map((gf) => gf.generation_id))]
-            : [];
-
-          // Query generations with these IDs
-          let query = supabase
-            .from("user_generations")
-            .select(
-              `
-            *,
-            models(*),
-            user_generation_files(
-              file_id,
-              user_files(
-                *,
-                user_file_tags(
-                  tag_id,
-                  created_at,
-                  user_tags(*)
-                )
-              )
-            )
-          `,
-              { count: "exact" }
-            )
-            .eq("user_id", userId)
-            .in("id", filteredGenIds)
-            .order("created_at", { ascending: false });
-
-          if (modelId) {
-            query = query.eq("model_id", modelId);
-          }
-
-          const { data, error, count } = await query.range(from, to);
-
-          if (error) {
-            console.error("Error fetching generations:", error);
-            set({ loadingGenerations: false });
-            return;
-          }
-
-          const total = count || 0;
-          const totalPages = Math.ceil(total / limit);
-          set({
-            generations: data || [],
-            pagination: {
-              currentPage: page,
-              totalPages,
-              hasNextPage: page < totalPages,
-              hasPrevPage: page > 1,
-              total,
-            },
-          });
-          set({ loadingGenerations: false });
-          return;
-        }
-
-        // Query generations with filtered IDs
-        let query = supabase
-          .from("user_generations")
-          .select(
-            `
-            *,
-            models(*),
-            user_generation_files(
-              file_id,
-              user_files(
-                *,
-                user_file_tags(
-                  tag_id,
-                  created_at,
-                  user_tags(*)
-                )
-              )
-            )
-          `,
-            { count: "exact" }
-          )
-          .eq("user_id", userId)
-          .in("id", generationIds)
-          .order("created_at", { ascending: false });
-
-        if (modelId) {
-          query = query.eq("model_id", modelId);
-        }
-
-        const { data, error, count } = await query.range(from, to);
-
-        if (error) {
-          console.error("Error fetching generations:", error);
-          set({ loadingGenerations: false });
-          return;
-        }
-
-        const total = count || 0;
-        const totalPages = Math.ceil(total / limit);
-        set({
-          generations: data || [],
-          pagination: {
-            currentPage: page,
-            totalPages,
-            hasNextPage: page < totalPages,
-            hasPrevPage: page > 1,
-            total,
-          },
-        });
-        set({ loadingGenerations: false });
-        return;
-      }
-
-      // If filtering by tags only (no file type filter)
-      if (selectedTags && selectedTags.length > 0) {
-        // Get file IDs with selected tags
-        const { data: taggedFiles } = await supabase
-          .from("user_file_tags")
-          .select("file_id")
-          .in("tag_id", selectedTags);
-
-        const taggedFileIds = taggedFiles?.map((ft) => ft.file_id) || [];
-
-        if (taggedFileIds.length === 0) {
-          set({
-            generations: [],
-            pagination: {
-              currentPage: page,
-              totalPages: 0,
-              hasNextPage: false,
-              hasPrevPage: false,
-              total: 0,
-            },
-          });
-          set({ loadingGenerations: false });
-          return;
-        }
-
-        // Get generation IDs for these files
-        const { data: generationFiles } = await supabase
-          .from("user_generation_files")
-          .select("generation_id")
-          .in("file_id", taggedFileIds);
-
-        const generationIds = generationFiles
-          ? [...new Set(generationFiles.map((gf) => gf.generation_id))]
-          : [];
-
-        if (generationIds.length === 0) {
-          set({
-            generations: [],
-            pagination: {
-              currentPage: page,
-              totalPages: 0,
-              hasNextPage: false,
-              hasPrevPage: false,
-              total: 0,
-            },
-          });
-          set({ loadingGenerations: false });
-          return;
-        }
-
-        let query = supabase
-          .from("user_generations")
-          .select(
-            `
-            *,
-            models(*),
-            user_generation_files(
-              file_id,
-              user_files(
-                *,
-                user_file_tags(
-                  tag_id,
-                  created_at,
-                  user_tags(*)
-                )
-              )
-            )
-          `,
-            { count: "exact" }
-          )
-          .eq("user_id", userId)
-          .in("id", generationIds)
-          .order("created_at", { ascending: false });
-
-        if (modelId) {
-          query = query.eq("model_id", modelId);
-        }
-
-        const { data, error, count } = await query.range(from, to);
-
-        if (error) {
-          console.error("Error fetching generations:", error);
-          set({ loadingGenerations: false });
-          return;
-        }
-
-        const total = count || 0;
-        const totalPages = Math.ceil(total / limit);
-        set({
-          generations: data || [],
-          pagination: {
-            currentPage: page,
-            totalPages,
-            hasNextPage: page < totalPages,
-            hasPrevPage: page > 1,
-            total,
-          },
-        });
-        set({ loadingGenerations: false });
-        return;
-      }
-
-      // No file type or tag filtering - standard query
-      let query = supabase
-        .from("user_generations")
-        .select(
-          `
-          *,
-          models(*),
-          user_generation_files(
-            file_id,
-            user_files(
-              *,
-              user_file_tags(
-                tag_id,
-                created_at,
-                user_tags(*)
-              )
-            )
-          )
-        `,
-          { count: "exact" }
-        )
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false });
-
-      // Filter by model if modelId is provided
+      const params = new URLSearchParams();
+      params.set("page", String(page));
+      params.set("limit", String(limit));
       if (modelId) {
-        query = query.eq("model_id", modelId);
+        params.set("modelId", modelId);
+      }
+      if (fileTypeFilter && fileTypeFilter !== "all") {
+        params.set("fileTypeFilter", fileTypeFilter);
+      }
+      if (selectedTags && selectedTags.length > 0) {
+        params.set("tags", selectedTags.join(","));
       }
 
-      const { data, error, count } = await query.range(from, to);
+      const res = await authFetch(`${endpoint}/generations/list?${params.toString()}`);
+      await assertAuthFetchOk(res, "Failed to load generations");
+      const json = (await res.json()) as {
+        success?: boolean;
+        data?: {
+          generations: GenerationFile[];
+          pagination: PaginationData;
+        };
+      };
 
-      if (error) {
-        console.error("Error fetching polling files:", error);
+      const payload = json.data;
+      if (!payload) {
+        set({ loadingGenerations: false });
         return;
       }
 
-      const total = count || 0;
-      const totalPages = Math.ceil(total / limit);
       set({
-        generations: data || [],
-        pagination: {
+        generations: payload.generations ?? [],
+        pagination: payload.pagination ?? {
           currentPage: page,
-          totalPages,
-          hasNextPage: page < totalPages,
-          hasPrevPage: page > 1,
-          total,
+          totalPages: 0,
+          hasNextPage: false,
+          hasPrevPage: false,
+          total: 0,
         },
       });
-    } catch (err: any) {
-      console.error("Error fetching polling files:", err);
+    } catch (err: unknown) {
+      console.error("Error fetching generations:", err);
     } finally {
       set({ loadingGenerations: false });
     }
@@ -634,45 +330,22 @@ const useGenerateStoreBase = create<GenerateStoreState>((set, get) => ({
   },
 
   // Refresh a specific generation
-  refreshGeneration: async (generationId, userId, supabase) => {
-    if (!userId || !supabase || !generationId) return;
+  refreshGeneration: async (generationId) => {
+    if (!generationId || !useAppStore.getState().getAuthApiKey()) return;
 
     try {
-      const { data, error } = await supabase
-        .from("user_generations")
-        .select(
-          `
-          *,
-          models(*),
-          user_generation_files(
-            file_id,
-            user_files(
-              *,
-              user_file_tags(
-                tag_id,
-                created_at,
-                user_tags(*)
-              )
-            )
-          )
-        `
-        )
-        .eq("id", generationId)
-        .eq("user_id", userId)
-        .single();
+      const res = await authFetch(`${endpoint}/generations/${encodeURIComponent(generationId)}`);
+      await assertAuthFetchOk(res, "Failed to refresh generation");
+      const json = (await res.json()) as { success?: boolean; data?: GenerationFile };
+      const data = json.data;
+      if (!data) return;
 
-      if (error) {
-        console.error("Error refreshing generation:", error);
-        return;
-      }
-
-      // Update the specific generation in the generations array
       const state = get();
       const updatedGenerations = state.generations.map((gen) =>
         gen.id === generationId ? data : gen
       );
       set({ generations: updatedGenerations });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error refreshing generation:", err);
     }
   },
@@ -681,8 +354,7 @@ const useGenerateStoreBase = create<GenerateStoreState>((set, get) => ({
   deleteGeneration: async (generationId) => {
     const session = useAppStore.getState().getUser();
     const userId = session?.user?.id;
-    const supabase = useAppStore.getState().getApi();
-    if (!userId || !supabase || !generationId) {
+    if (!userId || !generationId || !useAppStore.getState().getAuthApiKey()) {
       showNotification({
         title: "Error",
         message: "Unable to delete generation. Missing user information.",
@@ -692,27 +364,16 @@ const useGenerateStoreBase = create<GenerateStoreState>((set, get) => ({
     }
 
     try {
-      const { error } = await supabase
-        .from("user_generations")
-        .delete()
-        .eq("id", generationId)
-        .eq("user_id", userId);
+      const res = await authFetch(`${endpoint}/generations/${encodeURIComponent(generationId)}`, {
+        method: "DELETE",
+      });
+      await assertAuthFetchOk(res, "Failed to delete generation");
 
-      if (error) {
-        console.error("Error deleting generation:", error);
-        showNotification({
-          title: "Error",
-          message: error.message || "Failed to delete generation",
-          type: "error",
-        });
-        return false;
-      }
-
-      // Remove the generation from the local state
       const state = get();
       const updatedGenerations = state.generations.filter((gen) => gen.id !== generationId);
-      const total = state.pagination.total - 1;
-      const totalPages = Math.ceil(total / 5); // limit is 5
+      const total = Math.max(0, state.pagination.total - 1);
+      const pageLimit = 9;
+      const totalPages = Math.ceil(total / pageLimit);
 
       set({
         generations: updatedGenerations,
@@ -730,11 +391,11 @@ const useGenerateStoreBase = create<GenerateStoreState>((set, get) => ({
       });
 
       return true;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error deleting generation:", err);
       showNotification({
         title: "Error",
-        message: err.message || "An unexpected error occurred",
+        message: err instanceof Error ? err.message : "An unexpected error occurred",
         type: "error",
       });
       return false;
@@ -745,20 +406,13 @@ const useGenerateStoreBase = create<GenerateStoreState>((set, get) => ({
   calculateCost: async (formValues) => {
     const pricing = get().selectedModel?.api?.pricing || {};
     try {
-      const response = await axios.post(
-        `${endpoint}/generations/calculate-cost`,
-        {
-          formValues,
-          pricing,
-        },
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${useAppStore.getState().getAuthApiKey() || ""}`,
-          },
-        }
-      );
-      const tokensCost = response?.data?.data?.cost ?? 0;
+      const response = await authFetch(`${endpoint}/generations/calculate-cost`, {
+        method: "POST",
+        body: JSON.stringify({ formValues, pricing }),
+      });
+      await assertAuthFetchOk(response, "Failed to calculate cost");
+      const json = await response.json().catch(() => ({}));
+      const tokensCost = (json as { data?: { cost?: number } })?.data?.cost ?? 0;
       set({ tokensCost });
     } catch (err) {
       console.error("Error calculating cost:", err);

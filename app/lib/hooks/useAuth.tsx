@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import useAppStore from "../stores/appStore";
-
+import useGenerateStore from "../stores/generateStore";
+import { useChatsStore } from "../stores/chatsStore";
 export function useAuth() {
   const {
     setUser,
@@ -8,11 +9,14 @@ export function useAuth() {
     setApi,
     getApi,
     userProfile,
-    setUserTokens,
     setUserUsageBalance,
     setAuthRealtimeChannel,
     checkApiHealth,
+    getUser,
   } = useAppStore();
+
+  const { loadGenerationModels } = useGenerateStore();
+  const { loadAgentModels } = useChatsStore();
 
   const channelRef = useRef<any>(null);
 
@@ -37,7 +41,6 @@ export function useAuth() {
     channel
       .on("broadcast", { event: "UPDATE" }, (payload: any) => {
         console.log("UPDATE", payload);
-        setUserTokens(payload.payload.record.token_balance);
         if (payload?.payload?.record?.usage_balance != null) {
           setUserUsageBalance(payload.payload.record.usage_balance);
         }
@@ -67,6 +70,7 @@ export function useAuth() {
     } = getApi().auth.onAuthStateChange(async (event, session) => {
       // Check API health whenever auth state changes
       // Skip check if already on health error page
+      console.log("onAuthStateChange event", event);
       if (window.location.pathname !== "/api-health-error") {
         const isHealthy = await checkApiHealth();
         if (!isHealthy) {
@@ -77,10 +81,14 @@ export function useAuth() {
       }
 
       if (session?.user) {
-        userProfile(session); // your existing profile fetcher/populator
-
-        // Subscribe to balance updates for this user
-        subscribeToBalance(session.user.id);
+        if (getUser()?.user?.id !== session.user.id) {
+          await userProfile(session); // your existing profile fetcher/populator
+          await loadGenerationModels();
+          await loadAgentModels();
+          setAppLoading(false);
+          // Subscribe to balance updates for this user
+          subscribeToBalance(session.user.id);
+        }
       } else {
         // Logout flow
         cleanupChannel();

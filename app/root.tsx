@@ -14,7 +14,6 @@ import useAppStore from "~/lib/stores/appStore";
 import { useEffect } from "react";
 import { MantineProvider } from "@mantine/core";
 import { createThemeWithColor } from "./lib/theme";
-import PageLoader from "./shared/PageLoader";
 import { useAuth } from "./lib/hooks/useAuth";
 import { Notifications } from "@mantine/notifications";
 import { PWAInstallPrompt } from "./shared/PWAInstallPrompt";
@@ -72,7 +71,7 @@ export const links: Route.LinksFunction = () => [
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {
-  const { appLoading, setIsMobile } = useAppStore();
+  const { setIsMobile } = useAppStore();
   useAuth();
 
   // Detect mobile screen size and update store
@@ -112,7 +111,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         <DynamicThemeProvider>
-          {appLoading ? <PageLoader /> : children}
+          {children}
           <PWAInstallPrompt />
         </DynamicThemeProvider>
         <ScrollRestoration />

@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { endpoint } from "~/lib/utils";
 import useAppStore from "~/lib/stores/appStore";
+import { assertAuthFetchOk, authFetch } from "~/lib/stores/authFetch";
 
 // ─── Types (Composio API shapes) ───────────────────────────────────────────
 
@@ -238,15 +239,8 @@ export const useToolsStore = create<ToolsState>((set, get) => ({
         set({ toolkitsError: "Sign in to browse toolkits", toolkitsLoading: false });
         return;
       }
-      const res = await fetch(`${endpoint}/tools/toolkits?${params.toString()}`, {
-        headers: { Authorization: `Bearer ${apiKey}` },
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(
-          (body as { error?: { message?: string } }).error?.message ?? "Failed to load toolkits"
-        );
-      }
+      const res = await authFetch(`${endpoint}/tools/toolkits?${params.toString()}`);
+      await assertAuthFetchOk(res, "Failed to load toolkits");
       const json: ToolkitsListResponse = await res.json();
       if (cursor && get().toolkitsData?.items) {
         set({
@@ -275,10 +269,8 @@ export const useToolsStore = create<ToolsState>((set, get) => ({
         set({ categoriesError: "Sign in to load categories", categoriesLoading: false });
         return;
       }
-      const res = await fetch(`${endpoint}/tools/toolkits/categories`, {
-        headers: { Authorization: `Bearer ${apiKey}` },
-      });
-      if (!res.ok) throw new Error("Failed to load categories");
+      const res = await authFetch(`${endpoint}/tools/toolkits/categories`);
+      await assertAuthFetchOk(res, "Failed to load categories");
       const json: CategoriesListResponse = await res.json();
       set({ categoriesData: json, categoriesLoading: false });
     } catch (err) {
@@ -303,17 +295,12 @@ export const useToolsStore = create<ToolsState>((set, get) => ({
         set({ toolkitDetailError: "Sign in to view toolkit", toolkitDetailLoading: false });
         return;
       }
-      const res = await fetch(`${endpoint}/tools/toolkits/${encoded}`, {
-        headers: { Authorization: `Bearer ${apiKey}` },
-      });
+      const res = await authFetch(`${endpoint}/tools/toolkits/${encoded}`);
       set({ toolkitDetailStatus: res.status });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(
-          (body as { error?: { message?: string } }).error?.message ??
-            (res.status === 404 ? "Toolkit not found" : "Failed to load toolkit")
-        );
-      }
+      await assertAuthFetchOk(
+        res,
+        res.status === 404 ? "Toolkit not found" : "Failed to load toolkit"
+      );
       const json: ToolkitDetail = await res.json();
       set({ toolkitDetail: json, toolkitDetailLoading: false });
     } catch (err) {
@@ -336,10 +323,8 @@ export const useToolsStore = create<ToolsState>((set, get) => ({
         set({ toolsError: "Sign in to view tools", toolsLoading: false });
         return;
       }
-      const res = await fetch(`${endpoint}/tools/tools?${params.toString()}`, {
-        headers: { Authorization: `Bearer ${apiKey}` },
-      });
-      if (!res.ok) throw new Error("Failed to load tools");
+      const res = await authFetch(`${endpoint}/tools/tools?${params.toString()}`);
+      await assertAuthFetchOk(res, "Failed to load tools");
       const json: ToolsListResponse = await res.json();
       set({ toolsData: json, toolsLoading: false });
     } catch (err) {
@@ -368,9 +353,7 @@ export const useToolsStore = create<ToolsState>((set, get) => ({
           const params = new URLSearchParams();
           params.set("toolkit_slug", slug);
           params.set("limit", "100");
-          const res = await fetch(`${endpoint}/tools/tools?${params.toString()}`, {
-            headers: { Authorization: `Bearer ${apiKey}` },
-          });
+          const res = await authFetch(`${endpoint}/tools/tools?${params.toString()}`);
           if (!res.ok) return { slug, items: [] as ToolItem[] };
           const json: ToolsListResponse = await res.json();
           return { slug, items: json.items ?? [] };
@@ -382,7 +365,7 @@ export const useToolsStore = create<ToolsState>((set, get) => ({
         toolsByToolkit: { ...s.toolsByToolkit, ...next },
         toolsByToolkitLoading: false,
       }));
-    } catch (err) {
+    } catch {
       set({ toolsByToolkitLoading: false });
     }
   },
@@ -406,19 +389,12 @@ export const useToolsStore = create<ToolsState>((set, get) => ({
     }
     set({ connectedAccountsLoading: true, connectedAccountsError: null });
     try {
-      const res = await fetch(`${endpoint}/tools/connected-accounts`, {
-        headers: { Authorization: `Bearer ${apiKey}` },
-      });
+      const res = await authFetch(`${endpoint}/tools/connected-accounts`);
       if (res.status === 401) {
         set({ connectedAccounts: [], connectedAccountsError: null });
         return;
       }
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(
-          (body as { error?: { message?: string } }).error?.message ?? "Failed to load connections"
-        );
-      }
+      await assertAuthFetchOk(res, "Failed to load connections");
       const json: ConnectedAccountsListResponse = await res.json();
       set({ connectedAccounts: json.items ?? [], connectedAccountsLoading: false });
     } catch (err) {
@@ -434,18 +410,11 @@ export const useToolsStore = create<ToolsState>((set, get) => ({
     const apiKey = useAppStore.getState().getAuthApiKey();
     if (!apiKey) return null;
     try {
-      const res = await fetch(`${endpoint}/tools/connected-accounts/link`, {
+      const res = await authFetch(`${endpoint}/tools/connected-accounts/link`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
         body: JSON.stringify({ toolkit_slug, callback_url }),
       });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(
-          (body as { error?: { message?: string } }).error?.message ??
-            "Failed to create connect link"
-        );
-      }
+      await assertAuthFetchOk(res, "Failed to create connect link");
       return (await res.json()) as ConnectLinkResponse;
     } catch (err) {
       console.error("[toolsStore] createConnectLink:", err);
@@ -457,16 +426,13 @@ export const useToolsStore = create<ToolsState>((set, get) => ({
     const apiKey = useAppStore.getState().getAuthApiKey();
     if (!apiKey || !id) return false;
     try {
-      const res = await fetch(`${endpoint}/tools/connected-accounts/${encodeURIComponent(id)}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${apiKey}` },
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(
-          (body as { error?: { message?: string } }).error?.message ?? "Failed to remove connection"
-        );
-      }
+      const res = await authFetch(
+        `${endpoint}/tools/connected-accounts/${encodeURIComponent(id)}`,
+        {
+          method: "DELETE",
+        }
+      );
+      await assertAuthFetchOk(res, "Failed to remove connection");
       set((state) => ({
         connectedAccounts: state.connectedAccounts.filter((c) => c.id !== id),
       }));

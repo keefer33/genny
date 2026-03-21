@@ -1,5 +1,7 @@
 import { create } from "zustand";
 import useAppStore from "./appStore";
+import { assertAuthFetchOk, authFetch } from "./authFetch";
+import { endpoint } from "../utils";
 
 export type TicketStatus = "opened" | "closed" | "pending";
 
@@ -96,20 +98,18 @@ const useSupportStore = create<SupportStoreState>((set, get) => ({
 
   fetchTickets: async () => {
     const appStore = useAppStore.getState();
-    const api = appStore.getApi();
     const session = appStore.getUser();
-    if (!api || !session?.user?.id) return;
+    if (!session?.user?.id || !appStore.getAuthApiKey()) return;
 
     set({ ticketsLoading: true });
     try {
-      const { data, error } = await api
-        .from("user_support_tickets")
-        .select("id, created_at, user_id, status")
-        .eq("user_id", session.user.id)
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      set({ tickets: (data as SupportTicketRow[]) || [] });
+      const res = await authFetch(`${endpoint}/support`);
+      await assertAuthFetchOk(res, "Failed to load support tickets");
+      const json = (await res.json()) as {
+        success?: boolean;
+        data?: { tickets: SupportTicketRow[] };
+      };
+      set({ tickets: json.data?.tickets ?? [] });
     } catch (e) {
       console.error("Error loading support tickets:", e);
       set({ tickets: [] });
@@ -120,35 +120,33 @@ const useSupportStore = create<SupportStoreState>((set, get) => ({
 
   fetchTicketDetail: async (ticketId: string) => {
     const appStore = useAppStore.getState();
-    const api = appStore.getApi();
     const session = appStore.getUser();
-    if (!api || !session?.user?.id) return { success: false, notFound: true };
+    if (!session?.user?.id || !appStore.getAuthApiKey()) {
+      return { success: false, notFound: true };
+    }
 
     set({ ticketLoading: true });
     try {
-      const { data: ticketData, error: ticketError } = await api
-        .from("user_support_tickets")
-        .select("id, created_at, user_id, status")
-        .eq("id", ticketId)
-        .eq("user_id", session.user.id)
-        .single();
+      const res = await authFetch(`${endpoint}/support/${encodeURIComponent(ticketId)}`);
+      if (res.status === 404) {
+        set({ ticket: null, threads: [], ticketLoading: false });
+        return { success: false, notFound: true };
+      }
+      await assertAuthFetchOk(res, "Failed to load ticket");
+      const json = (await res.json()) as {
+        success?: boolean;
+        data?: { ticket: SupportTicketDetail; threads: SupportThreadMessage[] };
+      };
 
-      if (ticketError || !ticketData) {
+      const payload = json.data;
+      if (!payload?.ticket) {
         set({ ticket: null, threads: [], ticketLoading: false });
         return { success: false, notFound: true };
       }
 
-      const { data: threadData, error: threadError } = await api
-        .from("user_support_tickets_threads")
-        .select("id, created_at, ticket_id, user_id, message")
-        .eq("ticket_id", ticketId)
-        .order("created_at", { ascending: true });
-
-      if (threadError) throw threadError;
-
       set({
-        ticket: ticketData as SupportTicketDetail,
-        threads: (threadData as SupportThreadMessage[]) || [],
+        ticket: payload.ticket,
+        threads: payload.threads ?? [],
         ticketLoading: false,
       });
       return { success: true };
@@ -161,31 +159,21 @@ const useSupportStore = create<SupportStoreState>((set, get) => ({
 
   createTicket: async (message: string) => {
     const appStore = useAppStore.getState();
-    const api = appStore.getApi();
     const session = appStore.getUser();
-    if (!api || !session?.user?.id) return { success: false, error: "Not authenticated" };
+    if (!session?.user?.id || !appStore.getAuthApiKey()) {
+      return { success: false, error: "Not authenticated" };
+    }
 
     const trimmed = message.trim();
     if (!trimmed) return { success: false, error: "Please enter a message" };
 
     set({ createSubmitting: true });
     try {
-      const { data: ticket, error: ticketError } = await api
-        .from("user_support_tickets")
-        .insert({ user_id: session.user.id })
-        .select("id")
-        .single();
-
-      if (ticketError) throw ticketError;
-      if (!ticket?.id) throw new Error("No ticket id returned");
-
-      const { error: threadError } = await api.from("user_support_tickets_threads").insert({
-        ticket_id: ticket.id,
-        user_id: session.user.id,
-        message: trimmed,
+      const res = await authFetch(`${endpoint}/support`, {
+        method: "POST",
+        body: JSON.stringify({ message: trimmed }),
       });
-
-      if (threadError) throw threadError;
+      await assertAuthFetchOk(res, "Failed to create ticket");
 
       set({ newMessage: "", createSubmitting: false });
       await get().fetchTickets();
@@ -199,30 +187,31 @@ const useSupportStore = create<SupportStoreState>((set, get) => ({
 
   sendReply: async (ticketId: string) => {
     const appStore = useAppStore.getState();
-    const api = appStore.getApi();
     const session = appStore.getUser();
     const { reply: replyText } = get();
-    if (!api || !session?.user?.id) return { success: false, error: "Not authenticated" };
+    if (!session?.user?.id || !appStore.getAuthApiKey()) {
+      return { success: false, error: "Not authenticated" };
+    }
 
     const trimmed = replyText.trim();
     if (!trimmed) return { success: false, error: "Please enter a message" };
 
     set({ replySubmitting: true });
     try {
-      const { data, error } = await api
-        .from("user_support_tickets_threads")
-        .insert({
-          ticket_id: ticketId,
-          user_id: session.user.id,
-          message: trimmed,
-        })
-        .select("id, created_at, ticket_id, user_id, message")
-        .single();
+      const res = await authFetch(`${endpoint}/support/${encodeURIComponent(ticketId)}/replies`, {
+        method: "POST",
+        body: JSON.stringify({ message: trimmed }),
+      });
+      await assertAuthFetchOk(res, "Failed to send reply");
+      const json = (await res.json()) as {
+        success?: boolean;
+        data?: { thread: SupportThreadMessage };
+      };
+      const row = json.data?.thread;
 
-      if (error) throw error;
-      if (data) {
+      if (row) {
         set((state) => ({
-          threads: [...state.threads, data as SupportThreadMessage],
+          threads: [...state.threads, row],
           reply: "",
           replySubmitting: false,
         }));

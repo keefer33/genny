@@ -36,10 +36,10 @@ export default function CreateAgent({
   onClose,
   renderTriggerOnly = false,
 }: CreateAgentProps) {
-  const { getUser, isMobile, getAgentModels } = useAppStore();
+  const { getUser, isMobile } = useAppStore();
   const user = getUser();
-  const agentModelsAll = getAgentModels?.() ?? [];
-  const agentModels = agentModelsAll.filter((m) => m?.model_type === "text");
+  const agentModelsAll = useChatsStore((s) => s.agentModels);
+  const textAgentModels = agentModelsAll.filter((m) => m?.model_type === "text");
   const { createUserAgent } = useChatsStore();
   const {
     connectedAccounts,
@@ -71,7 +71,7 @@ export default function CreateAgent({
   });
 
   const selectedModel = form.values.selectedModelName
-    ? agentModels.find((m) => m.model_name === form.values.selectedModelName)
+    ? textAgentModels.find((m) => m.model_name === form.values.selectedModelName)
     : null;
   const selectedModelDisplayName = selectedModel ? selectedModel.model_name : "";
 
@@ -180,7 +180,7 @@ export default function CreateAgent({
               <ScrollArea style={{ flex: 1, minHeight: 0 }} offsetScrollbars scrollbarSize={6}>
                 {step === 0 && (
                   <Stack gap="sm" mt="sm">
-                    {[...agentModels]
+                    {[...textAgentModels]
                       .sort(
                         (a, b) =>
                           (a.order ?? Number.POSITIVE_INFINITY) -

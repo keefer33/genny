@@ -1,5 +1,7 @@
 import { create } from "zustand";
 import useAppStore from "./appStore";
+import { assertAuthFetchOk, authFetch } from "./authFetch";
+import { endpoint } from "../utils";
 
 export interface UsageLogEntry {
   id: string;
@@ -31,6 +33,18 @@ export interface UsageLogEntry {
   } | null;
 }
 
+export type FetchUsageLogResult =
+  | {
+      success: true;
+      data: {
+        logs: UsageLogEntry[];
+        total: number;
+        page: number;
+        limit: number;
+      };
+    }
+  | { success: false; error: string };
+
 interface UsageLogStoreState {
   logs: UsageLogEntry[];
   currentPage: number;
@@ -41,7 +55,7 @@ interface UsageLogStoreState {
   setCurrentPage: (page: number) => void;
   setTotalPages: (pages: number) => void;
   setLogsLoading: (loading: boolean) => void;
-  fetchUsageLog: (page?: number, limit?: number) => Promise<any>;
+  fetchUsageLog: (page?: number, limit?: number) => Promise<FetchUsageLogResult>;
 
   resetUsageLogState: () => void;
 }
@@ -59,68 +73,40 @@ const useUsageLogStore = create<UsageLogStoreState>((set) => ({
 
   fetchUsageLog: async (page: number = 1, limit: number = 10) => {
     const appStore = useAppStore.getState();
-    const api = appStore.getApi();
     const session = appStore.getUser();
 
-    if (!api || !session?.user?.id) {
+    if (!session?.user?.id || !appStore.getAuthApiKey()) {
       return { success: false, error: "Not authenticated" };
     }
 
     try {
-      const offset = (page - 1) * limit;
+      const qs = new URLSearchParams({
+        page: String(page),
+        limit: String(limit),
+      });
+      const res = await authFetch(`${endpoint}/user/usage-log?${qs.toString()}`);
+      await assertAuthFetchOk(res, "Failed to fetch usage log");
+      const json = (await res.json()) as {
+        success?: boolean;
+        data?: {
+          logs: UsageLogEntry[];
+          total: number;
+          page: number;
+          limit: number;
+        };
+      };
 
-      const { count, error: countError } = await api
-        .from("user_usage_log")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", session.user.id);
-
-      if (countError) {
-        console.error("Error getting usage log count:", countError);
-        return { success: false, error: "Failed to fetch usage log" };
-      }
-
-      const { data: logsData, error: logsError } = await api
-        .from("user_usage_log")
-        .select(
-          `
-          *,
-          usage_log_types (
-            id,
-            log_type,
-            reason_code,
-            meta_data
-          ),
-          user_generations (
-            id,
-            model_id,
-            models (
-              id,
-              name
-            )
-          ),
-          transactions (
-            id,
-            amount_dollars,
-            amount_cents
-          )
-        `
-        )
-        .eq("user_id", session.user.id)
-        .order("created_at", { ascending: false })
-        .range(offset, offset + limit - 1);
-
-      if (logsError) {
-        console.error("Error fetching usage log:", logsError);
+      if (!json.success || !json.data) {
         return { success: false, error: "Failed to fetch usage log" };
       }
 
       return {
         success: true,
         data: {
-          logs: logsData || [],
-          total: count || 0,
-          page,
-          limit,
+          logs: json.data.logs ?? [],
+          total: json.data.total ?? 0,
+          page: json.data.page ?? page,
+          limit: json.data.limit ?? limit,
         },
       };
     } catch (error) {
@@ -139,4 +125,3 @@ const useUsageLogStore = create<UsageLogStoreState>((set) => ({
 }));
 
 export default useUsageLogStore;
-

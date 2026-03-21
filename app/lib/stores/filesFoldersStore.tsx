@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { showNotification } from "../notificationUtils";
 import useAppStore from "./appStore";
+import { assertAuthFetchOk, authFetch } from "./authFetch";
 import createUniversalSelectors from "./universalSelectors";
 import { endpoint } from "../utils";
 
@@ -230,62 +231,15 @@ const useFilesFoldersStoreBase = create<FilesFoldersState>((set, get) => ({
         return false;
       }
 
-      // Upload to Zipline
       const formData = new FormData();
       formData.append("file", file);
 
-      const apiKey = useAppStore.getState().getAuthApiKey();
-      const response = await fetch(`${endpoint}/zipline/upload`, {
+      const response = await authFetch(`${endpoint}/user/files/upload`, {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey || ""}`,
-          // Don't set Content-Type header - browser will set it with boundary
-        },
         body: formData,
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error("Upload error:", errorData);
-        showNotification({
-          title: "Upload failed",
-          message: errorData?.error || "Failed to upload file",
-          type: "error",
-        });
-        return false;
-      }
-
-      const uploadResponse = await response.json();
-
-      // Get the file URL from the Zipline response
-      const uploadedFile = uploadResponse?.data?.files[0];
-
-      // Save file metadata to database
-      const { error: dbError } = await useAppStore
-        .getState()
-        .getApi()
-        .from("user_files")
-        .insert({
-          user_id: userId,
-          file_name: uploadedFile.name, // Use original filename for display
-          file_path: uploadedFile.url,
-          file_size: file.size,
-          file_type: uploadedFile.type,
-          status: "active",
-          upload_type: "upload",
-        })
-        .select()
-        .single();
-
-      if (dbError) {
-        console.error("Database error:", dbError);
-        showNotification({
-          title: "Database error",
-          message: dbError.message,
-          type: "error",
-        });
-        return false;
-      }
+      await assertAuthFetchOk(response, "Failed to upload file");
 
       showNotification({
         title: "Upload successful",
@@ -313,34 +267,11 @@ const useFilesFoldersStoreBase = create<FilesFoldersState>((set, get) => ({
   deleteFile: async (fileName: string, fileId: string, userId: string) => {
     set({ loading: true, error: null, gridLoading: false });
     try {
-      const apiKey = useAppStore.getState().getAuthApiKey();
-      await fetch(`${endpoint}/zipline/user/files/delete`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey || ""}`,
-        },
+      const deleteRes = await authFetch(`${endpoint}/user/files/${encodeURIComponent(fileId)}`, {
+        method: "DELETE",
         body: JSON.stringify({ idOrName: fileName }),
       });
-
-      // Update file status to deleted in database instead of actually deleting
-      const { error: dbError } = await useAppStore
-        .getState()
-        .getApi()
-        .from("user_files")
-        .delete()
-        .eq("id", fileId)
-        .eq("user_id", userId);
-
-      if (dbError) {
-        console.error("Database deletion error:", dbError);
-        showNotification({
-          title: "Error",
-          message: dbError.message,
-          type: "error",
-        });
-        return false;
-      }
+      await assertAuthFetchOk(deleteRes, "Failed to delete file");
 
       showNotification({
         title: "Success",
@@ -372,54 +303,19 @@ const useFilesFoldersStoreBase = create<FilesFoldersState>((set, get) => ({
     }
   },
 
-  updateFileName: async (fileId: string, newFileName: string, userId: string) => {
+  updateFileName: async (fileId: string, newFileName: string, _userId: string) => {
     set({ loading: true, error: null, gridLoading: false });
 
     try {
-      // Get the current file to extract the file path
-      const { data: currentFile, error: fetchError } = await useAppStore
-        .getState()
-        .getApi()
-        .from("user_files")
-        .select("file_path, file_name")
-        .eq("id", fileId)
-        .eq("user_id", userId)
-        .eq("status", "active")
-        .single();
-
-      if (fetchError || !currentFile) {
-        showNotification({
-          title: "Error",
-          message: "File not found",
-          type: "error",
-        });
-        return { success: false };
-      }
-
-      // Extract the file extension from the original filename
-      const fileExtension = currentFile.file_name.split(".").pop() || "";
-      const newFileNameWithExtension = newFileName.includes(".")
-        ? newFileName
-        : `${newFileName}.${fileExtension}`;
-
-      // Update the file name in the database
-      const { data: updatedFile, error: updateError } = await useAppStore
-        .getState()
-        .getApi()
-        .from("user_files")
-        .update({ file_name: newFileNameWithExtension })
-        .eq("id", fileId)
-        .eq("user_id", userId)
-        .select()
-        .single();
-
-      if (updateError) {
-        console.error("Update error:", updateError);
-        showNotification({
-          title: "Error",
-          message: updateError.message,
-          type: "error",
-        });
+      const patchRes = await authFetch(`${endpoint}/user/files/${encodeURIComponent(fileId)}`, {
+        method: "PATCH",
+        body: JSON.stringify({ file_name: newFileName }),
+      });
+      await assertAuthFetchOk(patchRes, "Failed to update file name");
+      const patchJson = (await patchRes.json()) as { success?: boolean; data?: FileData };
+      const updatedFile = patchJson.data;
+      if (!updatedFile) {
+        showNotification({ title: "Error", message: "File not found", type: "error" });
         return { success: false };
       }
 
@@ -463,6 +359,11 @@ const useFilesFoldersStoreBase = create<FilesFoldersState>((set, get) => ({
       return;
     }
 
+    if (!useAppStore.getState().getAuthApiKey()) {
+      set({ loading: false, gridLoading: false, error: null });
+      return;
+    }
+
     // Use provided parameters or fall back to store state
     // For uploadType, if explicitly passed (even as null), use it; otherwise use store value
     const finalSelectedTags = selectedTags !== undefined ? selectedTags : get().selectedTags;
@@ -475,237 +376,64 @@ const useFilesFoldersStoreBase = create<FilesFoldersState>((set, get) => ({
     set({ gridLoading: true, error: null });
 
     try {
-      const from = (page - 1) * limit;
-      const to = from + limit - 1;
-
-      let query;
-
+      const params = new URLSearchParams();
+      params.set("page", String(page));
+      params.set("limit", String(limit));
       if (finalSelectedTags && finalSelectedTags.length > 0) {
-        // When filtering by tags, we need to use a different approach
-        // First, get all files with the selected tags
-        const { data: taggedFiles, error: tagError } = await useAppStore
-          .getState()
-          .getApi()
-          .from("user_file_tags")
-          .select("file_id")
-          .in("tag_id", finalSelectedTags);
-
-        if (tagError) {
-          console.error("Error fetching tagged files:", tagError);
-          set({ error: tagError.message });
-          return;
-        }
-
-        const fileIds = taggedFiles?.map((ft) => ft.file_id) || [];
-
-        if (fileIds.length === 0) {
-          // No files have the selected tags
-          set({
-            files: [],
-            paginationData: {
-              data: [],
-              total: 0,
-              totalPages: 0,
-              currentPage: page,
-              hasNextPage: false,
-              hasPrevPage: false,
-            },
-          });
-          return;
-        }
-
-        // Now get the files with pagination
-        query = useAppStore
-          .getState()
-          .getApi()
-          .from("user_files")
-          .select(
-            `
-            *,
-            user_file_tags(
-              tag_id,
-              created_at,
-              user_tags(*)
-            )
-          `,
-            { count: "exact" }
-          )
-          .eq("user_id", finalUserId)
-          .eq("status", "active")
-          .in("id", fileIds);
-      } else {
-        // No tag filtering, get all files
-        query = useAppStore
-          .getState()
-          .getApi()
-          .from("user_files")
-          .select(
-            `
-            *,
-            user_file_tags(
-              tag_id,
-              created_at,
-              user_tags(*)
-            )
-          `,
-            { count: "exact" }
-          )
-          .eq("user_id", finalUserId)
-          .eq("status", "active");
+        params.set("tags", finalSelectedTags.join(","));
       }
-
-      // Apply upload_type filter if provided and not null
-      // When finalUploadType is null, we want to load all files (both "upload" and "generation" types)
       if (finalUploadType !== null && finalUploadType !== undefined) {
-        query = query.eq("upload_type", finalUploadType);
+        params.set("uploadType", finalUploadType);
       }
-
-      // Apply file_type filter if provided and not "all"
-      // Use ilike for case-insensitive matching
       if (finalFileTypeFilter && finalFileTypeFilter !== "all") {
-        if (finalFileTypeFilter === "images") {
-          query = query.ilike("file_type", "image/%");
-        } else if (finalFileTypeFilter === "videos") {
-          query = query.ilike("file_type", "video/%");
-        }
+        params.set("fileTypeFilter", finalFileTypeFilter);
+      }
+      if (generationModelId) {
+        params.set("generationModelId", generationModelId);
+      }
+      if (generationType) {
+        params.set("generationType", generationType);
       }
 
-      // Apply generation filters if provided
-      // If filtering by generation model or type, we need to get file IDs from generations first
-      if (generationModelId || generationType) {
-        const supabase = useAppStore.getState().getApi();
-        if (supabase) {
-          // First, get generations matching the filters
-          let generationQuery = supabase
-            .from("user_generations")
-            .select("id")
-            .eq("user_id", finalUserId)
-            .eq("status", "completed");
+      const res = await authFetch(`${endpoint}/user/files?${params.toString()}`);
+      await assertAuthFetchOk(res, "Failed to fetch files");
+      const json = (await res.json()) as {
+        success?: boolean;
+        data?: {
+          files: FileData[];
+          total: number;
+          totalPages: number;
+          currentPage: number;
+          hasNextPage: boolean;
+          hasPrevPage: boolean;
+        };
+      };
 
-          if (generationModelId) {
-            generationQuery = generationQuery.eq("model_id", generationModelId);
-          }
-
-          if (generationType) {
-            generationQuery = generationQuery.eq("generation_type", generationType);
-          }
-
-          const { data: generations, error: genError } = await generationQuery;
-
-          if (genError) {
-            console.error("Error fetching generations for filter:", genError);
-            set({ error: genError.message });
-            return;
-          }
-
-          if (!generations || generations.length === 0) {
-            // No generations match, so no files to show
-            set({
-              files: [],
-              paginationData: {
-                data: [],
-                total: 0,
-                totalPages: 0,
-                currentPage: page,
-                hasNextPage: false,
-                hasPrevPage: false,
-              },
-            });
-            return;
-          }
-
-          const generationIds = generations.map((g) => g.id);
-
-          // Now get file IDs from user_generation_files
-          const { data: generationFiles, error: genFileError } = await supabase
-            .from("user_generation_files")
-            .select("file_id")
-            .in("generation_id", generationIds);
-
-          if (genFileError) {
-            console.error("Error fetching generation files:", genFileError);
-            set({ error: genFileError.message });
-            return;
-          }
-
-          if (!generationFiles || generationFiles.length === 0) {
-            // No files from these generations
-            set({
-              files: [],
-              paginationData: {
-                data: [],
-                total: 0,
-                totalPages: 0,
-                currentPage: page,
-                hasNextPage: false,
-                hasPrevPage: false,
-              },
-            });
-            return;
-          }
-
-          const fileIds = [...new Set(generationFiles.map((gf) => gf.file_id))];
-
-          // Filter the main query to only include these file IDs
-          if (finalSelectedTags && finalSelectedTags.length > 0) {
-            // If we also have tag filtering, intersect the file IDs
-            const { data: taggedFiles } = await supabase
-              .from("user_file_tags")
-              .select("file_id")
-              .in("tag_id", finalSelectedTags);
-
-            const taggedFileIds = taggedFiles?.map((ft) => ft.file_id) || [];
-            const intersection = fileIds.filter((id) => taggedFileIds.includes(id));
-
-            if (intersection.length === 0) {
-              set({
-                files: [],
-                paginationData: {
-                  data: [],
-                  total: 0,
-                  totalPages: 0,
-                  currentPage: page,
-                  hasNextPage: false,
-                  hasPrevPage: false,
-                },
-              });
-              return;
-            }
-
-            query = query.in("id", intersection);
-          } else {
-            query = query.in("id", fileIds);
-          }
-        }
-      }
-
-      const { data, error, count } = await query
-        .order("created_at", { ascending: false })
-        .range(from, to);
-
-      if (error) {
-        console.error("Error fetching files:", error);
-        set({ error: error.message });
+      const payload = json.data;
+      if (!payload) {
+        set({ error: "Failed to fetch files" });
         return;
       }
 
-      const total = count || 0;
-      const totalPages = Math.ceil(total / limit);
+      const total = payload.total ?? 0;
+      const totalPages = payload.totalPages ?? Math.ceil(total / limit);
 
       set({
-        files: data || [],
+        files: payload.files ?? [],
         paginationData: {
-          data: data || [],
+          data: payload.files ?? [],
           total,
           totalPages,
-          currentPage: page,
-          hasNextPage: page < totalPages,
-          hasPrevPage: page > 1,
+          currentPage: payload.currentPage ?? page,
+          hasNextPage: payload.hasNextPage ?? false,
+          hasPrevPage: payload.hasPrevPage ?? false,
         },
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error fetching files:", err);
-      set({ error: "Failed to fetch files" });
+      set({
+        error: err instanceof Error ? err.message : "Failed to fetch files",
+      });
     } finally {
       set({ gridLoading: false });
     }

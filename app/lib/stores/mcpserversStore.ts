@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { endpoint } from "~/lib/utils";
+import { assertAuthFetchOk, authFetch } from "~/lib/stores/authFetch";
 import useAppStore from "~/lib/stores/appStore";
 
 // ─── Types (list API) ─────────────────────────────────────────────────────
@@ -312,18 +313,11 @@ export const useMcpServersStore = create<McpServersState>((set, get) => ({
       return null;
     }
     try {
-      const res = await fetch(`${endpoint}/mcpservers/connect`, {
+      const res = await authFetch(`${endpoint}/mcpservers/connect`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        },
         body: JSON.stringify({ serverDetails, params }),
       });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error((body as { error?: string }).error ?? "Failed to create connection");
-      }
+      await assertAuthFetchOk(res, "Failed to create connection");
       return (await res.json()) as McpConnectResponse;
     } catch (err) {
       console.error("[mcpserversStore] createConnection:", err);
@@ -339,9 +333,7 @@ export const useMcpServersStore = create<McpServersState>((set, get) => ({
     }
     set({ connectionsLoading: true, connectionsError: null });
     try {
-      const res = await fetch(`${endpoint}/mcpservers/connections`, {
-        headers: { Authorization: `Bearer ${apiKey}` },
-      });
+      const res = await authFetch(`${endpoint}/mcpservers/connections`);
       if (res.status === 401) {
         set({ connections: [], connectionsError: null });
         return;
@@ -368,9 +360,8 @@ export const useMcpServersStore = create<McpServersState>((set, get) => ({
       return { connected: false };
     }
     try {
-      const res = await fetch(
-        `${endpoint}/mcpservers/connections/check?qualifiedName=${encodeURIComponent(qualifiedName)}`,
-        { headers: { Authorization: `Bearer ${apiKey}` } }
+      const res = await authFetch(
+        `${endpoint}/mcpservers/connections/check?qualifiedName=${encodeURIComponent(qualifiedName)}`
       );
       if (res.status === 401 || !res.ok) {
         return { connected: false };
@@ -389,17 +380,13 @@ export const useMcpServersStore = create<McpServersState>((set, get) => ({
     const apiKey = useAppStore.getState().getAuthApiKey();
     if (!apiKey || !connectionId) return false;
     try {
-      const res = await fetch(
+      const res = await authFetch(
         `${endpoint}/mcpservers/connections/${encodeURIComponent(connectionId)}`,
         {
           method: "DELETE",
-          headers: { Authorization: `Bearer ${apiKey}` },
         }
       );
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error((body as { error?: string }).error ?? "Failed to delete connection");
-      }
+      await assertAuthFetchOk(res, "Failed to delete connection");
       set((state) => ({
         connections: state.connections.filter((c) => c.connectionId !== connectionId),
       }));

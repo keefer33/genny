@@ -1,8 +1,8 @@
 import { Card, Stack, Text, Title, Box, Button } from "@mantine/core";
 import { useEffect, useState } from "react";
 import { RiSparklingLine } from "@remixicon/react";
-import useAppStore from "~/lib/stores/appStore";
 import { Link } from "react-router";
+import { endpoint } from "~/lib/utils";
 
 interface Promotion {
   id: string;
@@ -17,58 +17,46 @@ interface Promotion {
 }
 
 export function PromotionCard() {
-  const { getApi } = useAppStore();
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
+
     const fetchPromotions = async () => {
-      const api = getApi();
-      if (!api) {
-        setLoading(false);
-        return;
-      }
-
       try {
-        const now = new Date().toISOString();
-
-        // Fetch all promotions
-        const { data, error } = await api
-          .from("promotions")
-          .select("*")
-          .order("created_at", { ascending: false });
-
-        if (error) {
-          console.error("Error fetching promotions:", error);
-          setLoading(false);
+        const response = await fetch(`${endpoint}/promotions`);
+        if (!response.ok) {
+          if (!cancelled) setPromotions([]);
           return;
         }
+        const result = await response.json();
 
-        // Filter for active promotions
-        // A promotion is active if:
-        // 1. start_date is null OR start_date <= now
-        // 2. end_date is null OR end_date >= now
-        const activePromotions = (data || []).filter((promo) => {
-          const startDate = promo.start_date ? new Date(promo.start_date) : null;
-          const endDate = promo.end_date ? new Date(promo.end_date) : null;
-          const nowDate = new Date(now);
+        if (cancelled) return;
 
-          const isStarted = !startDate || startDate <= nowDate;
-          const isNotEnded = !endDate || endDate >= nowDate;
-
-          return isStarted && isNotEnded;
-        });
-
-        setPromotions(activePromotions);
+        if (result?.success && Array.isArray(result.data?.promotions)) {
+          setPromotions(result.data.promotions as Promotion[]);
+        } else {
+          setPromotions([]);
+        }
       } catch (error) {
         console.error("Error fetching promotions:", error);
+        if (!cancelled) {
+          setPromotions([]);
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     };
 
     fetchPromotions();
-  }, [getApi]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   if (loading) {
     return (
