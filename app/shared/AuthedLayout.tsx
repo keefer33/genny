@@ -71,7 +71,7 @@ export default function AuthedLayout() {
 
       {isMobile && (
         <AppShell.Footer>
-          <Box pt="xs">
+          <Box p="xs">
             <MobileFooterGlobalNav />
           </Box>
         </AppShell.Footer>

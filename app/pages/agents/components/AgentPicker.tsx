@@ -14,9 +14,9 @@ import { RiArrowDownSLine, RiChatSmile2Line, RiDeleteBinLine } from "@remixicon/
 import { useState } from "react";
 import { useChatsStore, type AgentModel, type UserAgentRow } from "~/lib/stores/chatsStore";
 import useAppStore from "~/lib/stores/appStore";
-import CreateAgent from "~/pages/chats/components/CreateAgent";
-import ToolsAttachButton from "~/pages/chats/components/ToolsAttachButton";
-import ChatSettings from "~/pages/chats/components/ChatSettings";
+import CreateAgent from "~/pages/agents/components/CreateAgent";
+import ToolsAttachButton from "~/pages/agents/components/ToolsAttachButton";
+import ChatSettings from "~/pages/agents/components/ChatSettings";
 import { useTheme } from "~/lib/hooks/useTheme";
 
 function getModelForAgent(agent: UserAgentRow | null, models: AgentModel[]): AgentModel | null {

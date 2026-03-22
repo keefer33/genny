@@ -3,7 +3,7 @@ import { RiLoginBoxLine } from "@remixicon/react";
 import { Link } from "react-router";
 import Logo from "./Logo";
 import useAppStore from "~/lib/stores/appStore";
-import { UsageBadge } from "./UsageBadge";
+import { CostBadge } from "./CostBadge";
 
 interface AppShellHeaderProps {
   mobileOpened: boolean;
@@ -23,7 +23,7 @@ export function AppShellHeader({ mobileOpened, toggleMobile }: AppShellHeaderPro
         <Group align="center">
           {isLoggedIn ? (
             <>
-              <UsageBadge usage={getCurrentUserUsageBalance()} />
+              <CostBadge cost={getCurrentUserUsageBalance()} />
             </>
           ) : (
             <Button

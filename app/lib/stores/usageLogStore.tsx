@@ -12,6 +12,7 @@ export interface UsageLogEntry {
   generation_id: string | null;
   transaction_id: string | null;
   type_id: number | null;
+  meta: any;
   usage_log_types?: {
     id: number;
     log_type: "credit" | "debit";

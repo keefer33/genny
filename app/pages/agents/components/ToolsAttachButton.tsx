@@ -19,7 +19,7 @@ import { useChatsStore, type UserAgentConfigWithSettings } from "~/lib/stores/ch
 import { useToolsStore } from "~/lib/stores/toolsStore";
 import ToolkitSelectorList, {
   buildToolkitsFromConnections,
-} from "~/pages/chats/components/ToolkitSelectorList";
+} from "~/pages/agents/components/ToolkitSelectorList";
 
 interface ToolsAttachButtonProps {
   /** When false, only form state is used (e.g. Chats); no agent persistence. Default true. */

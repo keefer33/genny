@@ -79,8 +79,6 @@ interface Profile {
   email: string;
   username: string;
   phone: string;
-  tokens: number;
-  token_balance?: number;
   usage_balance?: number;
   api_key?: string | null;
   meta?: Record<string, any> | null;
@@ -121,10 +119,6 @@ async function persistApiKeyToProfile(
 interface AppStoreState {
   // Loading states
   loading: boolean;
-  /**
-   * True until session + user_profiles row + generation/agent catalogs are ready
-   * (`useAuth` → `userProfile` → `loadCatalogsAndFinishAppLoading`). Not used in root Layout.
-   */
   appLoading: boolean;
   pageLoading: boolean;
   themeColor: string;
@@ -132,7 +126,6 @@ interface AppStoreState {
   user: Session | null;
   isMobile: boolean;
   page: string | undefined;
-  userTokens: number;
   userUsageBalance: number;
   authApiKey: string | null;
   setAuthApiKey: (authApiKey: string | null) => void;
@@ -178,7 +171,6 @@ const useAppStoreBase = create<AppStoreState>((set, get) => ({
   user: null,
   isMobile: false,
   page: undefined,
-  userTokens: 0,
   userUsageBalance: 0,
   authApiKey: null,
   authRealtimeChannel: null as any,
@@ -408,8 +400,6 @@ const useAppStoreBase = create<AppStoreState>((set, get) => ({
               created_at: (row.created_at as string) ?? base.created_at,
               updated_at: (row.updated_at as string) ?? base.updated_at,
               phone: (row.phone as string) ?? base.phone ?? "",
-              tokens: (row.token_balance as number) ?? base.tokens ?? 0,
-              token_balance: row.token_balance as number | undefined,
               usage_balance: row.usage_balance as number | undefined,
               api_key: (row.api_key as string | null | undefined) ?? base.api_key,
               meta: (row.meta as Profile["meta"]) ?? base.meta,
@@ -452,7 +442,7 @@ const useAppStoreBase = create<AppStoreState>((set, get) => ({
       };
 
       if (res.status !== 200 || !body?.success || !body?.data) {
-        set({ appLoading: false });
+        // set({ appLoading: false });
         return {
           success: false,
           error: body?.error || body?.message || "Profile does not exist",

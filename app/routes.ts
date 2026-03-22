@@ -24,7 +24,7 @@ export default [
     route("/mcpservers/:name", "pages/mcp/McpServerDetail.tsx"),
     route("/tools", "pages/tools/Tools.tsx"),
     route("/tools/:slug", "pages/tools/ToolkitDetail.tsx"),
-    route("/chats", "pages/chats/Chats.tsx"),
+    route("/agents", "pages/agents/Agents.tsx"),
     route("/files", "pages/files/MemberFiles.tsx"),
     route("/generations", "pages/generations/Generations.tsx"),
   ]),

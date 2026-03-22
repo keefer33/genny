@@ -3,12 +3,11 @@ import { RiHistoryLine, RiImageLine, RiRobot2Line, RiVideoLine } from "@remixico
 import { useLocation, useNavigate } from "react-router";
 import type { ComponentType } from "react";
 import useAppStore from "~/lib/stores/appStore";
-import useGenerateStore from "~/lib/stores/generateStore";
 
 export const MOBILE_GLOBAL_NAV_HEIGHT = 55;
 
 type GlobalNavItem = {
-  key: "generate" | "image" | "video" | "generations";
+  key: "agents" | "image" | "video" | "generations";
   label: string;
   icon: ComponentType<{ size?: string | number }>;
   to: string;
@@ -19,39 +18,28 @@ export function MobileFooterGlobalNav() {
   const navigate = useNavigate();
   const location = useLocation();
   const { themeColor } = useAppStore();
-  const { models } = useGenerateStore();
-
-  const resolveModelRoute = (generationType: "image" | "video") => {
-    const orderedModelsForType = (models || []).filter(
-      (model) => model.generation_type === generationType
-    );
-    if (orderedModelsForType.length > 0) {
-      return `/generate/${generationType}/${orderedModelsForType[0].slug}`;
-    }
-    return `/generate/${generationType}`;
-  };
 
   const items: GlobalNavItem[] = [
     {
-      key: "generate",
-      label: "Generate",
+      key: "agents",
+      label: "Agents",
       icon: RiRobot2Line,
-      to: "/generate",
-      isActive: location.pathname === "/generate",
+      to: "/agents",
+      isActive: location.pathname === "/agents",
     },
     {
       key: "image",
       label: "Image",
       icon: RiImageLine,
-      to: resolveModelRoute("image"),
-      isActive: location.pathname.startsWith("/generate/image"),
+      to: "/generate/image",
+      isActive: location.pathname === "/generate/image",
     },
     {
       key: "video",
       label: "Video",
       icon: RiVideoLine,
-      to: resolveModelRoute("video"),
-      isActive: location.pathname.startsWith("/generate/video"),
+      to: "/generate/video",
+      isActive: location.pathname === "/generate/video",
     },
     {
       key: "generations",
@@ -67,7 +55,7 @@ export function MobileFooterGlobalNav() {
   const routeByKey = items.reduce<Record<GlobalNavItem["key"], string>>(
     (acc, item) => ({ ...acc, [item.key]: item.to }),
     {
-      generate: "/generate",
+      agents: "/agents",
       image: "/generate/image",
       video: "/generate/video",
       generations: "/generations",

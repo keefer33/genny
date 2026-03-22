@@ -18,16 +18,14 @@ export async function clientLoader({
   params: { generation_type?: string; slug?: string };
 }) {
   const slug = params.slug;
-  if (slug) {
-    useGenerateStore.getState().loadModel(slug);
-  }
+
   return { slug: slug ?? null, generation_type: params.generation_type ?? null };
 }
 
 export default function GenerateModel() {
   const { slug } = useLoaderData<typeof clientLoader>();
   const navigate = useNavigate();
-  const { getUser, isMobile, userTokens } = useAppStore();
+  const { getUser, isMobile, userUsageBalance } = useAppStore();
   const {
     modelLoading,
     generateContent,
@@ -35,9 +33,10 @@ export default function GenerateModel() {
     calculateCost,
     getSelectedModel,
     selectedModel,
+    tokensCost,
+    loadModel,
   } = useGenerateStore();
   const user = getUser();
-  const currentTokens = userTokens || 0;
 
   // Define function before using it
   const getDefaultValuesFromSchema = (schema: any): Record<string, any> => {
@@ -265,6 +264,7 @@ export default function GenerateModel() {
 
   // When slug or selected model changes, reset form to a blank state (no schema defaults).
   useEffect(() => {
+    loadModel(slug);
     const model = selectedModel ?? getSelectedModel();
     const schema = model?.api?.schema || model?.schema;
     if (!model || model.slug !== slug || !schema) return;
@@ -277,11 +277,10 @@ export default function GenerateModel() {
   const handleSubmit = async (values: any) => {
     if (!getSelectedModel()) return;
     // Check if user has enough tokens
-    const cost = getSelectedModel().config?.cost_per_generation || 100;
-    if (currentTokens < cost) {
+    if (userUsageBalance < tokensCost) {
       notifications.show({
         title: "Insufficient Tokens",
-        message: `You need ${cost} tokens to generate content. You have ${currentTokens} tokens.`,
+        message: `You need ${tokensCost} tokens to generate content. You have ${userUsageBalance} tokens.`,
         color: "red",
       });
       return;

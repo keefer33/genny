@@ -48,6 +48,7 @@ export default function UsageLog() {
 
       if (result.success) {
         setLogs(result.data.logs);
+        console.log("logs", result.data.logs);
         setTotalPages(Math.ceil(result.data.total / itemsPerPage));
       }
     } catch (error) {
@@ -176,17 +177,7 @@ export default function UsageLog() {
                               <Text size="xs" c="dimmed" mb={2}>
                                 Related
                               </Text>
-                              {entry.generation_id ? (
-                                entry.user_generations?.models?.name ? (
-                                  <Text size="sm" c="dimmed" fw={500}>
-                                    {entry.user_generations.models.name}
-                                  </Text>
-                                ) : (
-                                  <Text size="xs" c="dimmed" ff="monospace">
-                                    Gen: {entry.generation_id.slice(0, 8)}...
-                                  </Text>
-                                )
-                              ) : entry.transaction_id ? (
+                              {entry.transaction_id ? (
                                 entry.transactions?.amount_dollars ? (
                                   <Text size="sm" c="dimmed" fw={500}>
                                     ${entry.transactions.amount_dollars.toFixed(2)}
@@ -196,6 +187,10 @@ export default function UsageLog() {
                                     Txn: {entry.transaction_id.slice(0, 8)}...
                                   </Text>
                                 )
+                              ) : entry.meta.model_name ? (
+                                <Text size="xs" c="dimmed">
+                                  {entry.meta.type}
+                                </Text>
                               ) : (
                                 <Text size="xs" c="dimmed">
                                   —
@@ -271,16 +266,10 @@ export default function UsageLog() {
                           </Group>
                         </Table.Td>
                         <Table.Td>
-                          {entry.generation_id ? (
-                            entry.user_generations?.models?.name ? (
-                              <Text size="sm" c="dimmed">
-                                {entry.user_generations.models.name}
-                              </Text>
-                            ) : (
-                              <Text size="xs" c="dimmed" ff="monospace">
-                                Gen: {entry.generation_id.slice(0, 8)}...
-                              </Text>
-                            )
+                          {entry.meta?.model_name ? (
+                            <Text size="sm" c="dimmed">
+                              {entry.meta?.model_name}
+                            </Text>
                           ) : entry.transaction_id ? (
                             entry.transactions?.amount_dollars ? (
                               <Text size="sm" c="dimmed" fw={500}>

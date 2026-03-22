@@ -20,7 +20,6 @@ import {
   RiLogoutBoxLine,
   RiCoinLine,
   RiCustomerService2Line,
-  RiChatSmile2Line,
   RiToolsLine,
 } from "@remixicon/react";
 import { NavLink, useLocation } from "react-router";
@@ -56,11 +55,18 @@ export function Navbar({ toggleMobile, collapsed }: NavbarProps) {
 
   const navItems = [
     {
+      to: "/agents",
+      icon: RiRobot2Line,
+      label: "Agents",
+      description: "AI Agents",
+      matchPrefix: "/agents",
+    },
+    /*{
       to: "/generate",
       icon: RiRobot2Line,
       label: "Generate",
       description: "AI Content Generation",
-    },
+    },*/
     {
       to: resolveModelRoute("image"),
       icon: RiImageLine,
@@ -74,6 +80,13 @@ export function Navbar({ toggleMobile, collapsed }: NavbarProps) {
       label: "Videos",
       description: "Video Generation",
       matchPrefix: "/generate/video",
+    },
+    {
+      to: "/tools",
+      icon: RiToolsLine,
+      label: "Tools",
+      description: "Connect toolkits (Composio)",
+      matchPrefix: "/tools",
     },
     {
       to: "/generations",
@@ -101,20 +114,6 @@ export function Navbar({ toggleMobile, collapsed }: NavbarProps) {
   ];
 
   const loggedInItems = [
-    {
-      to: "/chats",
-      icon: RiChatSmile2Line,
-      label: "Chats",
-      description: "AI chats",
-      matchPrefix: "/chats",
-    },
-    {
-      to: "/tools",
-      icon: RiToolsLine,
-      label: "Tools",
-      description: "Connect toolkits (Composio)",
-      matchPrefix: "/tools",
-    },
     {
       to: "/account/usage-log",
       icon: RiCoinLine,
