@@ -83,12 +83,12 @@ export function useAuth() {
       if (session?.user) {
         if (getUser()?.user?.id !== session.user.id) {
           await userProfile(session); // your existing profile fetcher/populator
-          await loadGenerationModels();
-          await loadAgentModels();
-          setAppLoading(false);
           // Subscribe to balance updates for this user
           subscribeToBalance(session.user.id);
         }
+        await loadGenerationModels();
+        await loadAgentModels();
+        setAppLoading(false);
       } else {
         // Logout flow
         cleanupChannel();

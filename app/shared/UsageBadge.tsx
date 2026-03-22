@@ -33,7 +33,7 @@ export function UsageBadge({
       style={clickable ? { cursor: "pointer" } : undefined}
       onClick={clickable ? handleClick : undefined}
     >
-      {usage}
+      {usage.toFixed(2)}
     </Badge>
   );
 }

@@ -17,7 +17,7 @@ import { useToolsStore } from "~/lib/stores/toolsStore";
 import { FormProvider, useForm } from "~/lib/ContextForm";
 import ToolkitSelectorList, {
   buildToolkitsFromConnections,
-} from "~/pages/chats/components/ToolkitSelectorList";
+} from "~/pages/agents/components/ToolkitSelectorList";
 import { AgentModelCard } from "~/shared/AgentModelCard";
 
 interface CreateAgentProps {

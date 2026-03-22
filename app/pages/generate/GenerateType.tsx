@@ -1,14 +1,4 @@
-import {
-  Card,
-  Container,
-  Grid,
-  Stack,
-  Text,
-  Title,
-  ThemeIcon,
-  useMantineTheme,
-  Center,
-} from "@mantine/core";
+import { Card, Container, Grid, Stack, Text, Title, ThemeIcon, Center } from "@mantine/core";
 import { RiImageLine, RiVideoLine, RiToolsLine } from "@remixicon/react";
 import { useParams, useNavigate } from "react-router";
 import useGenerateStore from "~/lib/stores/generateStore";
@@ -20,26 +10,25 @@ const GENERATION_TYPE_INFO = {
     name: "Image Generation",
     icon: RiImageLine,
     color: "blue",
-    description: "Choose from our collection of AI image generation models",
+    description: "",
   },
   video: {
     name: "Video Generation",
     icon: RiVideoLine,
     color: "purple",
-    description: "Choose from our collection of AI video generation models",
+    description: "",
   },
   tools: {
     name: "Tools",
     icon: RiToolsLine,
     color: "orange",
-    description: "Choose from our collection of AI tools and utilities",
+    description: "",
   },
 };
 
 export default function GenerateType() {
   const { generation_type } = useParams();
   const navigate = useNavigate();
-  const theme = useMantineTheme();
   const { models } = useGenerateStore();
 
   const typeInfo = GENERATION_TYPE_INFO[generation_type as keyof typeof GENERATION_TYPE_INFO];

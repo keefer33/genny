@@ -143,7 +143,7 @@ export function GenerationsFileCard({
               {file.cost !== null && (
                 <Group gap={4}>
                   <Text size="xs" c="dimmed">
-                    <CostBadge size="xs" cost={file.cost} />
+                    <CostBadge size="xs" cost={file.cost} clickable={false} />
                   </Text>
                 </Group>
               )}

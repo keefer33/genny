@@ -15,10 +15,10 @@ import { RiSendPlane2Line } from "@remixicon/react";
 import { useRef, useEffect, useState } from "react";
 import useAppStore from "~/lib/stores/appStore";
 import { useChatsStore, type UserAgentRow } from "~/lib/stores/chatsStore";
-import MessageBubble from "~/pages/chats/components/MessageBubble";
-import ChatsList from "~/pages/chats/components/ChatsList";
-import CreateAgent from "~/pages/chats/components/CreateAgent";
-import AgentPicker from "~/pages/chats/components/AgentPicker";
+import MessageBubble from "~/pages/agents/components/MessageBubble";
+import ChatsList from "~/pages/agents/components/ChatsList";
+import CreateAgent from "~/pages/agents/components/CreateAgent";
+import AgentPicker from "~/pages/agents/components/AgentPicker";
 import { FormProvider, useForm } from "~/lib/ContextForm";
 
 export default function Chats() {
