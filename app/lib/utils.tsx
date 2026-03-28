@@ -45,3 +45,22 @@ export const endpoint =
   import.meta.env.VITE_NODE_ENV === "development"
     ? import.meta.env.VITE_LOCAL_API_URL
     : import.meta.env.VITE_API_URL;
+
+// Global copy to clipboard function
+export const copyToClipboard = async (textToCopy: string | string[]) => {
+  try {
+    const textString = Array.isArray(textToCopy) ? textToCopy.join("\n") : textToCopy;
+    await navigator.clipboard.writeText(textString);
+    return true;
+  } catch {
+    // Fallback for older browsers
+    const textString = Array.isArray(textToCopy) ? textToCopy.join("\n") : textToCopy;
+    const textArea = document.createElement("textarea");
+    textArea.value = textString;
+    document.body.appendChild(textArea);
+    textArea.select();
+    document.execCommand("copy");
+    document.body.removeChild(textArea);
+    return true;
+  }
+};

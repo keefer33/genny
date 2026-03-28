@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import type { CreditTopUpOption } from "~/lib/tokenUtils";
 import useAppStore from "./appStore";
-import { assertAuthFetchOk, authFetch } from "./authFetch";
+import { authFetchJson } from "./authFetch";
 import { endpoint } from "../utils";
 
 interface Transaction {
@@ -80,9 +80,7 @@ const useBillingStore = create<BillingStoreState>((set) => ({
       const params = new URLSearchParams();
       params.set("page", String(page));
       params.set("limit", String(limit));
-      const response = await authFetch(`${endpoint}/user/transactions?${params.toString()}`);
-      await assertAuthFetchOk(response, "Failed to fetch transactions");
-      const json = (await response.json()) as {
+      const json = await authFetchJson<{
         success?: boolean;
         data?: {
           transactions: Transaction[];
@@ -92,7 +90,9 @@ const useBillingStore = create<BillingStoreState>((set) => ({
         };
         error?: string;
         message?: string;
-      };
+      }>(`${endpoint}/user/transactions?${params.toString()}`, undefined, {
+        errorMessage: "Failed to fetch transactions",
+      });
 
       if (!json.success || !json.data) {
         return {
@@ -121,13 +121,14 @@ const useBillingStore = create<BillingStoreState>((set) => ({
 
   createPaymentIntent: async (amountDollars: number) => {
     try {
-      const response = await authFetch(`${endpoint}/stripe/create-payment-intent`, {
-        method: "POST",
-        body: JSON.stringify({ amount: amountDollars }),
-      });
-
-      await assertAuthFetchOk(response, "Failed to create payment intent");
-      const data = await response.json();
+      const data = await authFetchJson<unknown>(
+        `${endpoint}/stripe/create-payment-intent`,
+        {
+          method: "POST",
+          body: JSON.stringify({ amount: amountDollars }),
+        },
+        { errorMessage: "Failed to create payment intent" }
+      );
 
       return { success: true, data };
     } catch (error) {

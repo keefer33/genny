@@ -44,13 +44,13 @@ export default function ColorPicker({
           onClick={() => handleColorChange(color.value)}
         >
           <ActionIcon
-            variant={selectedColor === color.value ? "filled" : "light"}
+            variant="filled"
             color={color.value}
             size={size}
             aria-label={`Set color to ${color.name}`}
             style={{
               border:
-                selectedColor === color.value ? "2px solid var(--mantine-color-gray-6)" : undefined,
+                selectedColor === color.value ? "4px solid var(--mantine-color-gray-6)" : undefined,
               minWidth: size === "sm" ? "28px" : size === "md" ? "32px" : "36px",
               minHeight: size === "sm" ? "28px" : size === "md" ? "32px" : "36px",
             }}

@@ -1,19 +1,23 @@
-import { Box, Card, Text, Code, Loader, ScrollArea, useMantineTheme, Group } from "@mantine/core";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import rehypeHighlight from "rehype-highlight";
+import { Box, Card, Text, Loader, Group } from "@mantine/core";
+import { memo } from "react";
 import "highlight.js/styles/github.min.css";
-
+import { useTheme } from "~/lib/hooks/useTheme";
+import { useMantineTheme } from "@mantine/core";
 import type { ChatUIMessage } from "~/lib/stores/chatsStore";
 import { RiMoneyDollarCircleFill, RiRobot2Fill, RiUser2Fill } from "@remixicon/react";
+import useAppStore from "~/lib/stores/appStore";
+import MarkdownRenderer from "~/shared/MarkdownRenderer";
 
 const STREAM_STATUS_LABELS: Record<string, string> = {
   start: "Starting",
-  reasoning: "Thinking",
-  reasoning_end: "Writing",
-  tool_input_end: "Tool finished",
-  step_start: "Processing",
-  step_finish: "Step complete",
+  "reasoning-start": "Reasoning started",
+  "reasoning-end": "Reasoning ended",
+  "tool-input-start": "Tool input started",
+  "tool-input-end": "Tool input ended",
+  "tool-call": "Tool call",
+  "tool-result": "Tool result",
+  "start-step": "Step started",
+  "finish-step": "Step finished",
   finish: "Finishing",
 };
 
@@ -22,24 +26,59 @@ interface MessageBubbleProps {
   streaming?: boolean;
   /** When streaming, optional status to show after the dots (no spinner) */
   streamStatus?: { status: string; tool_name?: string } | null;
+  /** Temporary reasoning text (dimmed), cleared on reasoning-end */
+  streamingReasoning?: string;
 }
 
 function getStreamStatusLabel(streamStatus: { status: string; tool_name?: string }): string {
-  if (streamStatus.status === "tool_input") {
-    return streamStatus.tool_name ? `Using tool: ${streamStatus.tool_name}` : "Using tool…";
+  if (
+    (streamStatus.status === "tool-input-start" ||
+      streamStatus.status === "tool-call" ||
+      streamStatus.status === "tool-result") &&
+    streamStatus.tool_name
+  ) {
+    return `${streamStatus.status}: ${streamStatus.tool_name}`;
   }
   return STREAM_STATUS_LABELS[streamStatus.status] ?? "Working…";
 }
 
-export default function MessageBubble({ message, streaming, streamStatus }: MessageBubbleProps) {
+function MessageBubble({
+  message,
+  streaming,
+  streamStatus,
+  streamingReasoning,
+}: MessageBubbleProps) {
+  const { themeColor, colorScheme } = useTheme();
   const theme = useMantineTheme();
+  const { isMobile } = useAppStore();
   const text = message.content
     .map((p) => (p.type === "text" ? (p as { text?: string }).text : ""))
     .filter(Boolean)
     .join("");
-  const imageParts = message.content.filter(
-    (p): p is { type: "image"; imageUrl: string } => p.type === "image" && !!p.imageUrl
-  );
+  // Chat history may store attachments either as AI SDK parts (`type: "image" | "video" | "file"`)
+  // or as raw attachment inputs (`type: "<mime>/..."`, with `url` + optional `thumbnail_url`).
+  const imageParts = message.content.filter((p) => {
+    if (p.type === "image") return !!(p.image || p.imageUrl);
+    if (typeof p.type === "string" && p.type.startsWith("image/")) {
+      return !!(p.url || p.image || p.imageUrl);
+    }
+    return false;
+  });
+  const videoParts = message.content.filter((p) => {
+    if (p.type === "video") return !!p.videoUrl;
+    if (typeof p.type === "string" && p.type.startsWith("video/")) return !!(p.url || p.videoUrl);
+    return false;
+  });
+  const fileParts = message.content.filter((p) => {
+    if (p.type === "file") return !!p.fileUrl;
+    if (
+      typeof p.type === "string" &&
+      (p.type.startsWith("image/") || p.type.startsWith("video/"))
+    ) {
+      return false;
+    }
+    return !!p.url;
+  });
   const isUser = message.role === "user";
 
   const imageStyle: React.CSSProperties = {
@@ -52,64 +91,53 @@ export default function MessageBubble({ message, streaming, streamStatus }: Mess
   const content = (
     <>
       <Box className="markdown-body" fz="sm" h-min={streaming ? 28 : undefined}>
-        {text ? (
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
-            rehypePlugins={[rehypeHighlight]}
-            components={{
-              img: ({ src, alt, ...props }) => (
-                <Box
-                  component="img"
-                  src={src}
-                  alt={alt ?? "Generated"}
-                  style={imageStyle}
-                  {...props}
-                />
-              ),
-              code: ({ className, children, ...props }) => {
-                const isInline = !className;
-                if (isInline) {
-                  return (
-                    <Code fz="sm" {...props}>
-                      {children}
-                    </Code>
-                  );
-                }
-                return (
-                  <code className={className} {...props}>
-                    {children}
-                  </code>
-                );
-              },
-              pre: ({ children, ...props }) => (
-                <ScrollArea type="auto" style={{ maxHeight: 360 }} offsetScrollbars>
-                  <pre
-                    style={{
-                      margin: 0,
-                      padding: "var(--mantine-spacing-sm)",
-                      borderRadius: "var(--mantine-radius-sm)",
-                      overflow: "auto",
-                    }}
-                    {...props}
-                  >
-                    {children}
-                  </pre>
-                </ScrollArea>
-              ),
-              a: ({ href, children, ...props }) => (
-                <a href={href} target="_blank" rel="noopener noreferrer" {...props}>
-                  {children}
-                </a>
-              ),
-            }}
-          >
-            {text}
-          </ReactMarkdown>
-        ) : null}
+        {text ? <MarkdownRenderer content={text ?? ""} /> : null}
+        {streaming && streamingReasoning && (
+          <Text size="sm" c="dimmed" mt="xs" style={{ whiteSpace: "pre-wrap" }}>
+            {streamingReasoning}
+          </Text>
+        )}
         {imageParts.length > 0 && (
           <Box mt="xs" style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
             {imageParts.map((p, i) => (
-              <Box key={i} component="img" src={p.imageUrl} alt="Generated" style={imageStyle} />
+              <Box
+                key={i}
+                component="img"
+                src={
+                  (p as any).image ??
+                  (p as any).imageUrl ??
+                  (p as any).thumbnail_url ??
+                  (p as any).url
+                }
+                alt="Generated"
+                style={imageStyle}
+              />
+            ))}
+          </Box>
+        )}
+        {videoParts.length > 0 && (
+          <Box mt="xs" style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {videoParts.map((p, i) => (
+              <video
+                key={`video-${i}`}
+                src={(p as any).videoUrl ?? (p as any).url}
+                controls
+                style={{ ...imageStyle, background: "var(--mantine-color-dark-7)" }}
+              />
+            ))}
+          </Box>
+        )}
+        {fileParts.length > 0 && (
+          <Box mt="xs" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {fileParts.map((p, i) => (
+              <a
+                key={`file-${i}`}
+                href={(p as any).fileUrl ?? (p as any).url}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {(p as any).fileName ?? (p as any).name ?? (p as any).fileUrl ?? (p as any).url}
+              </a>
             ))}
           </Box>
         )}
@@ -123,7 +151,7 @@ export default function MessageBubble({ message, streaming, streamStatus }: Mess
                 {getStreamStatusLabel(streamStatus)}
               </Text>
             )}
-            <Loader type="dots" size="sm" color={theme.primaryColor} />
+            <Loader type="dots" size="sm" color={themeColor} />
           </Box>
         )}
       </Box>
@@ -165,7 +193,7 @@ export default function MessageBubble({ message, streaming, streamStatus }: Mess
     <Box
       style={{
         alignSelf: isUser ? "flex-end" : "flex-start",
-        maxWidth: isUser ? "85%" : "100%",
+        maxWidth: isUser ? "85%" : isMobile ? "100%" : "85%",
       }}
     >
       {isUser ? (
@@ -173,8 +201,16 @@ export default function MessageBubble({ message, streaming, streamStatus }: Mess
           {content}
         </Card>
       ) : (
-        content
+        <Card
+          p="sm"
+          radius="md"
+          bg={colorScheme === "dark" ? theme.colors.gray[9] : theme.colors.gray[0]}
+        >
+          {content}
+        </Card>
       )}
     </Box>
   );
 }
+
+export default memo(MessageBubble);

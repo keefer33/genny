@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { showNotification } from "../notificationUtils";
 import useAppStore from "./appStore";
-import { assertAuthFetchOk, authFetch } from "./authFetch";
+import { assertAuthFetchOk, authFetch, authFetchJson } from "./authFetch";
 import createUniversalSelectors from "./universalSelectors";
 import { endpoint } from "../utils";
 
@@ -23,6 +23,7 @@ interface FileData {
   id: string;
   file_name: string;
   file_path: string;
+  thumbnail_url?: string | null;
   file_size: number;
   file_type: string;
   created_at: string;
@@ -307,12 +308,14 @@ const useFilesFoldersStoreBase = create<FilesFoldersState>((set, get) => ({
     set({ loading: true, error: null, gridLoading: false });
 
     try {
-      const patchRes = await authFetch(`${endpoint}/user/files/${encodeURIComponent(fileId)}`, {
-        method: "PATCH",
-        body: JSON.stringify({ file_name: newFileName }),
-      });
-      await assertAuthFetchOk(patchRes, "Failed to update file name");
-      const patchJson = (await patchRes.json()) as { success?: boolean; data?: FileData };
+      const patchJson = await authFetchJson<{ success?: boolean; data?: FileData }>(
+        `${endpoint}/user/files/${encodeURIComponent(fileId)}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ file_name: newFileName }),
+        },
+        { errorMessage: "Failed to update file name" }
+      );
       const updatedFile = patchJson.data;
       if (!updatedFile) {
         showNotification({ title: "Error", message: "File not found", type: "error" });
@@ -395,9 +398,7 @@ const useFilesFoldersStoreBase = create<FilesFoldersState>((set, get) => ({
         params.set("generationType", generationType);
       }
 
-      const res = await authFetch(`${endpoint}/user/files?${params.toString()}`);
-      await assertAuthFetchOk(res, "Failed to fetch files");
-      const json = (await res.json()) as {
+      const json = await authFetchJson<{
         success?: boolean;
         data?: {
           files: FileData[];
@@ -407,7 +408,9 @@ const useFilesFoldersStoreBase = create<FilesFoldersState>((set, get) => ({
           hasNextPage: boolean;
           hasPrevPage: boolean;
         };
-      };
+      }>(`${endpoint}/user/files?${params.toString()}`, undefined, {
+        errorMessage: "Failed to fetch files",
+      });
 
       const payload = json.data;
       if (!payload) {

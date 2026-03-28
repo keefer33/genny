@@ -1,8 +1,10 @@
 import { create } from "zustand";
 import { notifications } from "@mantine/notifications";
 import useAppStore from "~/lib/stores/appStore";
-import { assertAuthFetchOk, authFetch } from "~/lib/stores/authFetch";
-import { endpoint } from "~/lib/utils";
+import { assertAuthFetchOk, authFetch, authFetchJson } from "~/lib/stores/authFetch";
+import { endpoint, formatDate } from "~/lib/utils";
+
+const LS_SELECTED_CHAT_ID = "genny:selectedChatId";
 
 /** Catalog rows from GET /agents (models available for user agents / chats). */
 export interface AgentModel {
@@ -28,8 +30,7 @@ export interface ChatRow {
   created_at: string;
   updated_at: string;
   user_id: string;
-  agent_id: string;
-  metadata: Record<string, unknown>;
+  chat_name: string | null;
 }
 
 /** Message row from GET /chats/:id/messages (user_models_chats_messages). */
@@ -43,7 +44,19 @@ export interface ChatMessageRow {
     | {
         id?: string;
         role: "user" | "assistant";
-        content: Array<{ type: string; text?: string; imageUrl?: string }>;
+        content: Array<{
+          type: string;
+          text?: string;
+          image?: string;
+          imageUrl?: string;
+          videoUrl?: string;
+          fileUrl?: string;
+          fileName?: string;
+          mediaType?: string;
+          url?: string;
+          name?: string;
+          thumbnail_url?: string | null;
+        }>;
       };
   /** Stored as json/jsonb in DB; API may return object or JSON string. */
   usage:
@@ -56,7 +69,20 @@ export interface ChatMessageRow {
 export interface ChatUIMessage {
   id: string;
   role: "user" | "assistant";
-  content: Array<{ type: string; text?: string; imageUrl?: string }>;
+  content: Array<{
+    type: string;
+    text?: string;
+    /** AI SDK user image part URL */
+    image?: string;
+    imageUrl?: string;
+    videoUrl?: string;
+    fileUrl?: string;
+    fileName?: string;
+    mediaType?: string;
+    url?: string;
+    name?: string;
+    thumbnail_url?: string | null;
+  }>;
   usage?: {
     input_tokens?: number;
     output_tokens?: number;
@@ -103,7 +129,16 @@ function chatMessageRowToUIMessage(row: ChatMessageRow): ChatUIMessage {
     | {
         id?: string;
         role?: "user" | "assistant";
-        content?: Array<{ type: string; text?: string; imageUrl?: string }>;
+        content?: Array<{
+          type: string;
+          text?: string;
+          image?: string;
+          imageUrl?: string;
+          videoUrl?: string;
+          fileUrl?: string;
+          fileName?: string;
+          mediaType?: string;
+        }>;
       }
     | string
     | null
@@ -155,55 +190,62 @@ interface ChatsState {
   chats: ChatRow[];
   getChats: () => ChatRow[];
   chatsLoading: boolean;
-  agents: UserAgentRow[];
-  agentsLoading: boolean;
   messages: ChatUIMessage[];
   streamingContent: string;
+  streamingReasoning: string;
   /** File URLs received during current stream (so streaming bubble can show images). Cleared when stream ends. */
   streamedFileUrls: string[];
-  /** Current stream phase for UI: start, reasoning, tool_input, step_start, etc. Cleared on usage/error/done. */
+  /** Current stream phase for UI: start, reasoning-start, tool-input-start, start-step, etc. */
   streamStatus: { status: string; tool_name?: string } | null;
   runChatLoading: boolean;
 
   selectedModelName: string | null;
-  selectedChat: ChatRow | null;
+  selectedChat: string | null;
   selectedAgent: UserAgentRow | null;
   agentPickerOpen: boolean;
+  /** Mobile full-screen chats list modal (driven from SelectedChatBar). */
+  chatsListModalOpen: boolean;
+  setChatsListModalOpen: (open: boolean) => void;
   setSelectedModelName: (name: string | null) => void;
-  setSelectedChat: (chat: ChatRow | null) => void;
+  setSelectedChat: (chat: string | null) => void;
   setSelectedAgent: (agent: UserAgentRow | null) => void;
   setAgentPickerOpen: (open: boolean) => void;
+  editingChatId: string | null;
+  editingTitle: string;
+  deletingAllChats: boolean;
+  setEditingChatId: (id: string | null) => void;
+  setEditingTitle: (title: string) => void;
+  startEditChat: (chat: ChatRow) => void;
+  cancelEditChat: () => void;
+  saveEditedChatTitle: () => Promise<void>;
+  clearSelectedChat: () => void;
+  selectChatByRow: (chat: ChatRow) => Promise<void>;
+  deleteChatFromList: (chatId: string) => Promise<void>;
+  deleteAllChatsFromList: () => Promise<void>;
+  hydrateSelectedChatFromStorage: () => Promise<void>;
 
   setMessages: (messages: ChatUIMessage[]) => void;
   clearChats: () => void;
-  loadMessagesForChat: (userId: string, chatId: string) => Promise<void>;
+  loadMessagesForChat: (chatId: string) => Promise<void>;
   runChat: (
-    userId: string,
     chatId: string | null,
-    agentId: string,
-    prompt: string
+    modelName: string,
+    settings: { systemPrompt?: string },
+    prompt: string,
+    attachments?: Array<{
+      url: string;
+      type?: string;
+      name?: string;
+      thumbnail_url?: string | null;
+    }>
   ) => Promise<void>;
 
-  listChats: (userId: string, agentId?: string) => Promise<ChatRow[]>;
-  createChat: (
-    userId: string,
-    agentId: string,
-    metadata?: Record<string, unknown>
-  ) => Promise<ChatRow | null>;
-  getChat: (userId: string, chatId: string) => Promise<ChatRow | null>;
-  updateChat: (
-    userId: string,
-    chatId: string,
-    metadata: Record<string, unknown>
-  ) => Promise<boolean>;
-  deleteChat: (userId: string, chatId: string) => Promise<boolean>;
-  listChatMessages: (
-    userId: string,
-    chatId: string,
-    options?: { limit?: number; order?: "asc" | "desc" }
-  ) => Promise<ChatMessageRow[]>;
+  listChats: () => Promise<ChatRow[]>;
+  createChat: (chatName?: string) => Promise<ChatRow | null>;
+  getChat: (chatId: string) => Promise<ChatRow | null>;
+  updateChat: (chatId: string, chatName: string) => Promise<boolean>;
+  deleteChat: (chatId: string) => Promise<boolean>;
   createChatMessage: (
-    userId: string,
     chatId: string,
     message: {
       id: string;
@@ -212,19 +254,6 @@ interface ChatsState {
     },
     usage?: Record<string, unknown>
   ) => Promise<ChatMessageRow | null>;
-  loadAgents: (userId: string) => Promise<void>;
-  createUserAgent: (
-    userId: string,
-    name: string,
-    modelName: string,
-    config?: Record<string, unknown> | null
-  ) => Promise<UserAgentRow | null>;
-  updateUserAgent: (
-    userId: string,
-    agentId: string,
-    payload: { name?: string; model_name?: string; config?: Record<string, unknown> | null }
-  ) => Promise<boolean>;
-  deleteUserAgent: (userId: string, agentId: string) => Promise<boolean>;
 }
 
 const userChoseNewChatRef = { current: false };
@@ -235,11 +264,11 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
   getAgentModels: () => get().agentModels,
   loadAgentModels: async () => {
     try {
-      const res = await authFetch(`${endpoint}/agents`);
-      await assertAuthFetchOk(res, "Failed to load agent models");
-      const data = await res.json();
+      const data = await authFetchJson<AgentModel[]>(`${endpoint}/agents`, undefined, {
+        errorMessage: "Failed to load agent models",
+      });
 
-      set({ agentModels: data as AgentModel[] });
+      set({ agentModels: data });
     } catch (err) {
       console.error("[chatsStore] loadAgentModels:", err);
       set({ agentModels: [] });
@@ -252,6 +281,7 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
   agentsLoading: false,
   messages: [],
   streamingContent: "",
+  streamingReasoning: "",
   streamedFileUrls: [],
   streamStatus: null,
   runChatLoading: false,
@@ -260,29 +290,139 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
   selectedChat: null,
   selectedAgent: null,
   agentPickerOpen: false,
+  chatsListModalOpen: false,
+  setChatsListModalOpen: (open) => set({ chatsListModalOpen: open }),
+  editingChatId: null,
+  editingTitle: "",
+  deletingAllChats: false,
   userChoseNewChatRef,
   setSelectedModelName: (name) => set({ selectedModelName: name }),
   setSelectedChat: (chat) => set({ selectedChat: chat }),
   setSelectedAgent: (agent) => set({ selectedAgent: agent }),
   setAgentPickerOpen: (open) => set({ agentPickerOpen: open }),
+  setEditingChatId: (id) => set({ editingChatId: id }),
+  setEditingTitle: (title) => set({ editingTitle: title }),
+  startEditChat: (chat) =>
+    set({
+      editingChatId: chat.id,
+      editingTitle: chat.chat_name ?? "",
+    }),
+  cancelEditChat: () => set({ editingChatId: null, editingTitle: "" }),
+  saveEditedChatTitle: async () => {
+    const { editingChatId, editingTitle, chats, updateChat } = get();
+    if (!editingChatId) return;
+    const chat = chats.find((c) => c.id === editingChatId);
+    if (!chat) {
+      set({ editingChatId: null });
+      return;
+    }
+    const newTitle = editingTitle.trim();
+    const fallbackTitle = formatDate(chat.updated_at);
+    await updateChat(editingChatId, newTitle || fallbackTitle);
+    set({ editingChatId: null });
+  },
+  clearSelectedChat: () => {
+    set({ selectedChat: null, messages: [], chatsListModalOpen: false });
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem(LS_SELECTED_CHAT_ID);
+    }
+  },
+  selectChatByRow: async (chat) => {
+    await get().loadMessagesForChat(chat.id);
+    set({ selectedChat: chat.id, chatsListModalOpen: false });
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(LS_SELECTED_CHAT_ID, chat.id);
+    }
+  },
+  deleteAllChatsFromList: async () => {
+    const { chats, deleteChat } = get();
+    if (chats.length === 0) return;
+    set({ deletingAllChats: true });
+    try {
+      for (const chat of chats) {
+        await deleteChat(chat.id);
+      }
+      get().clearSelectedChat();
+    } finally {
+      set({ deletingAllChats: false });
+    }
+  },
+  hydrateSelectedChatFromStorage: async () => {
+    await get().listChats();
+    if (typeof window === "undefined") return;
+    const savedChatId = window.localStorage.getItem(LS_SELECTED_CHAT_ID);
+    if (!savedChatId) return;
+    await get().loadMessagesForChat(savedChatId);
+    set({ selectedChat: savedChatId });
+  },
 
   setMessages: (messages: ChatUIMessage[]) => set({ messages }),
 
-  clearChats: () => set({ chats: [], selectedChat: null, messages: [], selectedModelName: null }),
+  clearChats: () =>
+    set({
+      chats: [],
+      selectedChat: null,
+      messages: [],
+      selectedModelName: null,
+      streamingContent: "",
+      streamingReasoning: "",
+      streamedFileUrls: [],
+      streamStatus: null,
+      chatsListModalOpen: false,
+    }),
 
-  loadMessagesForChat: async (userId: string, chatId: string) => {
-    const rows = await get().listChatMessages(userId, chatId, { order: "asc" });
-    set({ messages: rows.map(chatMessageRowToUIMessage) });
-  },
-
-  runChat: async (userId: string, chatId: string | null, agentId: string, prompt: string) => {
+  runChat: async (
+    chatId: string | null,
+    modelName: string,
+    settings: { systemPrompt?: string },
+    prompt: string,
+    attachments?: Array<{
+      url: string;
+      type?: string;
+      name?: string;
+      thumbnail_url?: string | null;
+    }>
+  ) => {
     const apiKey = useAppStore.getState().getAuthApiKey();
     if (!apiKey) return;
-    set({ runChatLoading: true, streamingContent: "", streamedFileUrls: [], streamStatus: null });
+    set({
+      runChatLoading: true,
+      streamingContent: "",
+      streamingReasoning: "",
+      streamedFileUrls: [],
+      streamStatus: null,
+    });
     const userMessage: ChatUIMessage = {
       id: `user-${Date.now()}`,
       role: "user",
-      content: [{ type: "text", text: prompt }],
+      content: [
+        { type: "text", text: prompt },
+        ...((attachments ?? []).map((a) => {
+          const mediaType = (a.type ?? "").toLowerCase();
+          const looksLikeImage =
+            mediaType.startsWith("image/") || /\.(jpe?g|png|gif|webp|bmp|svg)(\?|$)/i.test(a.url);
+          if (looksLikeImage) {
+            return { type: "image", image: a.thumbnail_url || a.url };
+          }
+          if (mediaType.startsWith("video/")) {
+            return { type: "video", videoUrl: a.url, mediaType, fileName: a.name };
+          }
+          return {
+            type: "file",
+            fileUrl: a.url,
+            mediaType: mediaType || undefined,
+            fileName: a.name,
+          };
+        }) as Array<{
+          type: string;
+          image?: string;
+          imageUrl?: string;
+          videoUrl?: string;
+          fileUrl?: string;
+          mediaType?: string;
+          fileName?: string;
+        }>),
+      ],
     };
     set((s) => ({ messages: [...s.messages, userMessage] }));
 
@@ -291,8 +431,10 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
         method: "POST",
         body: JSON.stringify({
           chat_id: chatId,
-          agent_id: agentId,
+          model_name: modelName,
+          settings,
           prompt,
+          attachments: attachments ?? [],
         }),
       });
 
@@ -334,15 +476,20 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
                 if (data.type === "text" && data.content) {
                   assistantText += data.content;
                   set({ streamingContent: assistantText });
+                } else if (data.type === "reasoning" && data.content) {
+                  set((s) => ({ streamingReasoning: `${s.streamingReasoning}${data.content}` }));
                 } else if (data.type === "file" && data.url) {
                   streamedFileUrls.push(data.url);
                   set((s) => ({ streamedFileUrls: [...s.streamedFileUrls, data.url!] }));
                 } else if (data.type === "stream_status" && data.status != null) {
+                  const clearReasoning =
+                    data.status === "reasoning-end" || data.status === "reasoning_end";
                   set({
                     streamStatus: {
                       status: data.status,
                       ...(data.tool_name != null ? { tool_name: data.tool_name } : {}),
                     },
+                    ...(clearReasoning ? { streamingReasoning: "" } : {}),
                   });
                 } else if (data.type === "usage") {
                   const totalCostRaw = (data as { total_cost?: unknown }).total_cost;
@@ -358,9 +505,9 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
                     total_tokens: data.total_tokens,
                     total_cost: Number.isFinite(totalCost) ? totalCost : undefined,
                   };
-                  set({ streamStatus: null });
+                  set({ streamStatus: null, streamingReasoning: "" });
                 } else if (data.type === "error") {
-                  set({ streamStatus: null });
+                  set({ streamStatus: null, streamingReasoning: "" });
                   throw new Error(data.error ?? "Stream error");
                 }
               } catch (e) {
@@ -394,6 +541,7 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
       set((s) => ({
         messages: [...s.messages, assistantMessage],
         streamingContent: "",
+        streamingReasoning: "",
         streamedFileUrls: [],
         streamStatus: null,
         runChatLoading: false,
@@ -402,6 +550,7 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
       set({
         runChatLoading: false,
         streamingContent: "",
+        streamingReasoning: "",
         streamedFileUrls: [],
         streamStatus: null,
       });
@@ -413,16 +562,12 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
     }
   },
 
-  listChats: async (userId: string, agentId?: string) => {
+  listChats: async () => {
     set({ chatsLoading: true });
     try {
-      const q = agentId ? `?agent_id=${encodeURIComponent(agentId)}` : "";
-      const res = await authFetch(`${endpoint}/chats${q}`);
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error((err as { error?: string }).error ?? "Failed to list chats");
-      }
-      const data = await res.json();
+      const data = await authFetchJson<unknown>(`${endpoint}/chats`, undefined, {
+        errorMessage: "Failed to list chats",
+      });
       const list = (Array.isArray(data) ? data : []) as ChatRow[];
       set({ chats: list });
       return list;
@@ -435,14 +580,16 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
     }
   },
 
-  createChat: async (userId: string, agentId: string, metadata?: Record<string, unknown>) => {
+  createChat: async (chatName?: string) => {
     try {
-      const res = await authFetch(`${endpoint}/chats`, {
-        method: "POST",
-        body: JSON.stringify({ agent_id: agentId, metadata: metadata ?? {} }),
-      });
-      await assertAuthFetchOk(res, "Failed to create chat");
-      const chat = (await res.json()) as ChatRow;
+      const chat = await authFetchJson<ChatRow>(
+        `${endpoint}/chats`,
+        {
+          method: "POST",
+          body: JSON.stringify({ chat_name: chatName ?? null }),
+        },
+        { errorMessage: "Failed to create chat" }
+      );
       set((s) => ({ chats: [chat, ...s.chats] }));
       return chat;
     } catch (err) {
@@ -452,7 +599,7 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
     }
   },
 
-  getChat: async (userId: string, chatId: string) => {
+  getChat: async (chatId: string) => {
     try {
       const res = await authFetch(`${endpoint}/chats/${encodeURIComponent(chatId)}`);
       if (!res.ok) return null;
@@ -462,11 +609,11 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
     }
   },
 
-  updateChat: async (userId: string, chatId: string, metadata: Record<string, unknown>) => {
+  updateChat: async (chatId: string, chatName: string) => {
     try {
       const res = await authFetch(`${endpoint}/chats/chat/${encodeURIComponent(chatId)}`, {
         method: "PATCH",
-        body: JSON.stringify({ metadata }),
+        body: JSON.stringify({ chat_name: chatName }),
       });
       if (!res.ok) return false;
       const updated = (await res.json()) as ChatRow;
@@ -478,8 +625,22 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
       return false;
     }
   },
-
-  deleteChat: async (userId: string, chatId: string) => {
+  deleteChatFromList: async (chatId) => {
+    const ok = await get().deleteChat(chatId);
+    if (!ok) return;
+    const selectedChat = get().selectedChat;
+    if (selectedChat === chatId) {
+      get().clearSelectedChat();
+      return;
+    }
+    if (typeof window !== "undefined") {
+      const savedChatId = window.localStorage.getItem(LS_SELECTED_CHAT_ID);
+      if (savedChatId === chatId) {
+        window.localStorage.removeItem(LS_SELECTED_CHAT_ID);
+      }
+    }
+  },
+  deleteChat: async (chatId: string) => {
     try {
       const res = await authFetch(`${endpoint}/chats/chat/${encodeURIComponent(chatId)}`, {
         method: "DELETE",
@@ -493,27 +654,19 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
       return false;
     }
   },
-
-  listChatMessages: async (
-    userId: string,
-    chatId: string,
-    options?: { limit?: number; order?: "asc" | "desc" }
-  ) => {
-    const params = new URLSearchParams();
-    if (options?.limit != null) params.set("limit", String(options.limit));
-    if (options?.order) params.set("order", options.order);
-    const q = params.toString() ? `?${params.toString()}` : "";
+  loadMessagesForChat: async (chatId: string) => {
     const res = await authFetch(
-      `${endpoint}/chats/chat/${encodeURIComponent(chatId)}/messages${q}`
+      `${endpoint}/chats/chat/${encodeURIComponent(chatId)}/messages?order=asc`
     );
-    if (!res.ok) return [];
-    const data = await res.json();
-    const list = (data?.data ?? []) as ChatMessageRow[];
-    return list;
+    let rows: ChatMessageRow[] = [];
+    if (res.ok) {
+      const data = await res.json();
+      rows = (data?.data ?? []) as ChatMessageRow[];
+    }
+    set({ messages: rows.map(chatMessageRowToUIMessage) });
   },
 
   createChatMessage: async (
-    userId: string,
     chatId: string,
     message: {
       id: string;
@@ -523,141 +676,17 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
     usage?: Record<string, unknown>
   ) => {
     try {
-      const res = await authFetch(`${endpoint}/chats/chat/${encodeURIComponent(chatId)}/messages`, {
-        method: "POST",
-        body: JSON.stringify({ message, usage: usage ?? null }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error((err as { error?: string }).error ?? "Failed to create message");
-      }
-      return (await res.json()) as ChatMessageRow;
+      return await authFetchJson<ChatMessageRow>(
+        `${endpoint}/chats/chat/${encodeURIComponent(chatId)}/messages`,
+        {
+          method: "POST",
+          body: JSON.stringify({ message, usage: usage ?? null }),
+        },
+        { errorMessage: "Failed to create message" }
+      );
     } catch (err) {
       console.error("[chatsStore] createChatMessage:", err);
       return null;
-    }
-  },
-  loadAgents: async (userId: string) => {
-    if (!userId) return;
-    set({ agentsLoading: true });
-    try {
-      const res = await authFetch(`${endpoint}/agents/user-agents`);
-      await assertAuthFetchOk(res, "Failed to load agents");
-      const data = await res.json();
-      const list = (Array.isArray(data) ? data : []) as UserAgentRow[];
-      set({ agents: list });
-    } catch (err) {
-      console.error("[chatsStore] loadAgents:", err);
-      set({ agents: [] });
-    } finally {
-      set({ agentsLoading: false });
-    }
-  },
-  createUserAgent: async (
-    userId: string,
-    name: string,
-    modelName: string,
-    config?: Record<string, unknown> | null
-  ) => {
-    if (!userId || !name.trim()) return null;
-    try {
-      const res = await authFetch(`${endpoint}/agents/user-agents`, {
-        method: "POST",
-        body: JSON.stringify({
-          name: name.trim(),
-          model_name: modelName,
-          config: config ?? null,
-        }),
-      });
-      await assertAuthFetchOk(res, "Failed to create agent");
-      const agent = (await res.json()) as UserAgentRow;
-      set((s) => ({
-        agents: [agent, ...s.agents],
-        selectedAgent: agent,
-        selectedModelName: agent.model_name,
-      }));
-      notifications.show({
-        title: "Agent created",
-        message: "Your agent was created successfully.",
-        color: "green",
-      });
-      return agent;
-    } catch (err) {
-      console.error("[chatsStore] createUserAgent:", err);
-      notifications.show({
-        title: "Error",
-        message: err instanceof Error ? err.message : "Failed to create agent",
-        color: "red",
-      });
-      return null;
-    }
-  },
-  updateUserAgent: async (
-    userId: string,
-    agentId: string,
-    payload: { name?: string; model_name?: string; config?: Record<string, unknown> | null }
-  ) => {
-    try {
-      const body: Record<string, unknown> = {};
-      if (typeof payload.name === "string") body.name = payload.name;
-      if (typeof payload.model_name === "string") body.model_name = payload.model_name;
-      if (payload.config !== undefined) body.config = payload.config;
-      const res = await authFetch(`${endpoint}/agents/user-agents/${encodeURIComponent(agentId)}`, {
-        method: "PATCH",
-        body: JSON.stringify(body),
-      });
-      await assertAuthFetchOk(res, "Failed to update agent");
-      const updated = (await res.json()) as UserAgentRow;
-      set((s) => ({
-        agents: s.agents.map((a) => (a.id === agentId ? updated : a)),
-        selectedAgent: s.selectedAgent?.id === agentId ? updated : s.selectedAgent,
-      }));
-      return true;
-    } catch (err) {
-      console.error("[chatsStore] updateUserAgent:", err);
-      notifications.show({
-        title: "Error",
-        message: err instanceof Error ? err.message : "Failed to update agent",
-        color: "red",
-      });
-      return false;
-    }
-  },
-  deleteUserAgent: async (userId: string, agentId: string) => {
-    try {
-      const res = await authFetch(`${endpoint}/agents/user-agents/${encodeURIComponent(agentId)}`, {
-        method: "DELETE",
-      });
-      await assertAuthFetchOk(res, "Failed to delete agent");
-      set((s) => {
-        const wasSelected = s.selectedAgent?.id === agentId;
-        return {
-          agents: s.agents.filter((a) => a.id !== agentId),
-          ...(wasSelected
-            ? {
-                selectedAgent: null,
-                selectedChat: null,
-                selectedModelName: null,
-                chats: [],
-                messages: [],
-              }
-            : {}),
-        };
-      });
-      notifications.show({
-        title: "Agent deleted",
-        message: "The agent was removed.",
-        color: "green",
-      });
-      return true;
-    } catch (err) {
-      console.error("[chatsStore] deleteUserAgent:", err);
-      notifications.show({
-        title: "Error",
-        message: err instanceof Error ? err.message : "Failed to delete agent",
-        color: "red",
-      });
-      return false;
     }
   },
 }));

@@ -57,7 +57,7 @@ export function FeaturesList() {
           const Icon = f.icon;
           return (
             <Stack key={f.title} gap={6} align="center" ta="center" pb="xl">
-              <ThemeIcon size={56} variant="light" color="blue" radius="md">
+              <ThemeIcon size={56} variant="light" radius="md">
                 <Icon size={26} />
               </ThemeIcon>
               <Text fw={700} ta="center">

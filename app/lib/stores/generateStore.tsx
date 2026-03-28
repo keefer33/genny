@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import createUniversalSelectors from "./universalSelectors";
 import useAppStore from "./appStore";
-import { assertAuthFetchOk, authFetch } from "./authFetch";
+import { assertAuthFetchOk, authFetch, authFetchJson } from "./authFetch";
 import { endpoint } from "../utils";
 import { showNotification } from "../notificationUtils";
 
@@ -194,9 +194,11 @@ const useGenerateStoreBase = create<GenerateStoreState>((set, get) => ({
 
   loadGenerationModels: async () => {
     try {
-      const response = await authFetch(`${endpoint}/generations/models`);
-      await assertAuthFetchOk(response, "Failed to load models");
-      const json = (await response.json()) as { success?: boolean; data?: Model[]; error?: string };
+      const json = await authFetchJson<{ success?: boolean; data?: Model[]; error?: string }>(
+        `${endpoint}/generations/models`,
+        undefined,
+        { errorMessage: "Failed to load models" }
+      );
       if (json.success) {
         set({ models: json.data ?? [] });
       } else {
@@ -224,19 +226,24 @@ const useGenerateStoreBase = create<GenerateStoreState>((set, get) => ({
     set({ generating: true });
     get().calculateCost(values);
     try {
-      const response = await authFetch(`${endpoint}/generations/generate`, {
-        method: "POST",
-        body: JSON.stringify({
-          model_id: modelId,
-          payload: {
-            ...values,
-          },
-          tokensCost: get().tokensCost,
-        }),
-      });
-
-      await assertAuthFetchOk(response, "Generation failed");
-      const result = await response.json();
+      const result = await authFetchJson<{
+        success?: boolean;
+        data?: unknown;
+        error?: string;
+      }>(
+        `${endpoint}/generations/generate`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            model_id: modelId,
+            payload: {
+              ...values,
+            },
+            tokensCost: get().tokensCost,
+          }),
+        },
+        { errorMessage: "Generation failed" }
+      );
 
       if (result.success) {
         useAppStore.getState().userProfile(session);
@@ -283,15 +290,15 @@ const useGenerateStoreBase = create<GenerateStoreState>((set, get) => ({
         params.set("tags", selectedTags.join(","));
       }
 
-      const res = await authFetch(`${endpoint}/generations/list?${params.toString()}`);
-      await assertAuthFetchOk(res, "Failed to load generations");
-      const json = (await res.json()) as {
+      const json = await authFetchJson<{
         success?: boolean;
         data?: {
           generations: GenerationFile[];
           pagination: PaginationData;
         };
-      };
+      }>(`${endpoint}/generations/list?${params.toString()}`, undefined, {
+        errorMessage: "Failed to load generations",
+      });
 
       const payload = json.data;
       if (!payload) {
@@ -334,9 +341,11 @@ const useGenerateStoreBase = create<GenerateStoreState>((set, get) => ({
     if (!generationId || !useAppStore.getState().getAuthApiKey()) return;
 
     try {
-      const res = await authFetch(`${endpoint}/generations/${encodeURIComponent(generationId)}`);
-      await assertAuthFetchOk(res, "Failed to refresh generation");
-      const json = (await res.json()) as { success?: boolean; data?: GenerationFile };
+      const json = await authFetchJson<{ success?: boolean; data?: GenerationFile }>(
+        `${endpoint}/generations/${encodeURIComponent(generationId)}`,
+        undefined,
+        { errorMessage: "Failed to refresh generation" }
+      );
       const data = json.data;
       if (!data) return;
 
@@ -406,12 +415,14 @@ const useGenerateStoreBase = create<GenerateStoreState>((set, get) => ({
   calculateCost: async (formValues) => {
     const pricing = get().selectedModel?.api?.pricing || {};
     try {
-      const response = await authFetch(`${endpoint}/generations/calculate-cost`, {
-        method: "POST",
-        body: JSON.stringify({ formValues, pricing }),
-      });
-      await assertAuthFetchOk(response, "Failed to calculate cost");
-      const json = await response.json().catch(() => ({}));
+      const json = await authFetchJson<unknown>(
+        `${endpoint}/generations/calculate-cost`,
+        {
+          method: "POST",
+          body: JSON.stringify({ formValues, pricing }),
+        },
+        { errorMessage: "Failed to calculate cost" }
+      );
       const tokensCost = (json as { data?: { cost?: number } })?.data?.cost ?? 0;
       set({ tokensCost });
     } catch (err) {

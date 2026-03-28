@@ -318,6 +318,7 @@ export default function Tools() {
                       const displayName = toolkitInfo?.name ?? slug;
                       const description = toolkitInfo?.meta?.description;
                       const toolsCount = toolkitInfo?.meta?.tools_count ?? 0;
+                      const noAuth = toolkitInfo?.no_auth;
                       return (
                         <Card key={acc.id} padding="md" radius="sm" shadow="sm">
                           <Stack gap="xs">
@@ -367,6 +368,11 @@ export default function Tools() {
                                   View details
                                 </Anchor>
                               </Group>
+                              {noAuth && (
+                                <Badge size="xs" color="blue" variant="light">
+                                  No auth required
+                                </Badge>
+                              )}
                               <Badge
                                 size="xs"
                                 color={isActive ? "green" : "yellow"}
@@ -395,6 +401,7 @@ export default function Tools() {
                       const connection = getConnectionForToolkit(tk.slug);
                       const isConnected = connection?.status === "ACTIVE";
                       const toolsCount = tk.meta?.tools_count ?? 0;
+                      const noAuth = tk.no_auth;
                       return (
                         <Card key={tk.slug} padding="md" radius="sm" shadow="sm">
                           <Stack gap="xs">
@@ -442,6 +449,11 @@ export default function Tools() {
                                   View details
                                 </Anchor>
                               </Group>
+                              {noAuth && (
+                                <Badge size="xs" color="blue" variant="light">
+                                  No auth required
+                                </Badge>
+                              )}
                               {connection && (
                                 <Badge
                                   size="xs"

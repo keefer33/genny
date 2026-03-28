@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import useAppStore from "./appStore";
-import { assertAuthFetchOk, authFetch } from "./authFetch";
+import { authFetchJson } from "./authFetch";
 import { endpoint } from "../utils";
 
 export interface UsageLogEntry {
@@ -85,9 +85,7 @@ const useUsageLogStore = create<UsageLogStoreState>((set) => ({
         page: String(page),
         limit: String(limit),
       });
-      const res = await authFetch(`${endpoint}/user/usage-log?${qs.toString()}`);
-      await assertAuthFetchOk(res, "Failed to fetch usage log");
-      const json = (await res.json()) as {
+      const json = await authFetchJson<{
         success?: boolean;
         data?: {
           logs: UsageLogEntry[];
@@ -95,7 +93,9 @@ const useUsageLogStore = create<UsageLogStoreState>((set) => ({
           page: number;
           limit: number;
         };
-      };
+      }>(`${endpoint}/user/usage-log?${qs.toString()}`, undefined, {
+        errorMessage: "Failed to fetch usage log",
+      });
 
       if (!json.success || !json.data) {
         return { success: false, error: "Failed to fetch usage log" };
