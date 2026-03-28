@@ -1,5 +1,5 @@
 import { Group, SegmentedControl } from "@mantine/core";
-import { RiHistoryLine, RiImageLine, RiRobot2Line, RiVideoLine } from "@remixicon/react";
+import { RiDashboardLine, RiHistoryLine, RiImageLine, RiRobot2Line, RiVideoLine } from "@remixicon/react";
 import { useLocation, useNavigate } from "react-router";
 import type { ComponentType } from "react";
 import useAppStore from "~/lib/stores/appStore";
@@ -7,7 +7,7 @@ import useAppStore from "~/lib/stores/appStore";
 export const MOBILE_GLOBAL_NAV_HEIGHT = 55;
 
 type GlobalNavItem = {
-  key: "agents" | "image" | "video" | "generations";
+  key: "agents" | "image" | "video" | "generations" | "dashboard";
   label: string;
   icon: ComponentType<{ size?: string | number }>;
   to: string;
@@ -20,6 +20,13 @@ export function MobileFooterGlobalNav() {
   const { themeColor } = useAppStore();
 
   const items: GlobalNavItem[] = [
+    {
+      key: "dashboard",
+      label: "Dashboard",
+      icon: RiDashboardLine,
+      to: "/dashboard",
+      isActive: location.pathname === "/dashboard",
+    },
     {
       key: "agents",
       label: "Agents",
@@ -55,6 +62,7 @@ export function MobileFooterGlobalNav() {
   const routeByKey = items.reduce<Record<GlobalNavItem["key"], string>>(
     (acc, item) => ({ ...acc, [item.key]: item.to }),
     {
+      dashboard: "/dashboard",
       agents: "/agents",
       image: "/generate/image",
       video: "/generate/video",

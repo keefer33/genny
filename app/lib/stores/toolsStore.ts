@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { endpoint } from "~/lib/utils";
 import useAppStore from "~/lib/stores/appStore";
-import { assertAuthFetchOk, authFetch } from "~/lib/stores/authFetch";
+import { assertAuthFetchOk, authFetch, authFetchJson } from "~/lib/stores/authFetch";
 
 // ─── Types (Composio API shapes) ───────────────────────────────────────────
 
@@ -239,9 +239,11 @@ export const useToolsStore = create<ToolsState>((set, get) => ({
         set({ toolkitsError: "Sign in to browse toolkits", toolkitsLoading: false });
         return;
       }
-      const res = await authFetch(`${endpoint}/tools/toolkits?${params.toString()}`);
-      await assertAuthFetchOk(res, "Failed to load toolkits");
-      const json: ToolkitsListResponse = await res.json();
+      const json = await authFetchJson<ToolkitsListResponse>(
+        `${endpoint}/tools/toolkits?${params.toString()}`,
+        undefined,
+        { errorMessage: "Failed to load toolkits" }
+      );
       if (cursor && get().toolkitsData?.items) {
         set({
           toolkitsData: {
@@ -323,9 +325,11 @@ export const useToolsStore = create<ToolsState>((set, get) => ({
         set({ toolsError: "Sign in to view tools", toolsLoading: false });
         return;
       }
-      const res = await authFetch(`${endpoint}/tools/tools?${params.toString()}`);
-      await assertAuthFetchOk(res, "Failed to load tools");
-      const json: ToolsListResponse = await res.json();
+      const json = await authFetchJson<ToolsListResponse>(
+        `${endpoint}/tools/tools?${params.toString()}`,
+        undefined,
+        { errorMessage: "Failed to load tools" }
+      );
       set({ toolsData: json, toolsLoading: false });
     } catch (err) {
       set({
@@ -410,12 +414,14 @@ export const useToolsStore = create<ToolsState>((set, get) => ({
     const apiKey = useAppStore.getState().getAuthApiKey();
     if (!apiKey) return null;
     try {
-      const res = await authFetch(`${endpoint}/tools/connected-accounts/link`, {
-        method: "POST",
-        body: JSON.stringify({ toolkit_slug, callback_url }),
-      });
-      await assertAuthFetchOk(res, "Failed to create connect link");
-      return (await res.json()) as ConnectLinkResponse;
+      return await authFetchJson<ConnectLinkResponse>(
+        `${endpoint}/tools/connected-accounts/link`,
+        {
+          method: "POST",
+          body: JSON.stringify({ toolkit_slug, callback_url }),
+        },
+        { errorMessage: "Failed to create connect link" }
+      );
     } catch (err) {
       console.error("[toolsStore] createConnectLink:", err);
       throw err;

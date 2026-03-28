@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import useAppStore from "./appStore";
-import { assertAuthFetchOk, authFetch } from "./authFetch";
+import { assertAuthFetchOk, authFetch, authFetchJson } from "./authFetch";
 import { endpoint } from "../utils";
 
 export type TicketStatus = "opened" | "closed" | "pending";
@@ -103,12 +103,10 @@ const useSupportStore = create<SupportStoreState>((set, get) => ({
 
     set({ ticketsLoading: true });
     try {
-      const res = await authFetch(`${endpoint}/support`);
-      await assertAuthFetchOk(res, "Failed to load support tickets");
-      const json = (await res.json()) as {
+      const json = await authFetchJson<{
         success?: boolean;
         data?: { tickets: SupportTicketRow[] };
-      };
+      }>(`${endpoint}/support`, undefined, { errorMessage: "Failed to load support tickets" });
       set({ tickets: json.data?.tickets ?? [] });
     } catch (e) {
       console.error("Error loading support tickets:", e);
@@ -198,15 +196,17 @@ const useSupportStore = create<SupportStoreState>((set, get) => ({
 
     set({ replySubmitting: true });
     try {
-      const res = await authFetch(`${endpoint}/support/${encodeURIComponent(ticketId)}/replies`, {
-        method: "POST",
-        body: JSON.stringify({ message: trimmed }),
-      });
-      await assertAuthFetchOk(res, "Failed to send reply");
-      const json = (await res.json()) as {
+      const json = await authFetchJson<{
         success?: boolean;
         data?: { thread: SupportThreadMessage };
-      };
+      }>(
+        `${endpoint}/support/${encodeURIComponent(ticketId)}/replies`,
+        {
+          method: "POST",
+          body: JSON.stringify({ message: trimmed }),
+        },
+        { errorMessage: "Failed to send reply" }
+      );
       const row = json.data?.thread;
 
       if (row) {

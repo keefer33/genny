@@ -10,6 +10,7 @@ import {
 } from "@mantine/core";
 import {
   RiFolder2Line,
+  RiDashboardLine,
   RiRobot2Line,
   RiImageLine,
   RiVideoLine,
@@ -114,6 +115,13 @@ export function Navbar({ toggleMobile, collapsed }: NavbarProps) {
   ];
 
   const loggedInItems = [
+    {
+      to: "/dashboard",
+      icon: RiDashboardLine,
+      label: "Dashboard",
+      description: "Your activity & stats",
+      matchPrefix: "/dashboard",
+    },
     {
       to: "/account/usage-log",
       icon: RiCoinLine,

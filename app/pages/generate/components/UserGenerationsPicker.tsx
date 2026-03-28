@@ -16,7 +16,7 @@ import {
 } from "@mantine/core";
 import { useEffect, useState } from "react";
 import useAppStore from "~/lib/stores/appStore";
-import { assertAuthFetchOk, authFetch } from "~/lib/stores/authFetch";
+import { authFetchJson } from "~/lib/stores/authFetch";
 import type { GenerationFile } from "~/lib/stores/generateStore";
 import { endpoint } from "~/lib/utils";
 import { RiCheckLine, RiTimeLine } from "@remixicon/react";
@@ -27,7 +27,7 @@ interface UserGenerationsPickerProps {
   onClose: () => void;
   onSelect: (value: string, generation: GenerationFile) => void;
   title?: string;
-  displayFilter: {
+  displayFilter?: {
     field: string;
     values: string[];
   };
@@ -55,13 +55,13 @@ export function UserGenerationsPicker({
 
   // Load generations when modal opens
   useEffect(() => {
-    if (opened && userId && useAppStore.getState().getAuthApiKey() && displayFilter.values.length > 0) {
+    if (opened && userId && useAppStore.getState().getAuthApiKey()) {
       loadGenerations(1);
     }
-  }, [opened, userId, displayFilter.values]);
+  }, [opened, userId, displayFilter?.field, displayFilter?.values]);
 
   const loadGenerations = async (page: number = 1) => {
-    if (!userId || !useAppStore.getState().getAuthApiKey() || displayFilter.values.length === 0) return;
+    if (!userId || !useAppStore.getState().getAuthApiKey()) return;
 
     setLoading(true);
     try {
@@ -70,17 +70,19 @@ export function UserGenerationsPicker({
       params.set("page", String(page));
       params.set("limit", String(limit));
       params.set("status", "completed");
-      params.set("filterField", displayFilter.field);
-      params.set("filterValues", displayFilter.values.join(","));
+      if (displayFilter?.field && (displayFilter?.values?.length ?? 0) > 0) {
+        params.set("filterField", displayFilter.field);
+        params.set("filterValues", displayFilter.values.join(","));
+      }
 
-      const res = await authFetch(`${endpoint}/generations/list?${params.toString()}`);
-      await assertAuthFetchOk(res, "Failed to load generations");
-      const json = (await res.json()) as {
+      const json = await authFetchJson<{
         data?: {
           generations: GenerationFile[];
           pagination: { total: number; totalPages: number; currentPage: number };
         };
-      };
+      }>(`${endpoint}/generations/list?${params.toString()}`, undefined, {
+        errorMessage: "Failed to load generations",
+      });
       const payload = json.data;
       if (!payload) return;
 

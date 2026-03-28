@@ -148,16 +148,6 @@ export default function ProfileInformation() {
 
             <Stack gap="xs">
               <Group gap="xs">
-                <RiPhoneLine size={16} color="var(--mantine-color-gray-6)" />
-                <Text size="sm" fw={500} c="dimmed">
-                  Phone
-                </Text>
-              </Group>
-              <Text>{user?.profile?.phone || "Not set"}</Text>
-            </Stack>
-
-            <Stack gap="xs">
-              <Group gap="xs">
                 <RiUserLine size={16} color="var(--mantine-color-gray-6)" />
                 <Text size="sm" fw={500} c="dimmed">
                   First Name
@@ -174,6 +164,16 @@ export default function ProfileInformation() {
                 </Text>
               </Group>
               <Text>{user.profile?.last_name || "Not set"}</Text>
+            </Stack>
+
+            <Stack gap="xs">
+              <Group gap="xs">
+                <RiPhoneLine size={16} color="var(--mantine-color-gray-6)" />
+                <Text size="sm" fw={500} c="dimmed">
+                  Phone
+                </Text>
+              </Group>
+              <Text>{user?.profile?.phone || "Not set"}</Text>
             </Stack>
 
             <Stack gap="xs" style={{ gridColumn: "1 / -1" }}>

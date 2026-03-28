@@ -7,6 +7,12 @@ export type AuthFetchOptions = {
   accessToken?: string | null;
 };
 
+/** Options for {@link authFetchJson} — extends {@link AuthFetchOptions} with an error label for failed HTTP responses. */
+export type AuthFetchJsonOptions = AuthFetchOptions & {
+  /** Passed to {@link assertAuthFetchOk} when `!res.ok`. Defaults to `"Request failed"`. */
+  errorMessage?: string;
+};
+
 /**
  * `fetch` with the app JWT (`authApiKey`) when present, unless {@link AuthFetchOptions.accessToken} is set.
  * Sets `Content-Type: application/json` unless the body is `FormData` or a header was already provided.
@@ -60,4 +66,19 @@ export async function assertAuthFetchOk(res: Response, fallback = "Request faile
   if (res.ok) return;
   const body = await res.json().catch(() => ({}));
   throw new Error(getApiErrorMessage(body, fallback));
+}
+
+/**
+ * Authenticated JSON request: {@link authFetch}, then {@link assertAuthFetchOk}, then `res.json()`.
+ * For non-JSON responses, streaming, or custom status handling, use {@link authFetch} alone.
+ */
+export async function authFetchJson<T>(
+  url: string,
+  init?: RequestInit,
+  options?: AuthFetchJsonOptions
+): Promise<T> {
+  const { errorMessage, ...authOpts } = options ?? {};
+  const res = await authFetch(url, init, authOpts);
+  await assertAuthFetchOk(res, errorMessage ?? "Request failed");
+  return res.json() as Promise<T>;
 }

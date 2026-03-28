@@ -1,23 +1,6 @@
-import {
-  Button,
-  Group,
-  Modal,
-  ScrollArea,
-  Stack,
-  Text,
-  TextInput,
-  Textarea,
-  Stepper,
-  Container,
-} from "@mantine/core";
-import { useState, useEffect } from "react";
-import useAppStore from "~/lib/stores/appStore";
+import { Button, Modal, ScrollArea, Stack, Container } from "@mantine/core";
+import { useState } from "react";
 import { useChatsStore } from "~/lib/stores/chatsStore";
-import { useToolsStore } from "~/lib/stores/toolsStore";
-import { FormProvider, useForm } from "~/lib/ContextForm";
-import ToolkitSelectorList, {
-  buildToolkitsFromConnections,
-} from "~/pages/agents/components/ToolkitSelectorList";
 import { AgentModelCard } from "~/shared/AgentModelCard";
 
 interface CreateAgentProps {
@@ -36,20 +19,9 @@ export default function CreateAgent({
   onClose,
   renderTriggerOnly = false,
 }: CreateAgentProps) {
-  const { getUser, isMobile } = useAppStore();
-  const user = getUser();
   const agentModelsAll = useChatsStore((s) => s.agentModels);
   const textAgentModels = agentModelsAll.filter((m) => m?.model_type === "text");
-  const { createUserAgent } = useChatsStore();
-  const {
-    connectedAccounts,
-    loadConnectedAccounts,
-    toolkitsData,
-    loadToolkits,
-    toolsByToolkit,
-    toolsByToolkitLoading,
-    loadToolsForToolkits,
-  } = useToolsStore();
+  const { selectedModelName, setSelectedModelName } = useChatsStore();
 
   const [internalOpened, setInternalOpened] = useState(false);
   const isControlled = controlledOpened !== undefined;
@@ -60,82 +32,9 @@ export default function CreateAgent({
       }
     : setInternalOpened;
 
-  const [step, setStep] = useState(0);
-  const form = useForm({
-    initialValues: {
-      name: "",
-      selectedModelName: null as string | null,
-      systemPrompt: "",
-      tools: {} as Record<string, string[]>,
-    },
-  });
-
-  const selectedModel = form.values.selectedModelName
-    ? textAgentModels.find((m) => m.model_name === form.values.selectedModelName)
-    : null;
-  const selectedModelDisplayName = selectedModel ? selectedModel.model_name : "";
-
-  useEffect(() => {
-    if (step === 2 && selectedModelDisplayName && !(form.values.name ?? "").trim()) {
-      form.setFieldValue("name", selectedModelDisplayName);
-    }
-  }, [step, selectedModelDisplayName]);
-
-  const toolkitsList = buildToolkitsFromConnections(connectedAccounts, toolkitsData?.items);
-
-  useEffect(() => {
-    if (step === 1) {
-      void loadConnectedAccounts();
-      void loadToolkits({ limit: 100 });
-    }
-  }, [step, loadConnectedAccounts, loadToolkits]);
-
-  useEffect(() => {
-    if (step === 1 && toolkitsList.length > 0) {
-      void loadToolsForToolkits(toolkitsList.map((t) => t.slug));
-    }
-  }, [step, toolkitsList.length, loadToolsForToolkits]);
-
-  const handleToolsChange = (toolkitSlug: string, toolSlugs: string[]) => {
-    const prev =
-      form.values.tools && typeof form.values.tools === "object" ? form.values.tools : {};
-    form.setFieldValue("tools", { ...prev, [toolkitSlug]: toolSlugs });
-  };
-
-  const handleSubmit = () => {
-    if (!user?.user?.id) return;
-    const values = form.getValues();
-    console.log(values);
-    if (!values.selectedModelName || !(values.name ?? "").trim()) return;
-    const toolsConfig =
-      values.tools && typeof values.tools === "object" && !Array.isArray(values.tools)
-        ? values.tools
-        : {};
-    const config = {
-      settings: {
-        tools: toolsConfig,
-        systemPrompt: (values.systemPrompt ?? "").trim(),
-      },
-    };
-    void (async () => {
-      const created = await createUserAgent(
-        user.user.id,
-        values.name ?? "",
-        values.selectedModelName as unknown as string,
-        config
-      );
-      if (created) {
-        setOpened(false);
-        setStep(0);
-      }
-    })();
-  };
-
   const resetStateAndOpen = () => {
     closeAgentPicker?.(false);
     if (!isControlled) setInternalOpened(true);
-    setStep(0);
-    form.reset();
   };
 
   return (
@@ -152,7 +51,7 @@ export default function CreateAgent({
           if (isControlled) onClose?.();
           else setInternalOpened(false);
         }}
-        title="Create Agent"
+        title="Select Model"
         fullScreen
       >
         <Container
@@ -160,121 +59,34 @@ export default function CreateAgent({
           p="xs"
           style={{ height: "calc(100vh - 80px)", display: "flex", flexDirection: "column" }}
         >
-          <FormProvider form={form}>
-            <Stack gap="md" style={{ flex: 1, minHeight: 0 }}>
-              <Stepper active={step} onStepClick={setStep} size={isMobile ? "xs" : "sm"}>
-                <Stepper.Step
-                  label="Model"
-                  description={isMobile ? undefined : "Select a base model"}
-                />
-                <Stepper.Step
-                  label="Tools"
-                  description={isMobile ? undefined : "Choose tools for your agent"}
-                />
-                <Stepper.Step
-                  label="Details"
-                  description={isMobile ? undefined : "Name & system prompt"}
-                />
-              </Stepper>
-
-              <ScrollArea style={{ flex: 1, minHeight: 0 }} offsetScrollbars scrollbarSize={6}>
-                {step === 0 && (
-                  <Stack gap="sm" mt="sm">
-                    {[...textAgentModels]
-                      .sort(
-                        (a, b) =>
-                          (a.order ?? Number.POSITIVE_INFINITY) -
-                          (b.order ?? Number.POSITIVE_INFINITY)
-                      )
-                      .map((m) => {
-                        const isSelected = m.model_name === form.values.selectedModelName;
-                        return (
-                          <AgentModelCard
-                            key={m.id}
-                            model={m as any}
-                            isSelected={isSelected}
-                            onSelect={() => form.setFieldValue("selectedModelName", m.model_name)}
-                          />
-                        );
-                      })}
-                  </Stack>
-                )}
-                {step === 1 && (
-                  <Stack gap="sm" mt="sm">
-                    <Text size="sm" c="dimmed">
-                      Select which tools from each connected toolkit the agent can use.
-                    </Text>
-                    <ToolkitSelectorList
-                      toolkits={toolkitsList}
-                      toolsByToolkit={Object.fromEntries(
-                        Object.entries(toolsByToolkit).map(([slug, items]) => [
-                          slug,
-                          items.map((t) => ({ slug: t.slug, name: t.name })),
-                        ])
-                      )}
-                      selectedTools={
-                        form.values.tools && typeof form.values.tools === "object"
-                          ? form.values.tools
-                          : {}
-                      }
-                      onToolsChange={handleToolsChange}
-                      loading={toolsByToolkitLoading}
-                    />
-                  </Stack>
-                )}
-                {step === 2 && (
-                  <Stack gap="sm" mt="sm">
-                    <TextInput
-                      label="Agent name"
-                      placeholder={selectedModelDisplayName || "My coding agent"}
-                      {...form.getInputProps("name")}
-                      required
-                    />
-                    <Textarea
-                      label="System prompt"
-                      placeholder="Optional instructions the agent should always follow"
-                      minRows={3}
-                      {...form.getInputProps("systemPrompt")}
-                    />
-                  </Stack>
-                )}
-              </ScrollArea>
-
-              <Group justify="space-between" mt="md">
-                {step === 0 && (
-                  <>
-                    <Button variant="default" onClick={() => setOpened(false)}>
-                      Cancel
-                    </Button>
-                    <Button onClick={() => setStep(1)} disabled={!form.values.selectedModelName}>
-                      Next
-                    </Button>
-                  </>
-                )}
-                {step === 1 && (
-                  <>
-                    <Button variant="default" onClick={() => setStep(0)}>
-                      Back
-                    </Button>
-                    <Button onClick={() => setStep(2)}>Next</Button>
-                  </>
-                )}
-                {step === 2 && (
-                  <>
-                    <Button variant="default" onClick={() => setStep(1)}>
-                      Back
-                    </Button>
-                    <Button
-                      onClick={handleSubmit}
-                      disabled={!form.values.name.trim() || !form.values.selectedModelName}
-                    >
-                      Create Agent
-                    </Button>
-                  </>
-                )}
-              </Group>
-            </Stack>
-          </FormProvider>
+          <Stack gap="md" style={{ flex: 1, minHeight: 0 }}>
+            <ScrollArea style={{ flex: 1, minHeight: 0 }} offsetScrollbars scrollbarSize={6}>
+              <Stack gap="sm" mt="sm">
+                {[...textAgentModels]
+                  .sort(
+                    (a, b) =>
+                      (a.order ?? Number.POSITIVE_INFINITY) - (b.order ?? Number.POSITIVE_INFINITY)
+                  )
+                  .map((m) => {
+                    const isSelected = m.model_name === selectedModelName;
+                    return (
+                      <AgentModelCard
+                        key={m.id}
+                        model={m as any}
+                        isSelected={isSelected}
+                        onSelect={() => {
+                          setSelectedModelName(m.model_name);
+                          setOpened(false);
+                        }}
+                      />
+                    );
+                  })}
+              </Stack>
+            </ScrollArea>
+            <Button variant="default" onClick={() => setOpened(false)}>
+              Close
+            </Button>
+          </Stack>
         </Container>
       </Modal>
     </>

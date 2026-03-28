@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import createUniversalSelectors from "./universalSelectors";
 import { createClient } from "@supabase/supabase-js";
-import { assertAuthFetchOk, authFetch } from "./authFetch";
+import { assertAuthFetchOk, authFetch, authFetchJson } from "./authFetch";
 import { endpoint } from "../utils";
 
 // Types matching provided User/session payload
@@ -364,14 +364,16 @@ const useAppStoreBase = create<AppStoreState>((set, get) => ({
       // Sync Zipline username if it changed (best-effort)
       try {
         if (values.username !== (session.profile?.username || "")) {
-          const zipRes = await authFetch(`${endpoint}/zipline/user/update`, {
-            method: "PATCH",
-            body: JSON.stringify({
-              username: values.username,
-            }),
-          });
-          await assertAuthFetchOk(zipRes, "Failed to sync username to Zipline");
-          const zipData = await zipRes.json();
+          const zipData = await authFetchJson<{ success?: boolean; error?: string }>(
+            `${endpoint}/zipline/user/update`,
+            {
+              method: "PATCH",
+              body: JSON.stringify({
+                username: values.username,
+              }),
+            },
+            { errorMessage: "Failed to sync username to Zipline" }
+          );
           if (!zipData?.success) {
             return {
               success: false,
@@ -496,13 +498,18 @@ const useAppStoreBase = create<AppStoreState>((set, get) => ({
           username: username,
           email: sessionData.user.email,
         };
-        const response = await authFetch(
+        const data = await authFetchJson<{
+          success?: boolean;
+          error?: string;
+          data?: Record<string, unknown>;
+        }>(
           `${endpoint}/user/create-user`,
           { method: "POST", body: JSON.stringify(requestBody) },
-          { accessToken: sessionData?.access_token ?? undefined }
+          {
+            accessToken: sessionData?.access_token ?? undefined,
+            errorMessage: "Failed to create user",
+          }
         );
-        await assertAuthFetchOk(response, "Failed to create user");
-        const data = await response.json();
         if (!data?.success) {
           return { success: false, error: data.error || "Failed to create user" };
         }

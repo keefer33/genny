@@ -1,55 +1,30 @@
 import { ActionIcon, Button, Group, Modal, Stack, TextInput, Textarea } from "@mantine/core";
 import { RiEqualizer2Line } from "@remixicon/react";
 import { useEffect, useState } from "react";
-import useAppStore from "~/lib/stores/appStore";
-import { useChatsStore } from "~/lib/stores/chatsStore";
 import { useFormContext } from "~/lib/ContextForm";
+import { useChatsStore } from "~/lib/stores/chatsStore";
 
 export default function ChatSettings() {
   const form = useFormContext();
+  const selectedModelName = useChatsStore((s) => s.selectedModelName);
   const [modalOpen, setModalOpen] = useState(false);
-  const [agentName, setAgentName] = useState("");
   const [saving, setSaving] = useState(false);
-  const { getUser } = useAppStore();
-  const { selectedAgent, updateUserAgent } = useChatsStore();
-  const user = getUser();
 
   useEffect(() => {
-    if (modalOpen && selectedAgent) {
-      setAgentName(selectedAgent.name ?? "");
+    if (modalOpen) {
+      // noop; keep effect so modal reopen can hook future settings if needed
     }
-  }, [modalOpen, selectedAgent]);
+  }, [modalOpen]);
 
   const handleSave = async () => {
-    if (!user?.user?.id || !selectedAgent) return;
     setSaving(true);
     const values = form.getValues();
-    const settings =
-      (
-        selectedAgent.config as {
-          settings?: { tools?: Record<string, string[]>; systemPrompt?: string };
-        } | null
-      )?.settings ?? {};
-    const toolsConfig =
-      values.tools && typeof values.tools === "object" && !Array.isArray(values.tools)
-        ? values.tools
-        : (settings.tools ?? {});
-    const config = {
-      ...selectedAgent.config,
-      settings: {
-        tools: toolsConfig,
-        systemPrompt:
-          typeof values.systemPrompt === "string"
-            ? values.systemPrompt
-            : (settings.systemPrompt ?? ""),
-      },
-    };
-    const ok = await updateUserAgent(user.user.id, selectedAgent.id, {
-      name: agentName.trim() || selectedAgent.name,
-      config,
-    });
+    form.setFieldValue(
+      "systemPrompt",
+      typeof values.systemPrompt === "string" ? values.systemPrompt : ""
+    );
     setSaving(false);
-    if (ok) setModalOpen(false);
+    setModalOpen(false);
   };
 
   return (
@@ -72,13 +47,7 @@ export default function ChatSettings() {
         radius="md"
       >
         <Stack gap="md">
-          <TextInput
-            label="Agent name"
-            placeholder="Name this agent"
-            value={agentName}
-            onChange={(e) => setAgentName(e.currentTarget.value)}
-            disabled={!selectedAgent}
-          />
+          <TextInput label="Model name" value={String(selectedModelName ?? "")} disabled />
           <Textarea
             key={form.key("systemPrompt")}
             label="System prompt"
@@ -92,7 +61,7 @@ export default function ChatSettings() {
             <Button variant="default" onClick={() => setModalOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSave} loading={saving} disabled={!selectedAgent}>
+            <Button onClick={handleSave} loading={saving}>
               Save
             </Button>
           </Group>
