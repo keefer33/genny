@@ -1,4 +1,4 @@
-import { AppShell, Box, Button, Container, Group, useMantineColorScheme } from "@mantine/core";
+import { AppShell, Box, Button, Container, Group } from "@mantine/core";
 import { RiLoginBoxLine, RiUserLine } from "@remixicon/react";
 import { Link, Outlet } from "react-router";
 import Logo from "./Logo";
@@ -6,8 +6,7 @@ import { ThemeSwitcher } from "~/shared/ThemeSwitcher";
 import useAppStore from "~/lib/stores/appStore";
 
 export default function LandingLayout() {
-  const { colorScheme } = useMantineColorScheme();
-  const { getUser } = useAppStore();
+  const { getUser, themeSettings } = useAppStore();
   const isLoggedIn = !!getUser()?.user?.id;
 
   return (
@@ -25,13 +24,8 @@ export default function LandingLayout() {
         withBorder={false}
         header={{ height: 80 }}
         style={{ flex: 1 }}
-        styles={{
-          main: {
-            background: "transparent",
-          },
-        }}
       >
-        <AppShell.Header bg={colorScheme === "dark" ? "dark.7" : "white"}>
+        <AppShell.Header bg={themeSettings.colorScheme === "dark" ? "dark.6" : "gray.1"}>
           <Container size="lg" h="100%">
             <Group justify="space-between" align="center" h="100%" py="xs" wrap="nowrap">
               <Logo fontSizeSmall="20px" fontSize="40px" />
@@ -66,7 +60,7 @@ export default function LandingLayout() {
         </AppShell.Main>
       </AppShell>
 
-      <Box bg={colorScheme === "dark" ? "dark.6" : "gray.1"}>
+      <Box bg={themeSettings.colorScheme === "dark" ? "dark.6" : "gray.1"}>
         <Container size="lg" py="lg">
           <Group
             justify="space-between"

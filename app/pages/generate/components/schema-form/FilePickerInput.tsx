@@ -17,7 +17,8 @@ export function FilePickerInput({
   fieldPrefix?: string;
 }) {
   const form = useFormContext();
-  const { themeColor } = useAppStore();
+  const { themeSettings } = useAppStore();
+  const themeColor = themeSettings.themeColor;
   const [_opened, { open }] = useDisclosure(false);
   const fullFieldName = fieldPrefix ? `${fieldPrefix}.${fieldName}` : fieldName;
   const pickerBorderColor = `var(--mantine-color-${themeColor}-6)`;

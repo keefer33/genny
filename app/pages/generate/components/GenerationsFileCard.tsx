@@ -1,15 +1,4 @@
-import {
-  Alert,
-  Badge,
-  Card,
-  Group,
-  Progress,
-  Stack,
-  Text,
-  ThemeIcon,
-  Button,
-  useMantineColorScheme,
-} from "@mantine/core";
+import { Alert, Badge, Card, Group, Progress, Stack, Text, ThemeIcon, Button } from "@mantine/core";
 import { RiErrorWarningLine, RiTimeLine, RiDeleteBinLine } from "@remixicon/react";
 import { useEffect } from "react";
 import useAppStore from "~/lib/stores/appStore";
@@ -34,7 +23,7 @@ export function GenerationsFileCard({
   const { getUser } = useAppStore();
   const authApiKey = useAppStore((s) => s.authApiKey);
   const { refreshGeneration, deleteGeneration } = useGenerateStore();
-  const { colorScheme } = useMantineColorScheme();
+  const { themeSettings } = useAppStore();
   const user = getUser();
   const userId = user?.user?.id;
   // Check if file is in a processing state (pending or processing)
@@ -82,7 +71,7 @@ export function GenerationsFileCard({
       radius="sm"
       padding={0}
       pos="relative"
-      bg={colorScheme === "dark" ? "dark.6" : "gray.0"}
+      bg={themeSettings.colorScheme === "dark" ? "dark.6" : "gray.0"}
       style={{
         border: selected ? "2px solid var(--mantine-color-blue-6)" : undefined,
         cursor: onSelect ? "pointer" : undefined,

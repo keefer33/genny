@@ -1,81 +1,112 @@
 # Genny.bot
 
-A modern, production-ready generative AI application for creating stunning images and videos using the latest AI models including Veo, Grok, Sora, Kling, and Flux.
+## ✨ Overview
 
-Please visit [https://genny.bot](https://genny.bot) to try the app.
+Genny.bot is a production-ready generative AI app for images and videos (Veo, Grok, Sora, Kling, Flux, and more).
 
-## Features
+## 🌐 Website
 
-- 🎨 **AI Image Generation** - Create high-quality images using cutting-edge models like Flux and Grok
-- 🎬 **AI Video Generation** - Generate videos with state-of-the-art models including Veo, Sora, and Kling
-- 🚀 **Server-side rendering** - Fast, SEO-friendly pages with React Router
-- ⚡️ **Hot Module Replacement (HMR)** - Instant feedback during development
-- 📦 **Asset bundling and optimization** - Production-ready builds
-- 🔄 **Data loading and mutations** - Efficient data management
-- 🔒 **TypeScript by default** - Type-safe development
-- 🎨 **Mantine UI** - Beautiful, accessible components
-- 💳 **Token-based billing** - Flexible payment system for AI generations
-- 📊 **Usage tracking** - Monitor your token consumption and generation history
-- 🔐 **User authentication** - Secure login and profile management
+[https://genny.bot](https://genny.bot)
 
-## Supported AI Models
+## ⭐ Features
 
-### Image Generation
+- 🎨 **AI image generation** — Flux, Grok, and other image models
+- 🎬 **AI video generation** — Veo, Sora, Kling, and more
+- 🤖 **AI agents** — Chat UI with sidebar, message thread, composer, and attachments
+- 📊 **Dashboard** — Signed-in overview with shortcuts to generate, files, usage, and tools
+- 🛠️ **Tools** — Toolkits catalog and detail pages
+- 🚀 **Server-side rendering** — React Router for fast, SEO-friendly pages
+- ⚡ **Hot Module Replacement** — Instant feedback in development
+- 🔒 **TypeScript** — Type-safe codebase
+- 🧩 **Mantine UI** — Accessible components
+- 💳 **Token-based billing** — Purchase and spend tokens for generations
+- 📈 **Usage tracking** — Token usage and generation history
+- 🔐 **Authentication** — Login and profile management
 
-- **Flux** - High-quality image generation
-- **Grok** - Advanced image creation capabilities
+## 🎯 Supported AI brands
 
-### Video Generation
+Google, Flux, Alibaba, Xai, Kling, Anthropic, Minimax, Vidu, ByteDance, Zai, LTX, Moonshot, OpenAI, DeepSeek
 
-- **Veo** - Google's latest video generation model
-- **Sora** - OpenAI's state-of-the-art video model
-- **Kling** - Advanced video generation technology
-
-## Project Structure
+## 📁 Project structure
 
 ```
 ├── app/
-│   ├── pages/          # Page components
-│   │   ├── account/    # User account pages (billing, profile, tokens log)
-│   │   ├── generate/   # AI generation pages
-│   │   ├── generations/# Generation history
-│   │   └── files/      # File management
-│   ├── shared/         # Shared components
-│   ├── lib/            # Utilities and stores
-│   └── routes.ts       # Route configuration
-├── public/             # Static assets
+│   ├── pages/
+│   │   ├── account/     # Profile, billing, usage log, support tickets
+│   │   ├── agents/    # Agent chat (sidebar, composer, messages)
+│   │   ├── dashboard/ # Signed-in home / overview
+│   │   ├── generate/  # Generation flows and schema-driven forms
+│   │   ├── generations/
+│   │   ├── files/
+│   │   ├── tools/     # Toolkits catalog and detail
+│   │   └── root/      # Landing, login, legal, contact
+│   ├── shared/        # Layouts, nav, MarkdownRenderer, modals, pagination
+│   ├── lib/
+│   │   ├── hooks/
+│   │   ├── stores/    # Zustand (app, chats, generate, files, …)
+│   │   ├── themeUtils.ts
+│   │   └── utils.tsx
+│   └── routes.ts
+├── public/
 └── package.json
 ```
 
-## Key Features
+## 🎨 Theme and styling
 
-### Token System
+Appearance is stored in Zustand (`useAppStore`) as `themeSettings`:
 
-- Purchase tokens to generate AI content
-- Track usage history and transactions
-- View detailed token logs with credits and debits
+- **`colorScheme`**: `"light"` | `"dark"` | `"auto"` (system when `"auto"`)
+- **`themeColor`**: Mantine primary token (e.g. `cyan`, `blue`)
 
-### Generation Management
+`app/lib/themeUtils.ts` persists settings and `getColorSchemeBootstrapScript()` sets `data-mantine-color-scheme` in `<head>` before first paint. Components that need explicit branching read `themeSettings` from the store. The `useTheme()` hook syncs Mantine and calls `saveThemeSettings`.
 
-- Browse your generation history
-- Filter by model, type, and tags
-- Bulk operations for managing generations
+## 🧭 Product areas
 
-### File Management
+### 💳 Token system
 
-- Organize generated content
-- Tag and categorize files
-- Upload and manage user files
+- Purchase tokens, view transactions, and inspect usage logs
 
-## Tech Stack
+### 🖼️ Generations
 
-- **React Router** - Routing and data loading
-- **React** - UI framework
-- **TypeScript** - Type safety
-- **Mantine** - UI component library
-- **Supabase** - Database and authentication
-- **Stripe** - Payment processing
-- **Vite** - Build tool and dev server
+- History, filters (model, type, tags), and bulk actions
+
+### 📁 Files
+
+- Organize assets, tags, and uploads
+
+### 💬 Agents chat
+
+- `chatsStore` drives sidebar, scrollable messages, composer, and attachment flows
+
+## 🔗 Integrations
+
+| Integration | Role |
+|-------------|------|
+| 🖥️ [Coolify](https://coolify.io/) | Server management, deployments, CI/CD |
+| 🔗 [Composio](https://composio.dev/) | Tool and app connectors for agents |
+| ▲ [Vercel AI Gateway](https://vercel.com/ai-gateway) | Unified AI model access for agents |
+| 🗄️ [Supabase](https://supabase.com/) | Database and authentication |
+| 💳 [Stripe](https://stripe.com/) | Payments |
+
+## 🧱 Tech stack
+
+- 🧭 **React Router** — Routing and loaders
+- ⚛️ **React** — UI
+- 🔷 **TypeScript**
+- 🎨 **Mantine** — Components
+- 🐻 **Zustand** — Client state
+- ⚡ **Vite** — Build and dev server
+
+## 📜 Scripts
+
+| Command | Purpose |
+|--------|---------|
+| `npm run dev` | ⚡ Dev server with HMR |
+| `npm run build` | 📦 Production build |
+| `npm run start` | 🚀 Serve production build |
+| `npm run typecheck` | 🔷 React Router typegen + `tsc` |
+| `npm run lint` | 🔍 ESLint |
+| `npm run format` | ✨ Prettier write |
 
 ---
 

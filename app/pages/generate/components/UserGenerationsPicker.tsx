@@ -11,7 +11,6 @@ import {
   Image,
   Box,
   Button,
-  useMantineColorScheme,
   ThemeIcon,
 } from "@mantine/core";
 import { useEffect, useState } from "react";
@@ -43,7 +42,7 @@ export function UserGenerationsPicker({
   displayFieldValue,
 }: UserGenerationsPickerProps) {
   const { getUser, isMobile } = useAppStore();
-  const { colorScheme } = useMantineColorScheme();
+  const { themeSettings } = useAppStore();
   const [generations, setGenerations] = useState<GenerationFile[]>([]);
   const [loading, setLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -163,7 +162,7 @@ export function UserGenerationsPicker({
                     onClick={() => handleSelect(generation)}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.backgroundColor =
-                        colorScheme === "dark"
+                        themeSettings.colorScheme === "dark"
                           ? "var(--mantine-color-dark-5)"
                           : "var(--mantine-color-gray-0)";
                     }}
@@ -180,7 +179,7 @@ export function UserGenerationsPicker({
                           alignItems: "center",
                           justifyContent: "center",
                           backgroundColor:
-                            colorScheme === "dark"
+                            themeSettings.colorScheme === "dark"
                               ? "var(--mantine-color-dark-6)"
                               : "var(--mantine-color-gray-1)",
                           borderRadius: "4px",

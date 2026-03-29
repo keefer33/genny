@@ -5,7 +5,7 @@ import ColorPicker from "~/shared/ColorPicker";
 import ThemeToggle from "~/shared/ThemeToggle";
 
 export default function ThemeSettings() {
-  const { colorScheme, themeColor, toggleColorScheme, changeThemeColor } = useTheme();
+  const { colorScheme, themeSettings, toggleColorScheme, changeThemeColor } = useTheme();
 
   return (
     <Card shadow="sm" padding="lg" radius="md">
@@ -33,7 +33,7 @@ export default function ThemeSettings() {
             Primary Color
           </Text>
           <ColorPicker
-            selectedColor={themeColor}
+            selectedColor={themeSettings.themeColor}
             onColorChange={changeThemeColor}
             size="md"
             showLabels={true}
@@ -49,7 +49,7 @@ export default function ThemeSettings() {
           </Text>
           <Card withBorder padding="sm" radius="sm">
             <Group gap="xs">
-              <ActionIcon variant="filled" color={themeColor} size="sm">
+              <ActionIcon variant="filled" color={themeSettings.themeColor} size="sm">
                 <RiPaletteLine size={14} />
               </ActionIcon>
               <Text size="sm">This is how your primary color will appear throughout the app</Text>

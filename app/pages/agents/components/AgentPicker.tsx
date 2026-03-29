@@ -1,13 +1,4 @@
-import {
-  Card,
-  Group,
-  Modal,
-  ScrollArea,
-  Stack,
-  Text,
-  Avatar,
-  useMantineColorScheme,
-} from "@mantine/core";
+import { Card, Group, Modal, ScrollArea, Stack, Text, Avatar } from "@mantine/core";
 import { RiArrowDownSLine } from "@remixicon/react";
 import { useChatsStore, type AgentModel } from "~/lib/stores/chatsStore";
 import useAppStore from "~/lib/stores/appStore";
@@ -21,7 +12,7 @@ export default function AgentPicker() {
   const textModels = agentModels.filter((m) => m?.model_type === "text");
   const { selectedModelName, agentPickerOpen, setAgentPickerOpen, setSelectedModelName } =
     useChatsStore();
-  const { colorScheme } = useMantineColorScheme();
+  const { themeSettings } = useAppStore();
   const selectedModel = selectedModelName
     ? (textModels.find((m) => m.model_name === selectedModelName) ?? null)
     : null;
@@ -46,7 +37,9 @@ export default function AgentPicker() {
             width: isMobile ? undefined : "100%",
           }}
           bg={
-            colorScheme === "dark" ? "var(--mantine-color-dark-5)" : "var(--mantine-color-gray-2)"
+            themeSettings.colorScheme === "dark"
+              ? "var(--mantine-color-dark-5)"
+              : "var(--mantine-color-gray-2)"
           }
         >
           <Group

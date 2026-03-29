@@ -1,6 +1,7 @@
-import { Box, Group, Stack, Text, useMantineColorScheme, useMantineTheme } from "@mantine/core";
+import { Box, Group, Stack, Text, useMantineTheme } from "@mantine/core";
 import { useFormContext } from "~/lib/ContextForm";
 import { getEffectiveEnum } from "./schemaFormUtils";
+import useAppStore from "~/lib/stores/appStore";
 
 export function SelectableBoxesRenderer({
   fieldName,
@@ -15,7 +16,7 @@ export function SelectableBoxesRenderer({
 }) {
   const form = useFormContext();
   const theme = useMantineTheme();
-  const { colorScheme } = useMantineColorScheme();
+  const { themeSettings } = useAppStore();
   const fullFieldName = fieldPrefix ? `${fieldPrefix}.${fieldName}` : fieldName;
 
   const enumData = getEffectiveEnum(fieldSchema, form.values, fieldPrefix);
@@ -67,7 +68,7 @@ export function SelectableBoxesRenderer({
                 cursor: "pointer",
                 border: isSelected
                   ? `2px solid ${theme.colors[theme.primaryColor][6]}`
-                  : `1px solid ${colorScheme === "dark" ? theme.colors.dark[4] : theme.colors.gray[3]}`,
+                  : `1px solid ${themeSettings.colorScheme === "dark" ? theme.colors.dark[4] : theme.colors.gray[3]}`,
                 borderRadius: "8px",
                 transition: "all 0.2s ease",
                 minWidth: "40px",
@@ -77,7 +78,9 @@ export function SelectableBoxesRenderer({
               onMouseEnter={(e) => {
                 if (!isSelected) {
                   e.currentTarget.style.backgroundColor =
-                    colorScheme === "dark" ? theme.colors.dark[5] : theme.colors.gray[1];
+                    themeSettings.colorScheme === "dark"
+                      ? theme.colors.dark[5]
+                      : theme.colors.gray[1];
                 }
               }}
               onMouseLeave={(e) => {

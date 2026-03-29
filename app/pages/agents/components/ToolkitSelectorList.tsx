@@ -1,7 +1,8 @@
 import { Avatar, Button, Card, Group, MultiSelect, ScrollArea, Stack, Text } from "@mantine/core";
 import { RiToolsLine } from "@remixicon/react";
 import { Link } from "react-router";
-import { useMantineColorScheme, useMantineTheme } from "@mantine/core";
+import { useMantineTheme } from "@mantine/core";
+import useAppStore from "~/lib/stores/appStore";
 import type { ConnectedAccountItem } from "~/lib/stores/toolsStore";
 import type { ToolkitItem } from "~/lib/stores/toolsStore";
 
@@ -59,14 +60,15 @@ export default function ToolkitSelectorList({
   loading = false,
 }: ToolkitSelectorListProps) {
   const theme = useMantineTheme();
-  const { colorScheme } = useMantineColorScheme();
+  const { themeSettings } = useAppStore();
 
   const emptyState = (
     <Card
       p="lg"
       radius="sm"
       style={{
-        backgroundColor: colorScheme === "dark" ? theme.colors.dark[6] : theme.colors.gray[0],
+        backgroundColor:
+          themeSettings.colorScheme === "dark" ? theme.colors.dark[6] : theme.colors.gray[0],
       }}
     >
       <Stack align="center" gap="sm">

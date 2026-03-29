@@ -39,7 +39,8 @@ export default function FileTagModal({ fileId, fileTags, onTagsUpdated }: FileTa
   const [togglingTag, setTogglingTag] = useState<string | null>(null);
   const [currentFileTags, setCurrentFileTags] = useState(fileTags);
   const { getUser } = useAppStore();
-  const { themeColor } = useTheme();
+  const { themeSettings } = useTheme();
+  const themeColor = themeSettings.themeColor;
   const { tags, loading: tagsLoading, loadTags, addTagToFile, removeTagFromFile } = useTagStore();
 
   const user = getUser();

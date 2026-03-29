@@ -11,36 +11,27 @@ import notifications from "@mantine/notifications/styles.css?url";
 import carousel from "@mantine/carousel/styles.css?url";
 import globalStyles from "./global.css?url";
 import useAppStore from "~/lib/stores/appStore";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { MantineProvider } from "@mantine/core";
 import { createThemeWithColor } from "./lib/theme";
 import { useAuth } from "./lib/hooks/useAuth";
 import { Notifications } from "@mantine/notifications";
 import { PWAInstallPrompt } from "./shared/PWAInstallPrompt";
 import type { Route } from "./+types/root";
+import { getColorSchemeBootstrapScript, loadThemeSettings } from "./lib/themeUtils";
 
 function DynamicThemeProvider({ children }: { children: React.ReactNode }) {
-  const { themeColor, setThemeColor } = useAppStore();
+  const { setThemeSettings } = useAppStore();
+  const settings = useMemo(() => loadThemeSettings(), []);
 
-  // Load theme settings from localStorage on component mount
   useEffect(() => {
-    const savedSettings = localStorage.getItem("themeSettings");
-    if (savedSettings) {
-      try {
-        const settings = JSON.parse(savedSettings);
-        if (settings.themeColor && settings.themeColor !== themeColor) {
-          setThemeColor(settings.themeColor);
-        }
-      } catch (error) {
-        console.error("Error loading theme settings:", error);
-      }
-    }
-  }, []);
+    setThemeSettings(settings);
+  }, [setThemeSettings, settings]);
 
-  const dynamicTheme = createThemeWithColor(themeColor);
+  const dynamicTheme = createThemeWithColor(settings.themeColor);
 
   return (
-    <MantineProvider theme={dynamicTheme} defaultColorScheme="dark">
+    <MantineProvider theme={dynamicTheme} defaultColorScheme={settings.colorScheme}>
       <Notifications />
       {children}
     </MantineProvider>
@@ -90,16 +81,20 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
+        <script
+          suppressHydrationWarning
+          dangerouslySetInnerHTML={{ __html: getColorSchemeBootstrapScript() }}
+        />
         <meta
           name="description"
           content="A modern generative AI application for creating stunning images and videos using the latest AI models"
         />
-        <meta name="theme-color" content="#ffffff" />
+        <meta name="theme-color" content="#000000" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="Genny" />
         <meta name="mobile-web-app-capable" content="yes" />
-        <meta name="msapplication-TileColor" content="#ffffff" />
+        <meta name="msapplication-TileColor" content="#000000" />
         <meta name="msapplication-config" content="/browserconfig.xml" />
         <Meta />
         <Links />

@@ -5,7 +5,6 @@ import {
   Tooltip,
   Group,
   Text,
-  useMantineColorScheme,
   Divider,
 } from "@mantine/core";
 import {
@@ -36,9 +35,8 @@ interface NavbarProps {
 
 export function Navbar({ toggleMobile, collapsed }: NavbarProps) {
   const theme = useMantineTheme();
-  const { colorScheme } = useMantineColorScheme();
   const location = useLocation();
-  const { getUser, isMobile } = useAppStore();
+  const { getUser, isMobile, themeSettings } = useAppStore();
   const { models } = useGenerateStore();
 
   const user = getUser();
@@ -178,15 +176,15 @@ export function Navbar({ toggleMobile, collapsed }: NavbarProps) {
           padding: isMobile ? "10px 10px" : "6px 6px",
           borderRadius: theme.radius.sm,
           backgroundColor: isActive
-            ? colorScheme === "dark"
+            ? themeSettings.colorScheme === "dark"
               ? theme.colors[theme.primaryColor][8]
               : theme.colors[theme.primaryColor][1]
             : "transparent",
           color: isActive
-            ? colorScheme === "dark"
+            ? themeSettings.colorScheme === "dark"
               ? theme.colors[theme.primaryColor][2]
               : theme.colors[theme.primaryColor][8]
-            : colorScheme === "dark"
+            : themeSettings.colorScheme === "dark"
               ? theme.colors.gray[0]
               : theme.colors.gray[7],
           transition: "all 0.2s ease",
@@ -196,7 +194,7 @@ export function Navbar({ toggleMobile, collapsed }: NavbarProps) {
         onMouseEnter={(e) => {
           if (!isActive) {
             e.currentTarget.style.backgroundColor =
-              colorScheme === "dark" ? theme.colors.dark[6] : theme.colors.gray[1];
+              themeSettings.colorScheme === "dark" ? theme.colors.dark[6] : theme.colors.gray[1];
           }
         }}
         onMouseLeave={(e) => {

@@ -25,7 +25,8 @@ import { useTheme } from "~/lib/hooks/useTheme";
 
 export default function ChatsList() {
   const theme = useMantineTheme();
-  const { themeColor } = useTheme();
+  const { themeSettings } = useTheme();
+  const themeColor = themeSettings.themeColor;
   const [listEditMode, setListEditMode] = useState(false);
   const {
     chats,

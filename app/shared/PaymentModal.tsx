@@ -244,13 +244,7 @@ export default function PaymentModal({
     const current = selectedTopUp || topUpOption;
     const optionId = current?.id;
 
-    if (
-      opened &&
-      optionId &&
-      !clientSecret &&
-      !paymentLoading &&
-      !hasInitiatedPaymentRef.current
-    ) {
+    if (opened && optionId && !clientSecret && !paymentLoading && !hasInitiatedPaymentRef.current) {
       handleModalOpen();
     }
     if (!opened) {
@@ -410,7 +404,9 @@ export function usePaymentModal() {
     selectedTopUp,
     openPaymentModal,
     closePaymentModal: closeModal,
-    PaymentModalComponent: (props: Omit<PaymentModalProps, "opened" | "onClose" | "topUpOption">) => (
+    PaymentModalComponent: (
+      props: Omit<PaymentModalProps, "opened" | "onClose" | "topUpOption">
+    ) => (
       <PaymentModal
         {...props}
         opened={paymentModalOpen}

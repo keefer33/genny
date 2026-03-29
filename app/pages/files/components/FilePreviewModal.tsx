@@ -11,7 +11,6 @@ import {
   Grid,
   Table,
   Text,
-  useMantineColorScheme,
   Container,
   Card,
 } from "@mantine/core";
@@ -28,6 +27,7 @@ import {
 import dayjs from "dayjs";
 import { formatDate, formatFileSize, getFileExtension, isTextFile } from "~/lib/utils";
 import FileTagModal from "~/pages/files/components/FileTagModal";
+import useAppStore from "~/lib/stores/appStore";
 
 interface UserTag {
   id: string;
@@ -76,7 +76,7 @@ export function FilePreviewModal({
   deleting = false,
   showActions = true,
 }: FilePreviewModalProps) {
-  const { colorScheme } = useMantineColorScheme();
+  const { themeSettings } = useAppStore();
 
   const getFileIcon = (size: number = 24) => {
     if (file.file_type.startsWith("image/")) {
@@ -188,7 +188,7 @@ export function FilePreviewModal({
                   h={400}
                   style={{
                     backgroundColor:
-                      colorScheme === "dark"
+                      themeSettings.colorScheme === "dark"
                         ? "var(--mantine-color-dark-6)"
                         : "var(--mantine-color-gray-0)",
                     borderRadius: "8px",
@@ -205,7 +205,11 @@ export function FilePreviewModal({
             </Box>
           </Grid.Col>
           <Grid.Col span={{ base: 12, sm: 6 }}>
-            <Card radius="md" p="md" bg={colorScheme === "dark" ? "dark.6" : "gray.0"}>
+            <Card
+              radius="md"
+              p="md"
+              bg={themeSettings.colorScheme === "dark" ? "dark.6" : "gray.0"}
+            >
               <Stack gap="md">
                 <Group justify="space-between" align="flex-start">
                   <Stack gap="xs">

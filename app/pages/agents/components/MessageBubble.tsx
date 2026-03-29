@@ -48,7 +48,8 @@ function MessageBubble({
   streamStatus,
   streamingReasoning,
 }: MessageBubbleProps) {
-  const { themeColor, colorScheme } = useTheme();
+  const { themeSettings, colorScheme } = useTheme();
+  const themeColor = themeSettings.themeColor;
   const theme = useMantineTheme();
   const { isMobile } = useAppStore();
   const text = message.content
