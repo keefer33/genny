@@ -1,4 +1,4 @@
-import { AppShell, Box, useMantineColorScheme } from "@mantine/core";
+import { AppShell, Box } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useEffect, useState } from "react";
 import { AppShellHeader } from "./AppShellHeader";
@@ -18,7 +18,7 @@ export default function AuthedLayout() {
   const { getUser, appLoading, isMobile } = useAppStore();
   const userId = getUser()?.user?.id;
 
-  const { colorScheme } = useMantineColorScheme();
+  const { themeSettings } = useAppStore();
   const [mobileOpened, { toggle: toggleMobile }] = useDisclosure();
   const [desktopCollapsed, setDesktopCollapsed] = useState(true);
   const { PaymentModalComponent } = usePaymentModal();
@@ -57,10 +57,14 @@ export default function AuthedLayout() {
       padding="0"
       withBorder={false}
     >
-      <AppShell.Header bg={colorScheme === "dark" ? "dark.7" : "white"}>
+      <AppShell.Header bg={themeSettings.colorScheme === "dark" ? "dark.7" : "white"}>
         <AppShellHeader mobileOpened={mobileOpened} toggleMobile={toggleMobile} />
       </AppShell.Header>
-      <AppShell.Navbar p="0" bg={colorScheme === "dark" ? "dark.7" : "white"} withBorder={true}>
+      <AppShell.Navbar
+        p="0"
+        bg={themeSettings.colorScheme === "dark" ? "dark.7" : "white"}
+        withBorder={true}
+      >
         <AppShellNavbar
           desktopCollapsed={desktopCollapsed}
           toggleDesktop={toggleDesktop}

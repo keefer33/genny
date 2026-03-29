@@ -38,7 +38,8 @@ export default function TagManagerModal({
   const [editingTagName, setEditingTagName] = useState("");
   const [savingTag, setSavingTag] = useState<string | null>(null);
   const { getUser } = useAppStore();
-  const { colorScheme, themeColor } = useTheme();
+  const { colorScheme, themeSettings } = useTheme();
+  const themeColor = themeSettings.themeColor;
   const theme = useMantineTheme();
   const { tags, loading: tagsLoading, loadTags, createTag, updateTag, deleteTag } = useTagStore();
 

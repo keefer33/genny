@@ -17,7 +17,8 @@ type GlobalNavItem = {
 export function MobileFooterGlobalNav() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { themeColor } = useAppStore();
+  const { themeSettings } = useAppStore();
+  const themeColor = themeSettings.themeColor;
 
   const items: GlobalNavItem[] = [
     {

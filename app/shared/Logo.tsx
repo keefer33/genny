@@ -12,8 +12,8 @@ export default function Logo({
   fontSizeSmall?: string;
 }) {
   const theme = useMantineTheme();
-  const { themeColor } = useAppStore();
-  const themeSettings = {
+  const { themeSettings } = useAppStore();
+  const logoTextStyles = {
     fontFamily: "Lilita One, sans-serif",
     letterSpacing: "1.5px",
     fontSize: fontSize,
@@ -31,23 +31,23 @@ export default function Logo({
         </Box>
         <Group gap={0} align="baseline">
           <Text
-            size={themeSettings.fontSize}
-            fw={themeSettings.fontWeight}
+            size={logoTextStyles.fontSize}
+            fw={logoTextStyles.fontWeight}
             style={{
-              fontFamily: themeSettings.fontFamily,
-              color: theme.colors[themeColor][6],
-              letterSpacing: themeSettings.letterSpacing,
+              fontFamily: logoTextStyles.fontFamily,
+              color: theme.colors[themeSettings.themeColor][6],
+              letterSpacing: logoTextStyles.letterSpacing,
             }}
           >
             GENNY
           </Text>
           <Text
-            size={themeSettings.fontSizeSmall}
-            fw={themeSettings.fontWeightSmall}
+            size={logoTextStyles.fontSizeSmall}
+            fw={logoTextStyles.fontWeightSmall}
             c="dimmed"
             style={{
-              fontFamily: themeSettings.fontFamily,
-              letterSpacing: themeSettings.letterSpacingSmall,
+              fontFamily: logoTextStyles.fontFamily,
+              letterSpacing: logoTextStyles.letterSpacingSmall,
             }}
           >
             .bot

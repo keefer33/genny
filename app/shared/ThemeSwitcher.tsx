@@ -4,12 +4,12 @@ import ColorPicker from "./ColorPicker";
 import ThemeToggle from "./ThemeToggle";
 
 export function ThemeSwitcher() {
-  const { colorScheme, themeColor, toggleColorScheme, changeThemeColor } = useTheme();
+  const { colorScheme, themeSettings, toggleColorScheme, changeThemeColor } = useTheme();
 
   return (
     <Group gap="xs" justify="center" p="xs">
       <ThemeToggle colorScheme={colorScheme} onToggle={toggleColorScheme} />
-      <ColorPicker selectedColor={themeColor} onColorChange={changeThemeColor} size="sm" />
+      <ColorPicker selectedColor={themeSettings.themeColor} onColorChange={changeThemeColor} size="sm" />
     </Group>
   );
 }

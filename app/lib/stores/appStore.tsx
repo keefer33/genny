@@ -98,6 +98,11 @@ interface Session {
   id?: string;
 }
 
+export interface ThemeSettings {
+  colorScheme: "light" | "dark" | "auto";
+  themeColor: string;
+}
+
 /** POST /user/api-key — uses Supabase access_token. Best-effort; logs on failure. */
 async function persistApiKeyToProfile(
   sessionData: { access_token?: string },
@@ -121,7 +126,7 @@ interface AppStoreState {
   loading: boolean;
   appLoading: boolean;
   pageLoading: boolean;
-  themeColor: string;
+  themeSettings: ThemeSettings;
   api: any;
   user: Session | null;
   isMobile: boolean;
@@ -132,7 +137,8 @@ interface AppStoreState {
   getAuthApiKey: () => string | null;
   setUserUsageBalance: (usageBalance: number) => void;
   setLoading: (loading: boolean) => void;
-  setThemeColor: (color: string) => void;
+  setThemeSettings: (themeSettings: ThemeSettings) => void;
+  getThemeSettings: () => ThemeSettings;
   setApi: () => void;
   setAppLoading: (appLoading: boolean) => void;
   setIsMobile: (isMobile: boolean) => void;
@@ -166,7 +172,10 @@ const useAppStoreBase = create<AppStoreState>((set, get) => ({
   loading: false,
   appLoading: true,
   pageLoading: false,
-  themeColor: "cyan",
+  themeSettings: {
+    colorScheme: "dark",
+    themeColor: "cyan",
+  },
   api: null,
   user: null,
   isMobile: false,
@@ -178,7 +187,7 @@ const useAppStoreBase = create<AppStoreState>((set, get) => ({
   setAuthRealtimeChannel: (channel: any) => set({ authRealtimeChannel: channel }),
   getAuthApiKey: () => get().authApiKey,
   setUserUsageBalance: (usageBalance: number) => set({ userUsageBalance: usageBalance }),
-  setThemeColor: (themeColor) => set({ themeColor }),
+  setThemeSettings: (themeSettings: ThemeSettings) => set({ themeSettings }),
   setApi: () =>
     set({
       api: createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_ANON_KEY),
@@ -191,6 +200,7 @@ const useAppStoreBase = create<AppStoreState>((set, get) => ({
   getPage: () => get().page,
   getApi: () => get().api,
   getUser: () => get().user,
+  getThemeSettings: () => get().themeSettings,
   getCurrentUserUsageBalance: () => get().userUsageBalance,
 
   generateRandomUsername: () => {

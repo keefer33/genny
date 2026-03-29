@@ -5,7 +5,7 @@ import { json } from "@codemirror/lang-json";
 import { markdown } from "@codemirror/lang-markdown";
 import { python } from "@codemirror/lang-python";
 import { oneDark } from "@codemirror/theme-one-dark";
-import { ActionIcon, Box, Image, Tooltip, useMantineColorScheme } from "@mantine/core";
+import { ActionIcon, Box, Image, Tooltip } from "@mantine/core";
 import { RiCheckLine, RiFileCopyLine } from "@remixicon/react";
 import CodeMirror from "@uiw/react-codemirror";
 import React, { useState } from "react";
@@ -14,6 +14,7 @@ import rehypeRaw from "rehype-raw";
 import rehypeSanitize from "rehype-sanitize";
 import remarkGfm from "remark-gfm";
 import { copyToClipboard } from "~/lib/utils";
+import useAppStore from "~/lib/stores/appStore";
 
 // Language mapping for CodeMirror
 const getLanguageExtension = (language: string) => {
@@ -53,7 +54,7 @@ export default function MarkdownRenderer({
   style,
   useDivForParagraphs = false,
 }: MarkdownRendererProps) {
-  const { colorScheme } = useMantineColorScheme();
+  const { themeSettings } = useAppStore();
 
   const imageStyle: React.CSSProperties = {
     maxWidth: "100%",
@@ -121,7 +122,9 @@ export default function MarkdownRenderer({
                         onClick={handleCopy}
                         style={{
                           backgroundColor:
-                            colorScheme === "dark" ? "rgba(0,0,0,0.3)" : "rgba(255,255,255,0.8)",
+                            themeSettings.colorScheme === "dark"
+                              ? "rgba(0,0,0,0.3)"
+                              : "rgba(255,255,255,0.8)",
                           backdropFilter: "blur(4px)",
                         }}
                       >
@@ -133,7 +136,7 @@ export default function MarkdownRenderer({
                     <CodeMirror
                       value={codeContent}
                       extensions={[getLanguageExtension(language)]}
-                      theme={colorScheme === "dark" ? oneDark : undefined}
+                      theme={themeSettings.colorScheme === "dark" ? oneDark : undefined}
                       basicSetup={{
                         lineNumbers: true,
                         highlightActiveLineGutter: false,
@@ -171,12 +174,12 @@ export default function MarkdownRenderer({
               return (
                 <code
                   style={{
-                    backgroundColor: colorScheme === "dark" ? "#2d3748" : "#f7fafc",
+                    backgroundColor: themeSettings.colorScheme === "dark" ? "#2d3748" : "#f7fafc",
                     padding: "2px 6px",
                     borderRadius: "4px",
                     fontSize: "0.875em",
                     fontFamily: "monospace",
-                    color: colorScheme === "dark" ? "#e2e8f0" : "#2d3748",
+                    color: themeSettings.colorScheme === "dark" ? "#e2e8f0" : "#2d3748",
                     wordBreak: "break-all",
                   }}
                   {...props}
@@ -189,10 +192,10 @@ export default function MarkdownRenderer({
           blockquote: ({ children }) => (
             <blockquote
               style={{
-                borderLeft: `4px solid ${colorScheme === "dark" ? "#4a5568" : "#e2e8f0"}`,
+                borderLeft: `4px solid ${themeSettings.colorScheme === "dark" ? "#4a5568" : "#e2e8f0"}`,
                 margin: "1em 0",
                 padding: "0 1em",
-                color: colorScheme === "dark" ? "#a0aec0" : "#4a5568",
+                color: themeSettings.colorScheme === "dark" ? "#a0aec0" : "#4a5568",
                 fontStyle: "italic",
                 wordBreak: "break-word",
               }}
@@ -213,7 +216,7 @@ export default function MarkdownRenderer({
                   borderCollapse: "collapse",
                   width: "100%",
                   minWidth: "300px",
-                  border: `1px solid ${colorScheme === "dark" ? "#4a5568" : "#e2e8f0"}`,
+                  border: `1px solid ${themeSettings.colorScheme === "dark" ? "#4a5568" : "#e2e8f0"}`,
                 }}
               >
                 {children}
@@ -223,9 +226,9 @@ export default function MarkdownRenderer({
           th: ({ children }) => (
             <th
               style={{
-                border: `1px solid ${colorScheme === "dark" ? "#4a5568" : "#e2e8f0"}`,
+                border: `1px solid ${themeSettings.colorScheme === "dark" ? "#4a5568" : "#e2e8f0"}`,
                 padding: "8px 12px",
-                backgroundColor: colorScheme === "dark" ? "#2d3748" : "#f7fafc",
+                backgroundColor: themeSettings.colorScheme === "dark" ? "#2d3748" : "#f7fafc",
                 fontWeight: "bold",
                 textAlign: "left",
                 wordBreak: "break-word",
@@ -237,7 +240,7 @@ export default function MarkdownRenderer({
           td: ({ children }) => (
             <td
               style={{
-                border: `1px solid ${colorScheme === "dark" ? "#4a5568" : "#e2e8f0"}`,
+                border: `1px solid ${themeSettings.colorScheme === "dark" ? "#4a5568" : "#e2e8f0"}`,
                 padding: "8px 12px",
                 wordBreak: "break-word",
               }}
@@ -376,7 +379,7 @@ export default function MarkdownRenderer({
               target="_blank"
               rel="noopener noreferrer"
               style={{
-                color: colorScheme === "dark" ? "#63b3ed" : "#3182ce",
+                color: themeSettings.colorScheme === "dark" ? "#63b3ed" : "#3182ce",
                 textDecoration: "underline",
                 wordBreak: "break-word",
               }}

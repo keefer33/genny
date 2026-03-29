@@ -13,7 +13,7 @@ import {
 import { useDisclosure } from "@mantine/hooks";
 import { RiArrowDownSLine, RiCloseLine, RiImageLine } from "@remixicon/react";
 import { useNavigate } from "react-router";
-import { useMantineColorScheme, useMantineTheme } from "@mantine/core";
+import { useMantineTheme } from "@mantine/core";
 import useGenerateStore from "~/lib/stores/generateStore";
 import useAppStore from "~/lib/stores/appStore";
 import type { Model } from "~/lib/stores/generateStore";
@@ -64,9 +64,9 @@ export function ModelSwitcher({
 }: ModelSwitcherProps) {
   const [opened, { open, close }] = useDisclosure(false);
   const navigate = useNavigate();
-  const { colorScheme } = useMantineColorScheme();
   const theme = useMantineTheme();
   const { isMobile } = useAppStore();
+  const { themeSettings } = useAppStore();
 
   // Get state from generateStore
   const { models, selectedModel, setSelectedModel, setActiveTab } = useGenerateStore();
@@ -101,18 +101,24 @@ export function ModelSwitcher({
           borderRadius: "4px",
           //border: `1px solid ${colorScheme === "dark" ? "var(--mantine-color-dark-5)" : "var(--mantine-color-gray-1)"}`,
           backgroundColor:
-            colorScheme === "dark" ? "var(--mantine-color-dark-5)" : "var(--mantine-color-gray-2)",
+            themeSettings.colorScheme === "dark"
+              ? "var(--mantine-color-dark-5)"
+              : "var(--mantine-color-gray-2)",
           transition: "all 0.2s ease",
           cursor: "pointer",
           width: "100%",
         }}
         onMouseEnter={(e) => {
           e.currentTarget.style.backgroundColor =
-            colorScheme === "dark" ? "var(--mantine-color-dark-5)" : "var(--mantine-color-gray-1)";
+            themeSettings.colorScheme === "dark"
+              ? "var(--mantine-color-dark-5)"
+              : "var(--mantine-color-gray-1)";
         }}
         onMouseLeave={(e) => {
           e.currentTarget.style.backgroundColor =
-            colorScheme === "dark" ? "var(--mantine-color-dark-6)" : "var(--mantine-color-gray-0)";
+            themeSettings.colorScheme === "dark"
+              ? "var(--mantine-color-dark-6)"
+              : "var(--mantine-color-gray-0)";
         }}
       >
         <Group justify="space-between" align="center">
