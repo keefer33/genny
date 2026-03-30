@@ -1,9 +1,8 @@
-import { Carousel } from "@mantine/carousel";
 import { Avatar, Box, Center, Stack, Text } from "@mantine/core";
-import React, { useEffect, useMemo, useState } from "react";
-import type { EmblaCarouselType } from "embla-carousel";
+import { useEffect, useMemo, useState } from "react";
 import { endpoint } from "~/lib/utils";
 import useAppStore from "~/lib/stores/appStore";
+import { ContinuousScroller } from "./ContinuousScroller";
 
 const BRANDS = [
   {
@@ -149,13 +148,12 @@ const FALLBACK_BRANDS: Brand[] = BRANDS.map((b) => ({
 }));
 
 export function BrandsSlider() {
-  const [embla, setEmbla] = useState<EmblaCarouselType | null>(null);
   const [brands, setBrands] = useState<Brand[]>(FALLBACK_BRANDS);
   const { isMobile } = useAppStore();
 
   const cards = useMemo(() => brands, [brands]);
-  const slideSize = isMobile ? "25%" : "20%";
-  const slideGap = isMobile ? "sm" : "xl";
+  const itemWidth = isMobile ? 80 : 100;
+  const itemGap = isMobile ? 10 : 24;
 
   useEffect(() => {
     let cancelled = false;
@@ -181,49 +179,25 @@ export function BrandsSlider() {
     };
   }, []);
 
-  useEffect(() => {
-    if (!embla) return;
-
-    const interval = window.setInterval(() => {
-      // When embla is configured with `loop`, this keeps rotating indefinitely.
-      embla.scrollNext();
-    }, 2200);
-
-    return () => window.clearInterval(interval);
-  }, [embla]);
-
   return (
     <Box mt="xl">
-      <Box>
-        <Carousel
-          key={isMobile ? "mobile" : "desktop"}
-          withControls={false}
-          withIndicators={false}
-          slideSize={slideSize}
-          slideGap={slideGap}
-          height={isMobile ? 100 : 110}
-          type="container"
-          emblaOptions={{
-            loop: true,
-            align: "start",
-            containScroll: "trimSnaps",
-          }}
-          getEmblaApi={(api) => setEmbla(api)}
-        >
-          {cards.map((brand) => (
-            <Carousel.Slide key={brand.id}>
-              <Center>
-                <Stack>
-                  <Avatar src={brand.logo ?? undefined} alt={brand.name} size="lg" />
-                  <Text size="xs" c="dimmed" ta="center" lineClamp={1}>
-                    {brand.name}
-                  </Text>
-                </Stack>
-              </Center>
-            </Carousel.Slide>
-          ))}
-        </Carousel>
-      </Box>
+      <ContinuousScroller
+        items={cards}
+        durationSeconds={20}
+        getItemKey={(brand) => brand.id}
+        renderItem={(brand) => (
+          <Box px={itemGap / 2}>
+            <Center w={itemWidth}>
+              <Stack gap={6}>
+                <Avatar src={brand.logo ?? undefined} alt={brand.name} size="lg" />
+                <Text size="xs" c="dimmed" ta="center" lineClamp={1}>
+                  {brand.name}
+                </Text>
+              </Stack>
+            </Center>
+          </Box>
+        )}
+      />
     </Box>
   );
 }

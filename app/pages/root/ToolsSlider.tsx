@@ -1,8 +1,7 @@
-import { Carousel } from "@mantine/carousel";
 import { Avatar, Box, Center, Stack, Text, Title } from "@mantine/core";
-import React, { useEffect, useMemo, useState } from "react";
-import type { EmblaCarouselType } from "embla-carousel";
+import { useMemo } from "react";
 import useAppStore from "~/lib/stores/appStore";
+import { ContinuousScroller } from "./ContinuousScroller";
 
 type Tool = {
   name: string;
@@ -139,22 +138,11 @@ const TOOLS: Tool[] = [
 ];
 
 export function ToolsSlider() {
-  const [embla, setEmbla] = useState<EmblaCarouselType | null>(null);
   const { isMobile } = useAppStore();
 
   const tools = useMemo(() => TOOLS, []);
-  const slideSize = isMobile ? "25%" : "15%";
-  const slideGap = isMobile ? "sm" : "xl";
-
-  useEffect(() => {
-    if (!embla) return;
-
-    const interval = window.setInterval(() => {
-      embla.scrollNext();
-    }, 600);
-
-    return () => window.clearInterval(interval);
-  }, [embla]);
+  const itemWidth = isMobile ? 80 : 100;
+  const itemGap = isMobile ? 10 : 24;
 
   return (
     <Box mt="xl">
@@ -165,34 +153,23 @@ export function ToolsSlider() {
         </Text>
       </Stack>
 
-      <Carousel
-        key={isMobile ? "mobile" : "desktop"}
-        withControls={false}
-        withIndicators={false}
-        slideSize={slideSize}
-        slideGap={slideGap}
-        height={isMobile ? 100 : 110}
-        type="container"
-        emblaOptions={{
-          loop: true,
-          align: "start",
-          containScroll: "trimSnaps",
-        }}
-        getEmblaApi={(api) => setEmbla(api)}
-      >
-        {tools.map((tool) => (
-          <Carousel.Slide key={tool.slug}>
-            <Center>
-              <Stack>
+      <ContinuousScroller
+        items={tools}
+        durationSeconds={100}
+        getItemKey={(tool) => tool.slug}
+        renderItem={(tool) => (
+          <Box px={itemGap / 2}>
+            <Center w={itemWidth}>
+              <Stack gap={6}>
                 <Avatar src={tool.logo ?? undefined} alt={tool.name} size="lg" />
                 <Text size="xs" c="dimmed" ta="center" lineClamp={1}>
                   {tool.name}
                 </Text>
               </Stack>
             </Center>
-          </Carousel.Slide>
-        ))}
-      </Carousel>
+          </Box>
+        )}
+      />
     </Box>
   );
 }
