@@ -54,3 +54,37 @@ body {
 .markdown-body th {
   font-weight: 600;
 }
+
+/* Continuous horizontal ticker used on homepage brand/tool rows */
+.continuous-scroller {
+  overflow: hidden;
+  width: 100%;
+  mask-image: linear-gradient(to right, transparent 0, black 8%, black 92%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0, black 8%, black 92%, transparent 100%);
+}
+
+.continuous-scroller__track {
+  display: flex;
+  width: max-content;
+  animation: continuous-scroll var(--scroll-duration, 40s) linear infinite;
+  will-change: transform;
+}
+
+.continuous-scroller__item {
+  flex: 0 0 auto;
+}
+
+@keyframes continuous-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .continuous-scroller__track {
+    animation: none;
+  }
+}

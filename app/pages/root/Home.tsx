@@ -1,4 +1,4 @@
-import { Container, Space, Stack, Title } from "@mantine/core";
+import { Container, Space, Stack, Title, Text } from "@mantine/core";
 import { PromotionCard } from "~/shared/PromotionCard";
 import { BrandsSlider } from "./BrandsSlider";
 import { ToolsSlider } from "./ToolsSlider";
@@ -9,31 +9,26 @@ export function meta() {
   return [{ title: "Genny.bot" }, { name: "description", content: "Welcome to Genny.bot!" }];
 }
 
+const heroText = `
+Dream it. Prompt it. Genny Bot builds it.
+`;
+const heroText2 = `
+Generative AI agents and tools  for text, images, video, and more.  Stop imagining. Start creating.
+
+`;
+
 export default function Home() {
   const { isMobile } = useAppStore();
   return (
     <Container fluid>
       <Container size="lg">
-        <Stack gap="xs" py={60} align="center">
-          {!isMobile ? (
-            <>
-              <Title order={1} fw={900} ta="center" w={600} mb={10}>
-                Genny.bot builds AI agents and generates images, videos, and files.
-              </Title>
-              <Title order={2} fw={800} ta="center">
-                Go from idea to output fast.
-              </Title>
-            </>
-          ) : (
-            <>
-              <Title order={2} fw={900} ta="center" mb={10}>
-                Genny.bot builds AI agents and generates images, videos, and files.
-              </Title>
-              <Title order={3} fw={800} ta="center">
-                Go from idea to output fast.
-              </Title>
-            </>
-          )}
+        <Stack gap="0" py={60} justify="center" align="center">
+          <Title order={isMobile ? 1 : 1} w={isMobile ? "100%" : "700px"} ta="center" mb={10}>
+            {heroText}
+          </Title>
+          <Text size="sm" fw={500} ta="center">
+            {heroText2}
+          </Text>
         </Stack>
       </Container>
       <Container size="md">
@@ -51,6 +46,11 @@ export default function Home() {
       <Container size="md">
         <ToolsSlider />
       </Container>
+      <Space h={80} />
+      <Container size="md">
+        <PromotionCard />
+      </Container>
+      <Space h={80} />
     </Container>
   );
 }
