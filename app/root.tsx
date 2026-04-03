@@ -11,7 +11,7 @@ import notifications from "@mantine/notifications/styles.css?url";
 import carousel from "@mantine/carousel/styles.css?url";
 import globalStyles from "./global.css?url";
 import useAppStore from "~/lib/stores/appStore";
-import { useEffect, useMemo } from "react";
+import { useEffect } from "react";
 import { MantineProvider } from "@mantine/core";
 import { createThemeWithColor } from "./lib/theme";
 import { useAuth } from "./lib/hooks/useAuth";
@@ -21,17 +21,17 @@ import type { Route } from "./+types/root";
 import { getColorSchemeBootstrapScript, loadThemeSettings } from "./lib/themeUtils";
 
 function DynamicThemeProvider({ children }: { children: React.ReactNode }) {
-  const { setThemeSettings } = useAppStore();
-  const settings = useMemo(() => loadThemeSettings(), []);
+  const { setThemeSettings, themeSettings } = useAppStore();
 
   useEffect(() => {
-    setThemeSettings(settings);
-  }, [setThemeSettings, settings]);
+    const loadedSettings = loadThemeSettings();
+    setThemeSettings(loadedSettings);
+  }, [setThemeSettings]);
 
-  const dynamicTheme = createThemeWithColor(settings.themeColor);
+  const dynamicTheme = createThemeWithColor(themeSettings.themeColor);
 
   return (
-    <MantineProvider theme={dynamicTheme} defaultColorScheme={settings.colorScheme}>
+    <MantineProvider theme={dynamicTheme} defaultColorScheme={themeSettings.colorScheme}>
       <Notifications />
       {children}
     </MantineProvider>
@@ -77,7 +77,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   }, [setIsMobile]);
 
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />

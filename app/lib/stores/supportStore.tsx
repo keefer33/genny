@@ -103,11 +103,12 @@ const useSupportStore = create<SupportStoreState>((set, get) => ({
 
     set({ ticketsLoading: true });
     try {
-      const json = await authFetchJson<{
-        success?: boolean;
-        data?: { tickets: SupportTicketRow[] };
-      }>(`${endpoint}/support`, undefined, { errorMessage: "Failed to load support tickets" });
-      set({ tickets: json.data?.tickets ?? [] });
+      const json = await authFetchJson<{ tickets: SupportTicketRow[] }>(
+        `${endpoint}/support`,
+        undefined,
+        { errorMessage: "Failed to load support tickets" }
+      );
+      set({ tickets: json.tickets ?? [] });
     } catch (e) {
       console.error("Error loading support tickets:", e);
       set({ tickets: [] });
@@ -196,10 +197,7 @@ const useSupportStore = create<SupportStoreState>((set, get) => ({
 
     set({ replySubmitting: true });
     try {
-      const json = await authFetchJson<{
-        success?: boolean;
-        data?: { thread: SupportThreadMessage };
-      }>(
+      const json = await authFetchJson<{ thread: SupportThreadMessage }>(
         `${endpoint}/support/${encodeURIComponent(ticketId)}/replies`,
         {
           method: "POST",
@@ -207,7 +205,7 @@ const useSupportStore = create<SupportStoreState>((set, get) => ({
         },
         { errorMessage: "Failed to send reply" }
       );
-      const row = json.data?.thread;
+      const row = json.thread;
 
       if (row) {
         set((state) => ({

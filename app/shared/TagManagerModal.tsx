@@ -18,7 +18,6 @@ import { RiAddLine, RiDeleteBinLine, RiEditLine, RiCheckLine, RiCloseLine } from
 import { useEffect, useState } from "react";
 import useTagStore from "~/lib/stores/tagStore";
 import useAppStore from "~/lib/stores/appStore";
-import { useTheme } from "~/lib/hooks/useTheme";
 
 interface TagManagerModalProps {
   buttonText?: string;
@@ -38,7 +37,7 @@ export default function TagManagerModal({
   const [editingTagName, setEditingTagName] = useState("");
   const [savingTag, setSavingTag] = useState<string | null>(null);
   const { getUser } = useAppStore();
-  const { colorScheme, themeSettings } = useTheme();
+  const { themeSettings } = useAppStore();
   const themeColor = themeSettings.themeColor;
   const theme = useMantineTheme();
   const { tags, loading: tagsLoading, loadTags, createTag, updateTag, deleteTag } = useTagStore();
@@ -176,10 +175,12 @@ export default function TagManagerModal({
                       p="xs"
                       style={{
                         backgroundColor:
-                          colorScheme === "dark" ? theme.colors.dark[8] : theme.colors.gray[0],
+                          themeSettings.colorScheme === "dark"
+                            ? theme.colors.dark[8]
+                            : theme.colors.gray[0],
                         borderRadius: theme.radius.sm,
                         border:
-                          colorScheme === "dark"
+                          themeSettings.colorScheme === "dark"
                             ? `1px solid ${theme.colors.dark[6]}`
                             : `1px solid ${theme.colors.gray[3]}`,
                         transition: "all 0.2s ease",

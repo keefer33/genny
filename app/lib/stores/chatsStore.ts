@@ -242,7 +242,6 @@ interface ChatsState {
 
   listChats: () => Promise<ChatRow[]>;
   createChat: (chatName?: string) => Promise<ChatRow | null>;
-  getChat: (chatId: string) => Promise<ChatRow | null>;
   updateChat: (chatId: string, chatName: string) => Promise<boolean>;
   deleteChat: (chatId: string) => Promise<boolean>;
   createChatMessage: (
@@ -426,6 +425,44 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
     };
     set((s) => ({ messages: [...s.messages, userMessage] }));
 
+    type StreamEvent = {
+      type: string;
+      content?: string;
+      url?: string;
+      error?: string;
+      status?: string;
+      tool_name?: string;
+      input_tokens?: number;
+      output_tokens?: number;
+      total_tokens?: number;
+      total_cost?: unknown;
+    };
+    const clearStreamingState = () =>
+      set({
+        runChatLoading: false,
+        streamingContent: "",
+        streamingReasoning: "",
+        streamedFileUrls: [],
+        streamStatus: null,
+      });
+    const getRunChatErrorMessage = (err: unknown) => {
+      if (err instanceof Error) {
+        if (/unauthorized|401/i.test(err.message)) {
+          return "Your session expired. Please sign in again.";
+        }
+        return err.message;
+      }
+      return "Failed to run chat";
+    };
+    const parseSseLine = (line: string): StreamEvent | null => {
+      if (!line.startsWith("data: ")) return null;
+      try {
+        return JSON.parse(line.slice(6)) as StreamEvent;
+      } catch {
+        return null;
+      }
+    };
+
     try {
       const res = await authFetch(`${endpoint}/agents/run`, {
         method: "POST",
@@ -441,6 +478,10 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
       await assertAuthFetchOk(res, "Failed to run agent");
 
       const reader = res.body?.getReader();
+      if (!reader) {
+        throw new Error("Agent stream is unavailable.");
+      }
+
       const decoder = new TextDecoder();
       let buffer = "";
       let assistantText = "";
@@ -452,70 +493,74 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
         total_cost?: number;
       } | null = null;
 
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() ?? "";
-          for (const line of lines) {
-            if (line.startsWith("data: ")) {
-              try {
-                const data = JSON.parse(line.slice(6)) as {
-                  type: string;
-                  content?: string;
-                  url?: string;
-                  error?: string;
-                  status?: string;
-                  tool_name?: string;
-                  input_tokens?: number;
-                  output_tokens?: number;
-                  total_tokens?: number;
-                };
-                if (data.type === "text" && data.content) {
-                  assistantText += data.content;
-                  set({ streamingContent: assistantText });
-                } else if (data.type === "reasoning" && data.content) {
-                  set((s) => ({ streamingReasoning: `${s.streamingReasoning}${data.content}` }));
-                } else if (data.type === "file" && data.url) {
-                  streamedFileUrls.push(data.url);
-                  set((s) => ({ streamedFileUrls: [...s.streamedFileUrls, data.url!] }));
-                } else if (data.type === "stream_status" && data.status != null) {
-                  const clearReasoning =
-                    data.status === "reasoning-end" || data.status === "reasoning_end";
-                  set({
-                    streamStatus: {
-                      status: data.status,
-                      ...(data.tool_name != null ? { tool_name: data.tool_name } : {}),
-                    },
-                    ...(clearReasoning ? { streamingReasoning: "" } : {}),
-                  });
-                } else if (data.type === "usage") {
-                  const totalCostRaw = (data as { total_cost?: unknown }).total_cost;
-                  const totalCost =
-                    typeof totalCostRaw === "number"
-                      ? totalCostRaw
-                      : typeof totalCostRaw === "string"
-                        ? Number(totalCostRaw)
-                        : undefined;
-                  lastUsage = {
-                    input_tokens: data.input_tokens,
-                    output_tokens: data.output_tokens,
-                    total_tokens: data.total_tokens,
-                    total_cost: Number.isFinite(totalCost) ? totalCost : undefined,
-                  };
-                  set({ streamStatus: null, streamingReasoning: "" });
-                } else if (data.type === "error") {
-                  set({ streamStatus: null, streamingReasoning: "" });
-                  throw new Error(data.error ?? "Stream error");
-                }
-              } catch (e) {
-                if (e instanceof SyntaxError) continue;
-                throw e;
-              }
-            }
-          }
+      const handleStreamEvent = (data: StreamEvent) => {
+        if (data.type === "text" && data.content) {
+          assistantText += data.content;
+          set({ streamingContent: assistantText });
+          return;
+        }
+        if (data.type === "reasoning" && data.content) {
+          set((s) => ({ streamingReasoning: `${s.streamingReasoning}${data.content}` }));
+          return;
+        }
+        if (data.type === "file" && data.url) {
+          streamedFileUrls.push(data.url);
+          set((s) => ({ streamedFileUrls: [...s.streamedFileUrls, data.url] }));
+          return;
+        }
+        if (data.type === "stream_status" && data.status != null) {
+          const shouldClearReasoning =
+            data.status === "reasoning-end" || data.status === "reasoning_end";
+          set({
+            streamStatus: {
+              status: data.status,
+              ...(data.tool_name != null ? { tool_name: data.tool_name } : {}),
+            },
+            ...(shouldClearReasoning ? { streamingReasoning: "" } : {}),
+          });
+          return;
+        }
+        if (data.type === "usage") {
+          const totalCostRaw = data.total_cost;
+          const totalCost =
+            typeof totalCostRaw === "number"
+              ? totalCostRaw
+              : typeof totalCostRaw === "string"
+                ? Number(totalCostRaw)
+                : undefined;
+          lastUsage = {
+            input_tokens: data.input_tokens,
+            output_tokens: data.output_tokens,
+            total_tokens: data.total_tokens,
+            total_cost: Number.isFinite(totalCost) ? totalCost : undefined,
+          };
+          set({ streamStatus: null, streamingReasoning: "" });
+          return;
+        }
+        if (data.type === "error") {
+          set({ streamStatus: null, streamingReasoning: "" });
+          throw new Error(data.error ?? "Stream error");
+        }
+      };
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+
+        for (const line of lines) {
+          const parsed = parseSseLine(line);
+          if (!parsed) continue;
+          handleStreamEvent(parsed);
+        }
+      }
+      if (buffer.trim().length > 0) {
+        const parsed = parseSseLine(buffer.trim());
+        if (parsed) {
+          handleStreamEvent(parsed);
         }
       }
 
@@ -547,16 +592,10 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
         runChatLoading: false,
       }));
     } catch (err) {
-      set({
-        runChatLoading: false,
-        streamingContent: "",
-        streamingReasoning: "",
-        streamedFileUrls: [],
-        streamStatus: null,
-      });
+      clearStreamingState();
       notifications.show({
         title: "Error",
-        message: err instanceof Error ? err.message : "Failed to run chat",
+        message: getRunChatErrorMessage(err),
         color: "red",
       });
     }
@@ -599,24 +638,16 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
     }
   },
 
-  getChat: async (chatId: string) => {
-    try {
-      const res = await authFetch(`${endpoint}/chats/${encodeURIComponent(chatId)}`);
-      if (!res.ok) return null;
-      return (await res.json()) as ChatRow;
-    } catch {
-      return null;
-    }
-  },
-
   updateChat: async (chatId: string, chatName: string) => {
     try {
-      const res = await authFetch(`${endpoint}/chats/chat/${encodeURIComponent(chatId)}`, {
-        method: "PATCH",
-        body: JSON.stringify({ chat_name: chatName }),
-      });
-      if (!res.ok) return false;
-      const updated = (await res.json()) as ChatRow;
+      const updated = await authFetchJson<ChatRow>(
+        `${endpoint}/chats/chat/${encodeURIComponent(chatId)}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ chat_name: chatName }),
+        },
+        { errorMessage: "Failed to update chat" }
+      );
       set((s) => ({
         chats: s.chats.map((c) => (c.id === chatId ? updated : c)),
       }));
@@ -655,15 +686,18 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
     }
   },
   loadMessagesForChat: async (chatId: string) => {
-    const res = await authFetch(
-      `${endpoint}/chats/chat/${encodeURIComponent(chatId)}/messages?order=asc`
-    );
-    let rows: ChatMessageRow[] = [];
-    if (res.ok) {
-      const data = await res.json();
-      rows = (data?.data ?? []) as ChatMessageRow[];
+    try {
+      const rows = await authFetchJson<ChatMessageRow[]>(
+        `${endpoint}/chats/chat/${encodeURIComponent(chatId)}/messages?order=asc`,
+        undefined,
+        { errorMessage: "Failed to load messages" }
+      );
+      set({
+        messages: (Array.isArray(rows) ? rows : []).map(chatMessageRowToUIMessage),
+      });
+    } catch {
+      set({ messages: [] });
     }
-    set({ messages: rows.map(chatMessageRowToUIMessage) });
   },
 
   createChatMessage: async (

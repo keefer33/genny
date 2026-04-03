@@ -3,9 +3,7 @@ import { useEffect } from "react";
 import useAppStore from "~/lib/stores/appStore";
 import { useChatsStore } from "~/lib/stores/chatsStore";
 import AgentsSidebar from "~/pages/agents/components/AgentsSidebar";
-import MessagesContent from "~/pages/agents/components/MessagesContent";
-import ChatComposer from "~/pages/agents/components/ChatComposer";
-import SelectedChatBar from "~/pages/agents/components/SelectedChatBar";
+import AgentsMessagesSection from "~/pages/agents/components/AgentsMessagesSection";
 
 const DESKTOP_FORM_WIDTH = 360;
 const LS_SELECTED_MODEL = "genny:selectedModelName";
@@ -42,18 +40,6 @@ export default function Chats() {
   }, [hydrateSelectedChatFromStorage]);
 
   const mainHeight = "calc(100vh - 80px)";
-
-  const messagesContent = (
-    <>
-      <MessagesContent />
-      {isMobile && (
-        <Box px="xs" style={{ flexShrink: 0 }}>
-          <SelectedChatBar />
-        </Box>
-      )}
-      <ChatComposer />
-    </>
-  );
 
   return (
     <Box
@@ -107,7 +93,7 @@ export default function Chats() {
                 <Text c="dimmed">Select a model to start chatting.</Text>
               </Card>
             ) : (
-              messagesContent
+              <AgentsMessagesSection />
             )}
           </Box>
         </Box>
@@ -161,7 +147,7 @@ export default function Chats() {
                     <Text c="dimmed">Select a model to start chatting.</Text>
                   </Card>
                 ) : (
-                  messagesContent
+                  <AgentsMessagesSection />
                 )}
               </Stack>
             </Box>

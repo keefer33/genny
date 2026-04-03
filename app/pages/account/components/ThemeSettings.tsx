@@ -1,11 +1,11 @@
 import { ActionIcon, Card, Group, Stack, Text } from "@mantine/core";
 import { RiPaletteLine } from "@remixicon/react";
-import { useTheme } from "~/lib/hooks/useTheme";
+import useAppStore from "~/lib/stores/appStore";
 import ColorPicker from "~/shared/ColorPicker";
 import ThemeToggle from "~/shared/ThemeToggle";
 
 export default function ThemeSettings() {
-  const { colorScheme, themeSettings, toggleColorScheme, changeThemeColor } = useTheme();
+  const { themeSettings, toggleColorScheme, changeThemeColor } = useAppStore();
 
   return (
     <Card shadow="sm" padding="lg" radius="md">
@@ -20,7 +20,7 @@ export default function ThemeSettings() {
             Color Scheme
           </Text>
           <ThemeToggle
-            colorScheme={colorScheme}
+            colorScheme={themeSettings.colorScheme}
             onToggle={toggleColorScheme}
             showLabel={true}
             variant="light"

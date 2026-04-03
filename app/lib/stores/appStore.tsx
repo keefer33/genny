@@ -2,6 +2,7 @@ import { create } from "zustand";
 import createUniversalSelectors from "./universalSelectors";
 import { createClient } from "@supabase/supabase-js";
 import { assertAuthFetchOk, authFetch, authFetchJson } from "./authFetch";
+import { saveThemeSettings } from "../themeUtils";
 import { endpoint } from "../utils";
 
 // Types matching provided User/session payload
@@ -139,6 +140,8 @@ interface AppStoreState {
   setLoading: (loading: boolean) => void;
   setThemeSettings: (themeSettings: ThemeSettings) => void;
   getThemeSettings: () => ThemeSettings;
+  changeThemeColor: (color: string) => void;
+  updateThemeSettings: (settings: Partial<ThemeSettings>) => void;
   setApi: () => void;
   setAppLoading: (appLoading: boolean) => void;
   setIsMobile: (isMobile: boolean) => void;
@@ -202,6 +205,20 @@ const useAppStoreBase = create<AppStoreState>((set, get) => ({
   getUser: () => get().user,
   getThemeSettings: () => get().themeSettings,
   getCurrentUserUsageBalance: () => get().userUsageBalance,
+
+  changeThemeColor: (color: string) => {
+    const { themeSettings } = get();
+    const next: ThemeSettings = { ...themeSettings, themeColor: color };
+    set({ themeSettings: next });
+    saveThemeSettings({ colorScheme: themeSettings.colorScheme, themeColor: color });
+  },
+
+  updateThemeSettings: (settings: Partial<ThemeSettings>) => {
+    const { themeSettings } = get();
+    const next: ThemeSettings = { ...themeSettings, ...settings };
+    set({ themeSettings: next });
+    saveThemeSettings(settings);
+  },
 
   generateRandomUsername: () => {
     const adjectives = [
@@ -374,7 +391,7 @@ const useAppStoreBase = create<AppStoreState>((set, get) => ({
       // Sync Zipline username if it changed (best-effort)
       try {
         if (values.username !== (session.profile?.username || "")) {
-          const zipData = await authFetchJson<{ success?: boolean; error?: string }>(
+          await authFetchJson<unknown>(
             `${endpoint}/zipline/user/update`,
             {
               method: "PATCH",
@@ -384,12 +401,6 @@ const useAppStoreBase = create<AppStoreState>((set, get) => ({
             },
             { errorMessage: "Failed to sync username to Zipline" }
           );
-          if (!zipData?.success) {
-            return {
-              success: false,
-              error: zipData?.error || "Failed to sync username to Zipline",
-            };
-          }
         }
       } catch (error: any) {
         console.error("Error syncing username to Zipline:", error);
@@ -509,9 +520,12 @@ const useAppStoreBase = create<AppStoreState>((set, get) => ({
           email: sessionData.user.email,
         };
         const data = await authFetchJson<{
-          success?: boolean;
-          error?: string;
-          data?: Record<string, unknown>;
+          id?: string;
+          user_id?: string;
+          username?: string;
+          email?: string;
+          api_key?: string | null;
+          [key: string]: unknown;
         }>(
           `${endpoint}/user/create-user`,
           { method: "POST", body: JSON.stringify(requestBody) },
@@ -520,10 +534,7 @@ const useAppStoreBase = create<AppStoreState>((set, get) => ({
             errorMessage: "Failed to create user",
           }
         );
-        if (!data?.success) {
-          return { success: false, error: data.error || "Failed to create user" };
-        }
-        get().setUser({ ...sessionData, profile: data.data });
+        get().setUser({ ...sessionData, profile: data });
         // New profile has no api_key; create one and persist to user_profiles on the frontend
         const tokenResult = await get().createToken(sessionData);
         if (!tokenResult.success) {
@@ -533,10 +544,10 @@ const useAppStoreBase = create<AppStoreState>((set, get) => ({
         }
         get().setUser({
           ...sessionData,
-          profile: { ...data.data, api_key: tokenResult.token },
+          profile: { ...data, api_key: tokenResult.token },
         });
         await persistApiKeyToProfile(sessionData, tokenResult.token, "[userLogin]");
-        return { success: true, profile: { ...data.data, api_key: tokenResult.token } };
+        return { success: true, profile: { ...data, api_key: tokenResult.token } };
       }
     } else {
       return checkForUserProfile;
@@ -611,8 +622,13 @@ const useAppStoreBase = create<AppStoreState>((set, get) => ({
       });
 
       if (response.ok) {
-        const data = await response.json();
-        return data.status === "OK";
+        const payload = (await response.json()) as {
+          status?: string;
+          success?: boolean;
+          data?: { status?: string };
+        };
+        const status = payload?.status ?? payload?.data?.status;
+        return status === "OK";
       }
       return false;
     } catch (error) {

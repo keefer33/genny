@@ -308,7 +308,7 @@ const useFilesFoldersStoreBase = create<FilesFoldersState>((set, get) => ({
     set({ loading: true, error: null, gridLoading: false });
 
     try {
-      const patchJson = await authFetchJson<{ success?: boolean; data?: FileData }>(
+      const updatedFile = await authFetchJson<FileData>(
         `${endpoint}/user/files/${encodeURIComponent(fileId)}`,
         {
           method: "PATCH",
@@ -316,7 +316,6 @@ const useFilesFoldersStoreBase = create<FilesFoldersState>((set, get) => ({
         },
         { errorMessage: "Failed to update file name" }
       );
-      const updatedFile = patchJson.data;
       if (!updatedFile) {
         showNotification({ title: "Error", message: "File not found", type: "error" });
         return { success: false };
@@ -399,20 +398,17 @@ const useFilesFoldersStoreBase = create<FilesFoldersState>((set, get) => ({
       }
 
       const json = await authFetchJson<{
-        success?: boolean;
-        data?: {
-          files: FileData[];
-          total: number;
-          totalPages: number;
-          currentPage: number;
-          hasNextPage: boolean;
-          hasPrevPage: boolean;
-        };
+        files: FileData[];
+        total: number;
+        totalPages: number;
+        currentPage: number;
+        hasNextPage: boolean;
+        hasPrevPage: boolean;
       }>(`${endpoint}/user/files?${params.toString()}`, undefined, {
         errorMessage: "Failed to fetch files",
       });
 
-      const payload = json.data;
+      const payload = json;
       if (!payload) {
         set({ error: "Failed to fetch files" });
         return;

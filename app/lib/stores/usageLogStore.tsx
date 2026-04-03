@@ -86,28 +86,21 @@ const useUsageLogStore = create<UsageLogStoreState>((set) => ({
         limit: String(limit),
       });
       const json = await authFetchJson<{
-        success?: boolean;
-        data?: {
-          logs: UsageLogEntry[];
-          total: number;
-          page: number;
-          limit: number;
-        };
+        logs: UsageLogEntry[];
+        total: number;
+        page: number;
+        limit: number;
       }>(`${endpoint}/user/usage-log?${qs.toString()}`, undefined, {
         errorMessage: "Failed to fetch usage log",
       });
 
-      if (!json.success || !json.data) {
-        return { success: false, error: "Failed to fetch usage log" };
-      }
-
       return {
         success: true,
         data: {
-          logs: json.data.logs ?? [],
-          total: json.data.total ?? 0,
-          page: json.data.page ?? page,
-          limit: json.data.limit ?? limit,
+          logs: json.logs ?? [],
+          total: json.total ?? 0,
+          page: json.page ?? page,
+          limit: json.limit ?? limit,
         },
       };
     } catch (error) {
