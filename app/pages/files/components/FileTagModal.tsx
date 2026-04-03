@@ -3,7 +3,6 @@ import { useDisclosure } from "@mantine/hooks";
 import { useEffect, useState } from "react";
 import useTagStore from "~/lib/stores/tagStore";
 import useAppStore from "~/lib/stores/appStore";
-import { useTheme } from "~/lib/hooks/useTheme";
 import TagManagerModal from "../../../shared/TagManagerModal";
 
 interface FileTagModalProps {
@@ -38,8 +37,7 @@ export default function FileTagModal({ fileId, fileTags, onTagsUpdated }: FileTa
   const [opened, { open, close }] = useDisclosure(false);
   const [togglingTag, setTogglingTag] = useState<string | null>(null);
   const [currentFileTags, setCurrentFileTags] = useState(fileTags);
-  const { getUser } = useAppStore();
-  const { themeSettings } = useTheme();
+  const { getUser, themeSettings } = useAppStore();
   const themeColor = themeSettings.themeColor;
   const { tags, loading: tagsLoading, loadTags, addTagToFile, removeTagFromFile } = useTagStore();
 

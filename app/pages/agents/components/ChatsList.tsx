@@ -19,14 +19,13 @@ import {
   RiPencilLine,
 } from "@remixicon/react";
 import { useMemo, useState } from "react";
+import useAppStore from "~/lib/stores/appStore";
 import { useChatsStore, type ChatRow } from "~/lib/stores/chatsStore";
 import { formatDate } from "~/lib/utils";
-import { useTheme } from "~/lib/hooks/useTheme";
 
 export default function ChatsList() {
   const theme = useMantineTheme();
-  const { themeSettings } = useTheme();
-  const themeColor = themeSettings.themeColor;
+  const themeColor = useAppStore((s) => s.themeSettings.themeColor);
   const [listEditMode, setListEditMode] = useState(false);
   const {
     chats,
@@ -181,9 +180,13 @@ function ChatListRow({
   deleteChatFromList: (id: string) => Promise<void>;
 }) {
   const theme = useMantineTheme();
-  const { colorScheme } = useTheme();
+  const colorSchemeSetting = useAppStore((s) => s.themeSettings.colorScheme);
   const showActionButtons = !isEditing && listEditMode;
-  const rowHighlight = colorScheme === "dark" ? theme.colors.dark[8] : theme.colors.gray[2];
+  const isDarkUi =
+    colorSchemeSetting === "dark" ||
+    (colorSchemeSetting === "auto" &&
+      (typeof window === "undefined" || window.matchMedia("(prefers-color-scheme: dark)").matches));
+  const rowHighlight = isDarkUi ? theme.colors.dark[8] : theme.colors.gray[2];
   const backgroundColor = isCurrentChat ? rowHighlight : "transparent";
 
   return (

@@ -68,11 +68,12 @@ const useTagStoreBase = create<TagState>((set, get) => ({
 
     set({ loading: true, error: null });
     try {
-      const json = await authFetchJson<{
-        success?: boolean;
-        data?: { tags: UserTag[] };
-      }>(`${endpoint}/user/tags`, undefined, { errorMessage: "Failed to load tags" });
-      set({ tags: json.data?.tags ?? [] });
+      const json = await authFetchJson<{ tags: UserTag[] }>(
+        `${endpoint}/user/tags`,
+        undefined,
+        { errorMessage: "Failed to load tags" }
+      );
+      set({ tags: json.tags ?? [] });
     } catch (err: unknown) {
       console.error("Error loading tags:", err);
       set({ error: err instanceof Error ? err.message : "Failed to load tags" });
@@ -92,10 +93,7 @@ const useTagStoreBase = create<TagState>((set, get) => ({
     }
 
     try {
-      const json = await authFetchJson<{
-        success?: boolean;
-        data?: { tag: UserTag };
-      }>(
+      const json = await authFetchJson<{ tag: UserTag }>(
         `${endpoint}/user/tags`,
         {
           method: "POST",
@@ -103,7 +101,7 @@ const useTagStoreBase = create<TagState>((set, get) => ({
         },
         { errorMessage: "Failed to create tag" }
       );
-      const data = json.data?.tag;
+      const data = json.tag;
       if (!data) {
         showNotification({
           title: "Error",
@@ -145,10 +143,7 @@ const useTagStoreBase = create<TagState>((set, get) => ({
     }
 
     try {
-      const json = await authFetchJson<{
-        success?: boolean;
-        data?: { tag: UserTag };
-      }>(
+      const json = await authFetchJson<{ tag: UserTag }>(
         `${endpoint}/user/tags/${encodeURIComponent(tagId)}`,
         {
           method: "PATCH",
@@ -156,7 +151,7 @@ const useTagStoreBase = create<TagState>((set, get) => ({
         },
         { errorMessage: "Failed to update tag" }
       );
-      const data = json.data?.tag;
+      const data = json.tag;
       if (!data) {
         showNotification({
           title: "Error",
@@ -287,13 +282,12 @@ const useTagStoreBase = create<TagState>((set, get) => ({
     }
 
     try {
-      const json = await authFetchJson<{
-        success?: boolean;
-        data?: { tags: UserFileTag[] };
-      }>(`${endpoint}/user/tags/files/${encodeURIComponent(fileId)}`, undefined, {
-        errorMessage: "Failed to load file tags",
-      });
-      return json.data?.tags ?? [];
+      const json = await authFetchJson<{ tags: UserFileTag[] }>(
+        `${endpoint}/user/tags/files/${encodeURIComponent(fileId)}`,
+        undefined,
+        { errorMessage: "Failed to load file tags" }
+      );
+      return json.tags ?? [];
     } catch (err: unknown) {
       console.error("Error getting file tags:", err);
       return [];

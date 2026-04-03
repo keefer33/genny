@@ -81,33 +81,21 @@ const useBillingStore = create<BillingStoreState>((set) => ({
       params.set("page", String(page));
       params.set("limit", String(limit));
       const json = await authFetchJson<{
-        success?: boolean;
-        data?: {
-          transactions: Transaction[];
-          total: number;
-          page: number;
-          limit: number;
-        };
-        error?: string;
-        message?: string;
+        transactions: Transaction[];
+        total: number;
+        page: number;
+        limit: number;
       }>(`${endpoint}/user/transactions?${params.toString()}`, undefined, {
         errorMessage: "Failed to fetch transactions",
       });
 
-      if (!json.success || !json.data) {
-        return {
-          success: false,
-          error: json.error || json.message || "Failed to fetch transactions",
-        };
-      }
-
       return {
         success: true,
         data: {
-          transactions: json.data.transactions ?? [],
-          total: json.data.total ?? 0,
-          page: json.data.page ?? page,
-          limit: json.data.limit ?? limit,
+          transactions: json.transactions ?? [],
+          total: json.total ?? 0,
+          page: json.page ?? page,
+          limit: json.limit ?? limit,
         },
       };
     } catch (error) {

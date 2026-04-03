@@ -48,14 +48,12 @@ export function getApiErrorMessage(body: unknown, fallback: string): string {
       return o.message;
     }
     const err = o.error;
-    if (typeof err === "string" && err.trim()) {
-      return err;
-    }
-    if (err && typeof err === "object" && "message" in err) {
+    if (typeof err === "string" && err.trim()) return err;
+    if (err && typeof err === "object") {
       const m = (err as { message?: unknown }).message;
-      if (typeof m === "string" && m.trim()) {
-        return m;
-      }
+      if (typeof m === "string" && m.trim()) return m;
+      const nestedError = (err as { error?: unknown }).error;
+      if (typeof nestedError === "string" && nestedError.trim()) return nestedError;
     }
   }
   return fallback;
@@ -80,5 +78,18 @@ export async function authFetchJson<T>(
   const { errorMessage, ...authOpts } = options ?? {};
   const res = await authFetch(url, init, authOpts);
   await assertAuthFetchOk(res, errorMessage ?? "Request failed");
-  return res.json() as Promise<T>;
+  const payload: unknown = await res.json().catch(() => ({}));
+
+  // Standardized envelope: `{ success: true, data }` / `{ success: false, error: { message, ... } }`
+  if (payload && typeof payload === "object") {
+    const p = payload as { success?: unknown; data?: unknown; error?: unknown };
+    if (p.success === true && "data" in p) {
+      return p.data as T;
+    }
+    if (p.success === false) {
+      throw new Error(getApiErrorMessage(payload, errorMessage ?? "Request failed"));
+    }
+  }
+
+  return payload as T;
 }

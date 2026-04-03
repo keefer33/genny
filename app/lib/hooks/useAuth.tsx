@@ -73,6 +73,7 @@ export function useAuth() {
       console.log("onAuthStateChange event", event);
       if (window.location.pathname !== "/api-health-error") {
         const isHealthy = await checkApiHealth();
+        console.log("isHealthy", isHealthy);
         if (!isHealthy) {
           // Redirect to API health error page if API is unhealthy
           window.location.href = "/api-health-error";

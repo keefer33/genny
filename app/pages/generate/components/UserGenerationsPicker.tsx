@@ -75,15 +75,12 @@ export function UserGenerationsPicker({
       }
 
       const json = await authFetchJson<{
-        data?: {
-          generations: GenerationFile[];
-          pagination: { total: number; totalPages: number; currentPage: number };
-        };
+        generations: GenerationFile[];
+        pagination: { total: number; totalPages: number; currentPage: number };
       }>(`${endpoint}/generations/list?${params.toString()}`, undefined, {
         errorMessage: "Failed to load generations",
       });
-      const payload = json.data;
-      if (!payload) return;
+      const payload = json;
 
       const totalCount = payload.pagination?.total ?? 0;
       const totalPagesCount = payload.pagination?.totalPages ?? 1;

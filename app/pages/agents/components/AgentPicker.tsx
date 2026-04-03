@@ -9,7 +9,7 @@ const LS_SELECTED_MODEL = "genny:selectedModelName";
 export default function AgentPicker() {
   const { isMobile } = useAppStore();
   const agentModels = useChatsStore((s) => s.agentModels);
-  const textModels = agentModels.filter((m) => m?.model_type === "text");
+  const textModels = agentModels?.filter((m) => m?.model_type === "text");
   const { selectedModelName, agentPickerOpen, setAgentPickerOpen, setSelectedModelName } =
     useChatsStore();
   const { themeSettings } = useAppStore();

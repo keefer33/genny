@@ -29,7 +29,6 @@ export default function MessagesContent() {
 
   const visibleMessages = useMemo(() => {
     if (!runChatLoading) return messages;
-
     for (let i = messages.length - 1; i >= 0; i -= 1) {
       if (messages[i]?.role === "user") {
         return [messages[i]];
@@ -39,7 +38,11 @@ export default function MessagesContent() {
   }, [messages, runChatLoading]);
 
   const renderedMessages = useMemo(
-    () => messages.map((msg) => <MessageBubble key={msg.id} message={msg} />),
+    () =>
+      messages.map((msg) => {
+        console.log("msg");
+        return <MessageBubble key={msg.id} message={msg} />;
+      }),
     [messages]
   );
 

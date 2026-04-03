@@ -1,7 +1,6 @@
 import { Box, Card, Text, Loader, Group } from "@mantine/core";
 import { memo } from "react";
 import "highlight.js/styles/github.min.css";
-import { useTheme } from "~/lib/hooks/useTheme";
 import { useMantineTheme } from "@mantine/core";
 import type { ChatUIMessage } from "~/lib/stores/chatsStore";
 import { RiMoneyDollarCircleFill, RiRobot2Fill, RiUser2Fill } from "@remixicon/react";
@@ -48,10 +47,9 @@ function MessageBubble({
   streamStatus,
   streamingReasoning,
 }: MessageBubbleProps) {
-  const { themeSettings, colorScheme } = useTheme();
-  const themeColor = themeSettings.themeColor;
   const theme = useMantineTheme();
-  const { isMobile } = useAppStore();
+  const { isMobile, themeSettings } = useAppStore();
+  const themeColor = themeSettings.themeColor;
   const text = message.content
     .map((p) => (p.type === "text" ? (p as { text?: string }).text : ""))
     .filter(Boolean)
@@ -205,7 +203,7 @@ function MessageBubble({
         <Card
           p="sm"
           radius="md"
-          bg={colorScheme === "dark" ? theme.colors.gray[9] : theme.colors.gray[0]}
+          bg={themeSettings.colorScheme === "dark" ? theme.colors.gray[9] : theme.colors.gray[0]}
         >
           {content}
         </Card>

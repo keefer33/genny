@@ -194,21 +194,12 @@ const useGenerateStoreBase = create<GenerateStoreState>((set, get) => ({
 
   loadGenerationModels: async () => {
     try {
-      const json = await authFetchJson<{ success?: boolean; data?: Model[]; error?: string }>(
+      const json = await authFetchJson<Model[]>(
         `${endpoint}/generations/models`,
         undefined,
         { errorMessage: "Failed to load models" }
       );
-      if (json.success) {
-        set({ models: json.data ?? [] });
-      } else {
-        showNotification({
-          title: "Error",
-          message: json.error ?? "Failed to load models",
-          type: "error",
-        });
-        set({ models: [] });
-      }
+      set({ models: json ?? [] });
     } catch (err) {
       console.error("[generateStore] loadGenerationModels:", err);
       showNotification({
@@ -226,11 +217,7 @@ const useGenerateStoreBase = create<GenerateStoreState>((set, get) => ({
     set({ generating: true });
     get().calculateCost(values);
     try {
-      const result = await authFetchJson<{
-        success?: boolean;
-        data?: unknown;
-        error?: string;
-      }>(
+      const result = await authFetchJson<unknown>(
         `${endpoint}/generations/generate`,
         {
           method: "POST",
@@ -244,16 +231,14 @@ const useGenerateStoreBase = create<GenerateStoreState>((set, get) => ({
         },
         { errorMessage: "Generation failed" }
       );
-
-      if (result.success) {
-        useAppStore.getState().userProfile(session);
-        return { success: true, data: result.data };
-      } else {
-        return { success: false, error: result.error || "Generation failed" };
-      }
+      useAppStore.getState().userProfile(session);
+      return { success: true, data: result };
     } catch (error) {
       console.error("Generation error:", error);
-      return { success: false, error: "An unexpected error occurred" };
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "An unexpected error occurred",
+      };
     } finally {
       set({ generating: false });
     }
@@ -290,21 +275,12 @@ const useGenerateStoreBase = create<GenerateStoreState>((set, get) => ({
         params.set("tags", selectedTags.join(","));
       }
 
-      const json = await authFetchJson<{
-        success?: boolean;
-        data?: {
-          generations: GenerationFile[];
-          pagination: PaginationData;
-        };
+      const payload = await authFetchJson<{
+        generations: GenerationFile[];
+        pagination: PaginationData;
       }>(`${endpoint}/generations/list?${params.toString()}`, undefined, {
         errorMessage: "Failed to load generations",
       });
-
-      const payload = json.data;
-      if (!payload) {
-        set({ loadingGenerations: false });
-        return;
-      }
 
       set({
         generations: payload.generations ?? [],
@@ -341,12 +317,11 @@ const useGenerateStoreBase = create<GenerateStoreState>((set, get) => ({
     if (!generationId || !useAppStore.getState().getAuthApiKey()) return;
 
     try {
-      const json = await authFetchJson<{ success?: boolean; data?: GenerationFile }>(
+      const data = await authFetchJson<GenerationFile>(
         `${endpoint}/generations/${encodeURIComponent(generationId)}`,
         undefined,
         { errorMessage: "Failed to refresh generation" }
       );
-      const data = json.data;
       if (!data) return;
 
       const state = get();
@@ -415,7 +390,7 @@ const useGenerateStoreBase = create<GenerateStoreState>((set, get) => ({
   calculateCost: async (formValues) => {
     const pricing = get().selectedModel?.api?.pricing || {};
     try {
-      const json = await authFetchJson<unknown>(
+      const json = await authFetchJson<{ cost?: number }>(
         `${endpoint}/generations/calculate-cost`,
         {
           method: "POST",
@@ -423,7 +398,7 @@ const useGenerateStoreBase = create<GenerateStoreState>((set, get) => ({
         },
         { errorMessage: "Failed to calculate cost" }
       );
-      const tokensCost = (json as { data?: { cost?: number } })?.data?.cost ?? 0;
+      const tokensCost = json?.cost ?? 0;
       set({ tokensCost });
     } catch (err) {
       console.error("Error calculating cost:", err);
