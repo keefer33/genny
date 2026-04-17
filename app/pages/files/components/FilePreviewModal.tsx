@@ -22,6 +22,7 @@ import {
   RiFilePdf2Fill,
   RiFileTextLine,
   RiImageLine,
+  RiMusic2Line,
   RiPlayLine,
 } from "@remixicon/react";
 import dayjs from "dayjs";
@@ -85,6 +86,9 @@ export function FilePreviewModal({
     if (file.file_type.startsWith("video/")) {
       return <RiPlayLine size={size} />;
     }
+    if (file.file_type.startsWith("audio/")) {
+      return <RiMusic2Line size={size} />;
+    }
     if (file.file_type === "application/pdf") {
       return <RiFilePdf2Fill size={size} />;
     }
@@ -107,6 +111,13 @@ export function FilePreviewModal({
       return (
         <Badge color="purple" variant="light" size="sm">
           Video
+        </Badge>
+      );
+    }
+    if (file.file_type.startsWith("audio/")) {
+      return (
+        <Badge color="cyan" variant="light" size="sm">
+          Audio
         </Badge>
       );
     }
@@ -183,6 +194,15 @@ export function FilePreviewModal({
                 >
                   Your browser does not support the video tag.
                 </video>
+              ) : file.file_type.startsWith("audio/") ? (
+                <audio
+                  src={file.file_path}
+                  style={{ width: "100%", borderRadius: "8px" }}
+                  controls
+                  preload="metadata"
+                >
+                  Your browser does not support the audio element.
+                </audio>
               ) : (
                 <Center
                   h={400}

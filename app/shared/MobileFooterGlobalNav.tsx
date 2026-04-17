@@ -1,5 +1,5 @@
 import { Group, SegmentedControl } from "@mantine/core";
-import { RiDashboardLine, RiHistoryLine, RiImageLine, RiRobot2Line, RiVideoLine } from "@remixicon/react";
+import { RiAiGenerate2, RiDashboardLine, RiHistoryLine, RiRobot2Line } from "@remixicon/react";
 import { useLocation, useNavigate } from "react-router";
 import type { ComponentType } from "react";
 import useAppStore from "~/lib/stores/appStore";
@@ -7,7 +7,7 @@ import useAppStore from "~/lib/stores/appStore";
 export const MOBILE_GLOBAL_NAV_HEIGHT = 55;
 
 type GlobalNavItem = {
-  key: "agents" | "image" | "video" | "generations" | "dashboard";
+  key: "agents" | "playground" | "generations" | "dashboard";
   label: string;
   icon: ComponentType<{ size?: string | number }>;
   to: string;
@@ -36,18 +36,11 @@ export function MobileFooterGlobalNav() {
       isActive: location.pathname === "/agents",
     },
     {
-      key: "image",
-      label: "Image",
-      icon: RiImageLine,
-      to: "/generate/image",
-      isActive: location.pathname === "/generate/image",
-    },
-    {
-      key: "video",
-      label: "Video",
-      icon: RiVideoLine,
-      to: "/generate/video",
-      isActive: location.pathname === "/generate/video",
+      key: "playground",
+      label: "Playground",
+      icon: RiAiGenerate2,
+      to: "/playground",
+      isActive: location.pathname.startsWith("/playground"),
     },
     {
       key: "generations",
@@ -65,8 +58,7 @@ export function MobileFooterGlobalNav() {
     {
       dashboard: "/dashboard",
       agents: "/agents",
-      image: "/generate/image",
-      video: "/generate/video",
+      playground: "/playground",
       generations: "/generations",
     }
   );

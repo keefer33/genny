@@ -1,10 +1,15 @@
-import { GenerationResults } from "~/pages/generate/components/GenerationResults";
-import Mounted from "~/shared/Mounted";
+import { Box, Container } from "@mantine/core";
+import PlayGroundRunHistory from "../playground/PlayGroundRunHistory";
 
 export default function Generations() {
   return (
-    <Mounted size="lg" pt={0}>
-      <GenerationResults />
-    </Mounted>
+    <Container size="lg" p="0">
+      <Box
+        h="calc(100dvh - var(--app-shell-header-height, 0px) - var(--app-shell-footer-height, 0px))"
+        style={{ minHeight: 0 }}
+      >
+        <PlayGroundRunHistory />
+      </Box>
+    </Container>
   );
 }

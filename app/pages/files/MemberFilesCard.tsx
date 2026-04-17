@@ -24,7 +24,7 @@ import { useEffect, useState } from "react";
 import useFilesFoldersStore from "~/lib/stores/filesFoldersStore";
 import { getFileExtension, isTextFile } from "~/lib/utils";
 import useAppStore from "~/lib/stores/appStore";
-import FileDetailModal from "~/shared/FileDetailModal";
+import FileDetailModal, { FileCardViewDetailsButton } from "~/shared/FileDetailModal";
 
 interface UserTag {
   id: string;
@@ -253,10 +253,7 @@ export default function MemberFilesCard({
         }}
       >
         <Card.Section pos="relative">
-          <Box
-            onMouseDown={(e) => e.preventDefault()}
-            style={{ cursor: "pointer", position: "relative", zIndex: 1 }}
-          >
+          <Box pos="relative" onMouseDown={(e) => e.preventDefault()} style={{ cursor: "pointer" }}>
             {(() => {
               const isImage = currentFile.file_type.startsWith("image/");
               const isVideo = currentFile.file_type.startsWith("video/");
@@ -302,6 +299,13 @@ export default function MemberFilesCard({
                 </Center>
               );
             })()}
+            <FileCardViewDetailsButton
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                open();
+              }}
+            />
           </Box>
           {/* Selection Checkbox */}
           <Box
@@ -341,7 +345,7 @@ export default function MemberFilesCard({
               pos="absolute"
               bottom={8}
               left={8}
-              right={8}
+              right={48}
               style={{
                 zIndex: 20,
                 backgroundColor: "rgba(0, 0, 0, 0.6)",

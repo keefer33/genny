@@ -93,10 +93,8 @@ interface FilesFoldersState {
     userId?: string,
     selectedTags?: string[],
     uploadType?: string | null,
-    fileTypeFilter?: "images" | "videos" | "all" | null,
-    isPageChange?: boolean,
-    generationModelId?: string | null,
-    generationType?: string | null
+    fileTypeFilter?: "images" | "videos" | "audio" | "all" | null,
+    _isPageChange?: boolean
   ) => Promise<void>;
   handleFilesPageChange: (page: number) => void;
   handleFileUpdate: () => Promise<void>;
@@ -199,6 +197,15 @@ const useFilesFoldersStoreBase = create<FilesFoldersState>((set, get) => ({
         "mov",
         "avi",
         "mkv",
+        "mp3",
+        "wav",
+        "ogg",
+        "m4a",
+        "flac",
+        "aac",
+        "opus",
+        "aiff",
+        "wma",
         "pdf",
         "txt",
         "doc",
@@ -348,10 +355,8 @@ const useFilesFoldersStoreBase = create<FilesFoldersState>((set, get) => ({
     userId?: string,
     selectedTags?: string[],
     uploadType?: string | null,
-    fileTypeFilter?: "images" | "videos" | "all" | null,
-    isPageChange?: boolean,
-    generationModelId?: string | null,
-    generationType?: string | null
+    fileTypeFilter?: "images" | "videos" | "audio" | "all" | null,
+    _isPageChange?: boolean
   ) => {
     // Auto-get userId from appStore if not provided
     set({ paginationData: { ...get().paginationData, currentPage: page } });
@@ -390,13 +395,6 @@ const useFilesFoldersStoreBase = create<FilesFoldersState>((set, get) => ({
       if (finalFileTypeFilter && finalFileTypeFilter !== "all") {
         params.set("fileTypeFilter", finalFileTypeFilter);
       }
-      if (generationModelId) {
-        params.set("generationModelId", generationModelId);
-      }
-      if (generationType) {
-        params.set("generationType", generationType);
-      }
-
       const json = await authFetchJson<{
         files: FileData[];
         total: number;
@@ -440,78 +438,19 @@ const useFilesFoldersStoreBase = create<FilesFoldersState>((set, get) => ({
 
   handleFilesPageChange: async (page: number) => {
     set({ paginationData: { ...get().paginationData, currentPage: page } });
-    // Get generation filters from generateStore to preserve them during page change
-    try {
-      const generateStoreModule = await import("./generateStore");
-      const generateStore = generateStoreModule.default;
-      const state = generateStore.getState?.();
-      const selectedFilterModelId = state?.selectedFilterModelId;
-      const selectedGenerationType = state?.selectedGenerationType;
-
-      await get().loadUserFiles(
-        page,
-        12,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        selectedFilterModelId || undefined,
-        selectedGenerationType || undefined
-      );
-    } catch (error) {
-      console.error("Error fetching files:", error);
-      // Fallback if generateStore is not available
-      await get().loadUserFiles(
-        page,
-        12,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined
-      );
-    }
+    await get().loadUserFiles(page, 12, undefined, undefined, undefined, undefined, undefined);
   },
 
   handleFileUpdate: async () => {
-    // Get generation filters from generateStore
-    // Use dynamic import to avoid circular dependency
-    try {
-      const generateStoreModule = await import("./generateStore");
-      const generateStore = generateStoreModule.default;
-      const state = generateStore.getState?.();
-      const selectedFilterModelId = state?.selectedFilterModelId;
-      const selectedGenerationType = state?.selectedGenerationType;
-
-      await get().loadUserFiles(
-        get().paginationData.currentPage,
-        12,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        selectedFilterModelId || undefined,
-        selectedGenerationType || undefined
-      );
-    } catch (error) {
-      console.error("Error updating files:", error);
-      // Fallback if generateStore is not available
-      await get().loadUserFiles(
-        get().paginationData.currentPage,
-        12,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined
-      );
-    }
+    await get().loadUserFiles(
+      get().paginationData.currentPage,
+      12,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined
+    );
   },
 
   refreshData: async (userId?: string) => {

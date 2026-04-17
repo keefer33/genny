@@ -13,6 +13,7 @@ import {
 } from "@mantine/core";
 import { RiHistoryLine, RiAddLine, RiSubtractLine } from "@remixicon/react";
 import { useEffect } from "react";
+import { formatPlaygroundGenModelDisplayName } from "~/lib/playgroundRunHistoryUtils";
 import useAppStore from "~/lib/stores/appStore";
 import useUsageLogStore, { type UsageLogEntry } from "~/lib/stores/usageLogStore";
 import { CurrentBalance } from "~/shared/CurrentBalance";
@@ -48,7 +49,6 @@ export default function UsageLog() {
 
       if (result.success) {
         setLogs(result.data.logs);
-        console.log("logs", result.data.logs);
         setTotalPages(Math.ceil(result.data.total / itemsPerPage));
       }
     } catch (error) {
@@ -87,6 +87,27 @@ export default function UsageLog() {
       return "green";
     }
     return "red";
+  };
+
+  /** Transaction amount / txn ref, else embedded gen model label, else `meta.model_name`. */
+  const getRelatedLabel = (entry: UsageLogEntry): string | null => {
+    if (entry.transaction_id) {
+      if (entry.transactions?.amount_dollars != null) {
+        return `$${entry.transactions.amount_dollars.toFixed(2)}`;
+      }
+      return `Txn: ${entry.transaction_id.slice(0, 8)}…`;
+    }
+    const rawGm = entry.user_gen_model_runs?.gen_models;
+    const gm = Array.isArray(rawGm) ? rawGm[0] : rawGm;
+    if (gm && typeof gm === "object") {
+      const fromParts = formatPlaygroundGenModelDisplayName(gm);
+      if (fromParts && fromParts !== "—") return fromParts;
+      const name = gm.model_name?.trim();
+      if (name) return name;
+    }
+    const metaName = entry.meta?.model_name;
+    if (typeof metaName === "string" && metaName.trim()) return metaName.trim();
+    return null;
   };
 
   return (
@@ -134,6 +155,7 @@ export default function UsageLog() {
                     const displayAmount = getDisplayAmount(entry);
                     const isCredit = displayAmount > 0;
                     const logType = getLogType(entry);
+                    const relatedLabel = getRelatedLabel(entry);
                     return (
                       <Card key={entry.id} withBorder radius="md" p="md">
                         <Stack gap="sm">
@@ -177,19 +199,9 @@ export default function UsageLog() {
                               <Text size="xs" c="dimmed" mb={2}>
                                 Related
                               </Text>
-                              {entry.transaction_id ? (
-                                entry.transactions?.amount_dollars ? (
-                                  <Text size="sm" c="dimmed" fw={500}>
-                                    ${entry.transactions.amount_dollars.toFixed(2)}
-                                  </Text>
-                                ) : (
-                                  <Text size="xs" c="dimmed" ff="monospace">
-                                    Txn: {entry.transaction_id.slice(0, 8)}...
-                                  </Text>
-                                )
-                              ) : entry.meta.model_name ? (
-                                <Text size="xs" c="dimmed">
-                                  {entry.meta.type}
+                              {relatedLabel ? (
+                                <Text size="sm" c="dimmed" fw={500}>
+                                  {relatedLabel}
                                 </Text>
                               ) : (
                                 <Text size="xs" c="dimmed">
@@ -224,7 +236,7 @@ export default function UsageLog() {
                     <Table.Th>Type</Table.Th>
                     <Table.Th>Reason Code</Table.Th>
                     <Table.Th>Amount</Table.Th>
-                    <Table.Th>Related ID</Table.Th>
+                    <Table.Th>Related</Table.Th>
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
@@ -232,6 +244,7 @@ export default function UsageLog() {
                     const displayAmount = getDisplayAmount(entry);
                     const isCredit = displayAmount > 0;
                     const logType = getLogType(entry);
+                    const relatedLabel = getRelatedLabel(entry);
                     return (
                       <Table.Tr key={entry.id}>
                         <Table.Td>
@@ -266,20 +279,10 @@ export default function UsageLog() {
                           </Group>
                         </Table.Td>
                         <Table.Td>
-                          {entry.meta?.model_name ? (
+                          {relatedLabel ? (
                             <Text size="sm" c="dimmed">
-                              {entry.meta?.model_name}
+                              {relatedLabel}
                             </Text>
-                          ) : entry.transaction_id ? (
-                            entry.transactions?.amount_dollars ? (
-                              <Text size="sm" c="dimmed" fw={500}>
-                                ${entry.transactions.amount_dollars.toFixed(2)}
-                              </Text>
-                            ) : (
-                              <Text size="xs" c="dimmed" ff="monospace">
-                                Txn: {entry.transaction_id.slice(0, 8)}...
-                              </Text>
-                            )
                           ) : (
                             <Text size="xs" c="dimmed">
                               —

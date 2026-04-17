@@ -64,3 +64,20 @@ export const copyToClipboard = async (textToCopy: string | string[]) => {
     return true;
   }
 };
+
+export const AUDIO_EXTENSIONS = ["mp3", "wav", "ogg", "m4a", "flac", "aac", "opus", "aiff", "wma"];
+
+export function extensionMediaKind(url: string): "image" | "video" | "audio" | "file" {
+  if (!url) return "file";
+  const extension = url.split(".").pop()?.toLowerCase() || "";
+  if (["jpg", "jpeg", "png", "gif", "webp", "svg"].includes(extension)) {
+    return "image";
+  }
+  if (["mp4", "webm", "mov", "avi", "mkv"].includes(extension)) {
+    return "video";
+  }
+  if (AUDIO_EXTENSIONS.includes(extension)) {
+    return "audio";
+  }
+  return "file";
+}

@@ -8,7 +8,7 @@ interface FilePickerModalProps {
   onClose: () => void;
   onSelect: (fileUrl: string, file?: FileData) => void;
   title?: string;
-  allowedTypes?: "images" | "videos" | "all"; // Filter by file type, default is "all"
+  allowedTypes?: "images" | "videos" | "audio" | "all"; // Filter by file type, default is "all"
 }
 
 export function FilePickerModal({

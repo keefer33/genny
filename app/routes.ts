@@ -10,11 +10,6 @@ export default [
     route("/contact", "pages/root/Contact.tsx"),
   ]),
   layout("shared/AuthedLayout.tsx", [
-    route("/generate", "pages/generate/Generate.tsx"),
-    route("/generate/:generation_type", "pages/generate/GenerateType.tsx"),
-    layout("pages/generate/GenerateModelLayout.tsx", [
-      route("/generate/:generation_type/:slug", "pages/generate/GenerateModel.tsx"),
-    ]),
     route("/dashboard", "pages/dashboard/Dashboard.tsx"),
     route("/account/profile", "pages/account/UserProfile.tsx"),
     route("/account/billing", "pages/account/Billing.tsx"),
@@ -26,5 +21,18 @@ export default [
     route("/agents", "pages/agents/Agents.tsx"),
     route("/files", "pages/files/MemberFiles.tsx"),
     route("/generations", "pages/generations/Generations.tsx"),
+    route("/browse-models", "pages/root/BrowseModels.tsx"),
+    layout("pages/playground/PlayGroundModelLayout.tsx", [
+      route("/playground", "pages/playground/PlayGround.tsx"),
+      route("/playground/:brand_slug", "pages/playground/PlayGroundBrandName.tsx"),
+      route(
+        "/playground/:brand_slug/:model_product",
+        "pages/playground/PlayGroundModelProduct.tsx"
+      ),
+      route(
+        "/playground/:brand_slug/:model_product/:model_variant",
+        "pages/playground/PlayGroundRun.tsx"
+      ),
+    ]),
   ]),
 ] satisfies RouteConfig;

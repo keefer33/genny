@@ -8,7 +8,7 @@ import FileUpload from "./FileUpload";
 
 interface FilePickerContentProps {
   onFileSelect?: (file: FileData) => void;
-  allowedTypes?: "images" | "videos" | "all";
+  allowedTypes?: "images" | "videos" | "audio" | "all";
   showUpload?: boolean;
   onUploadComplete?: () => void;
 }
@@ -62,7 +62,9 @@ export function FilePickerContent({
                 ? "Upload images to add them to your collection"
                 : allowedTypes === "videos"
                   ? "Upload videos to add them to your collection"
-                  : "Upload images or videos to add them to your collection"}
+                  : allowedTypes === "audio"
+                    ? "Upload audio files to add them to your collection"
+                    : "Upload images, video, or audio to add them to your collection"}
             </Text>
           </Box>
           <Divider />

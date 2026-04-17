@@ -30,9 +30,10 @@ import {
 } from "@remixicon/react";
 
 import Mounted from "~/shared/Mounted";
+import { runHistoryModelLabel } from "~/lib/playgroundRunHistoryUtils";
 import useAppStore from "~/lib/stores/appStore";
 import { useChatsStore } from "~/lib/stores/chatsStore";
-import useGenerateStore from "~/lib/stores/generateStore";
+import usePlaygroundStore from "~/lib/stores/playgroundStore";
 import useFilesFoldersStore from "~/lib/stores/filesFoldersStore";
 import useUsageLogStore, { type UsageLogEntry } from "~/lib/stores/usageLogStore";
 
@@ -68,7 +69,8 @@ export default function Dashboard() {
 
   const { listChats, chats, chatsLoading } = useChatsStore();
 
-  const { generations, loadingGenerations, loadGenerations, pagination } = useGenerateStore();
+  const { runHistory, runHistoryTotal, runHistoryLoading, fetchPlaygroundRunHistory } =
+    usePlaygroundStore();
 
   const { paginationData, gridLoading: filesLoading, loadUserFiles } = useFilesFoldersStore();
 
@@ -77,29 +79,29 @@ export default function Dashboard() {
   useEffect(() => {
     if (!userId) return;
     void listChats();
-    void loadGenerations(1, undefined, undefined, false, []);
+    void fetchPlaygroundRunHistory({ page: 1, limit: 9 });
 
-    // Limit the initial payload; `paginationData.total` still gives full count.
+    // Limit list preview to 4 rows; `runHistoryTotal` is full count from API.
     void loadUserFiles(1, 4, userId, undefined, undefined, "all");
     void fetchUsageLog(1, 8);
   }, [userId]);
 
   const stats = useMemo(() => {
-    const generationTotal = pagination?.total ?? 0;
+    const generationTotal = runHistoryTotal ?? 0;
     const filesTotal = paginationData?.total ?? 0;
 
     const mostRecentGenerationAt =
-      generations.reduce<string | null>((acc, gen) => {
-        const t = gen.created_at ?? gen.updated_at ?? null;
+      runHistory.reduce<string | null>((acc, gen) => {
+        const t = gen.created_at ?? null;
         if (!t) return acc;
         if (!acc) return t;
         return new Date(t).getTime() > new Date(acc).getTime() ? t : acc;
       }, null) ?? null;
 
     return { generationTotal, filesTotal, mostRecentGenerationAt };
-  }, [pagination?.total, paginationData?.total, generations]);
+  }, [runHistoryTotal, paginationData?.total, runHistory]);
 
-  const recentGenerations = useMemo(() => generations.slice(0, 4), [generations]);
+  const recentGenerations = useMemo(() => runHistory.slice(0, 4), [runHistory]);
   const recentFiles = useMemo(
     () => paginationData?.data?.slice(0, 4) ?? [],
     [paginationData?.data]
@@ -138,15 +140,9 @@ export default function Dashboard() {
 
   const setupPercent = (setupProgress / 3) * 100;
 
-  const isLoading = loadingGenerations || filesLoading || logsLoading || chatsLoading;
+  const isLoading = runHistoryLoading || filesLoading || logsLoading || chatsLoading;
 
   const quickButtons = [
-    {
-      to: "/generate/image",
-      icon: RiImageLine,
-      label: "Generate",
-      description: hasGenerations ? "Run another generation" : "Start generating images",
-    },
     {
       to: "/files",
       icon: RiFileListLine,
@@ -332,7 +328,7 @@ export default function Dashboard() {
                   </Group>
                   <Button
                     component={Link}
-                    to="/generate/image"
+                    to="/playground"
                     size="xs"
                     variant={hasGenerations ? "light" : "filled"}
                     disabled={hasGenerations}
@@ -445,7 +441,7 @@ export default function Dashboard() {
                 </Button>
               </Group>
 
-              {loadingGenerations && generations.length === 0 ? (
+              {runHistoryLoading && runHistory.length === 0 ? (
                 <Stack align="center" py="xl">
                   <Loader />
                   <Text size="sm" c="dimmed">
@@ -463,7 +459,7 @@ export default function Dashboard() {
                   <Text size="sm" c="dimmed" ta="center">
                     Generate an image or video to start building your history.
                   </Text>
-                  <Button component={Link} to="/generate/image" mt="md">
+                  <Button component={Link} to="/playground" mt="md">
                     Start generating
                   </Button>
                 </Stack>
@@ -473,15 +469,15 @@ export default function Dashboard() {
                     <Group key={gen.id} justify="space-between" align="center">
                       <Group gap="sm" align="center" wrap="nowrap">
                         <ThemeIcon size={34} radius="md" variant="light" color="cyan">
-                          {(gen.generation_type ?? "").toLowerCase().includes("video") ? (
-                            <RiVideoLine size={18} />
+                          {gen.gen_models?.generation_type === "video" ? (
+                            <RiVideoLine size={30} />
                           ) : (
                             <RiImageLine size={18} />
                           )}
                         </ThemeIcon>
                         <Box>
                           <Text fw={800} size="sm">
-                            {gen.models?.name ?? "Generation"}
+                            {runHistoryModelLabel(gen)}
                           </Text>
                           <Group gap="xs">
                             <Badge size="sm" color={statusToBadgeColor(gen.status)} variant="light">

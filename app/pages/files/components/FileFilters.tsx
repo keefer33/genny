@@ -9,6 +9,13 @@ interface FileFiltersProps {
   onTagFilterChange?: (tags: string[]) => void;
   showFileTypeFilter?: boolean; // Option to show/hide file type filter
   lockFileType?: "images" | "videos" | null; // Lock file type filter to specific type
+  /** When set, file type + tags use these values instead of filesFoldersStore (e.g. playground run history). */
+  controlled?: {
+    fileType: "all" | "images" | "videos";
+    onFileTypeChange: (v: "all" | "images" | "videos") => void;
+    selectedTags: string[];
+    onSelectedTagsChange: (ids: string[]) => void;
+  };
 }
 
 export function FileFilters({
@@ -16,15 +23,14 @@ export function FileFilters({
   onTagFilterChange,
   showFileTypeFilter = true,
   lockFileType = null,
+  controlled,
 }: FileFiltersProps) {
-  const {
-    selectedTags,
-    selectedUploadType,
-    fileTypeFilter,
-    setSelectedTags,
-    setSelectedUploadType,
-    setFileTypeFilter,
-  } = useFilesFoldersStore();
+  const store = useFilesFoldersStore();
+  const fileTypeFilter = controlled?.fileType ?? store.fileTypeFilter;
+  const setFileTypeFilter = controlled?.onFileTypeChange ?? store.setFileTypeFilter;
+  const selectedTags = controlled?.selectedTags ?? store.selectedTags;
+  const setSelectedTags = controlled?.onSelectedTagsChange ?? store.setSelectedTags;
+  const { selectedUploadType, setSelectedUploadType } = store;
   const { tags } = useTagStore();
 
   const isFileTypeLocked = lockFileType !== null;
