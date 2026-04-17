@@ -57,7 +57,7 @@ export const links: Route.LinksFunction = () => [
     rel: "preconnect",
     href: "https://accounts.google.com/gsi/client",
   },
-  { rel: "manifest", href: "/manifest.json" },
+  { rel: "manifest", href: "/manifest.webmanifest" },
   { rel: "apple-touch-icon", href: "/icons/icon-192x192.png" },
 ];
 
