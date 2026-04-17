@@ -29,6 +29,7 @@ import dayjs from "dayjs";
 import { formatDate, formatFileSize, getFileExtension, isTextFile } from "~/lib/utils";
 import FileTagModal from "~/pages/files/components/FileTagModal";
 import useAppStore from "~/lib/stores/appStore";
+import { MediaTypeBadge } from "~/shared/MediaTypeBadge";
 
 interface UserTag {
   id: string;
@@ -101,25 +102,13 @@ export function FilePreviewModal({
   const getFileTypeBadge = () => {
     const ext = getFileExtension(file.file_name);
     if (file.file_type.startsWith("image/")) {
-      return (
-        <Badge color="green" variant="light" size="sm">
-          Image
-        </Badge>
-      );
+      return <MediaTypeBadge type="image" variant="light" size="sm" />;
     }
     if (file.file_type.startsWith("video/")) {
-      return (
-        <Badge color="purple" variant="light" size="sm">
-          Video
-        </Badge>
-      );
+      return <MediaTypeBadge type="video" variant="light" size="sm" />;
     }
     if (file.file_type.startsWith("audio/")) {
-      return (
-        <Badge color="cyan" variant="light" size="sm">
-          Audio
-        </Badge>
-      );
+      return <MediaTypeBadge type="audio" variant="light" size="sm" />;
     }
     if (file.file_type === "application/pdf") {
       return (

@@ -1,7 +1,9 @@
 import {
+  ActionIcon,
   Button,
   Input,
   NumberInput,
+  Popover,
   ScrollArea,
   Select,
   Stack,
@@ -13,6 +15,7 @@ import {
   Box,
   Group,
 } from "@mantine/core";
+import { RiInformationLine } from "@remixicon/react";
 import { useEffect, useMemo } from "react";
 import { FormProvider, useForm } from "~/lib/ContextForm";
 import { showNotification } from "~/lib/notificationUtils";
@@ -22,54 +25,10 @@ import { PromptActionButtons } from "../../../shared/PromptActionButtons";
 import { MediaFilePicker } from "./x-ui-components/MediaFilePicker/MediaFilePicker";
 import { NumberSlider } from "./x-ui-components/NumberSlider";
 import { SizePicker } from "./x-ui-components/SizePicker";
+import { BoxPicker } from "./x-ui-components/BoxPicker";
+import { AspectRatioPicker } from "./x-ui-components/AspectRatioPicker";
 import { CostBadge } from "~/shared/CostBadge";
-import type {
-  FunctionSchema,
-  StructuredXUiComponent,
-  JsonSchemaProperty,
-} from "~/types/playground";
-
-function getStructuredXUiComponent(raw: unknown): StructuredXUiComponent | null {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
-  const o = raw as Record<string, unknown>;
-  const t = o.type;
-  if (typeof t !== "string" || !t.trim()) return null;
-  const settings = o.settings;
-  const s =
-    settings && typeof settings === "object" && !Array.isArray(settings)
-      ? (settings as Record<string, unknown>)
-      : {};
-  return { type: t.trim(), settings: s };
-}
-
-function isValidNumberSliderSettings(
-  s: Record<string, unknown>
-): s is { min: number; max: number; step: number } {
-  const { min, max, step } = s;
-  return (
-    typeof min === "number" &&
-    Number.isFinite(min) &&
-    typeof max === "number" &&
-    Number.isFinite(max) &&
-    typeof step === "number" &&
-    Number.isFinite(step) &&
-    step > 0
-  );
-}
-
-function isValidSizePickerSettings(s: Record<string, unknown>): s is {
-  min: number;
-  max: number;
-} {
-  const { min, max } = s;
-  return (
-    typeof min === "number" &&
-    Number.isFinite(min) &&
-    typeof max === "number" &&
-    Number.isFinite(max) &&
-    max >= min
-  );
-}
+import type { FunctionSchema, JsonSchemaProperty } from "~/types/playground";
 
 function parseFunctionSchema(raw: unknown): FunctionSchema | null {
   if (raw == null) return null;
@@ -123,6 +82,47 @@ function fieldLabel(key: string): string {
   return key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+const DESCRIPTION_HELPER_DISABLED_FIELDS = new Set([
+  "aspect_ratio",
+  "prompt",
+  "image",
+  "images",
+  "video",
+  "videos",
+  "output_format",
+  "duration",
+  "resolution",
+]);
+
+function buildLabelWithDescription(label: string, description?: string, required?: boolean) {
+  return (
+    <Group gap={6} wrap="wrap" align="center">
+      <Text size="sm" fw={500} component="span">
+        {label}
+        {required ? <span style={{ color: "red" }}> *</span> : null}
+      </Text>
+      {description ? (
+        <Popover width={280} position="bottom-start" withArrow shadow="md">
+          <Popover.Target>
+            <ActionIcon
+              variant="subtle"
+              size="sm"
+              color="gray"
+              aria-label={`${label} description`}
+              style={{ pointerEvents: "auto" }}
+            >
+              <RiInformationLine size={14} />
+            </ActionIcon>
+          </Popover.Target>
+          <Popover.Dropdown>
+            <Text size="sm">{description}</Text>
+          </Popover.Dropdown>
+        </Popover>
+      ) : null}
+    </Group>
+  );
+}
+
 function parseEnumValue(raw: string | null, prop: JsonSchemaProperty): unknown {
   if (raw === null) return null;
   if (prop.type === "number" || prop.type === "integer") {
@@ -145,6 +145,82 @@ function sanitizePayload(values: Record<string, unknown>): Record<string, unknow
     out[key] = value;
   }
   return out;
+}
+
+function normalizedFieldName(name: string): string {
+  return name.trim().toLowerCase();
+}
+
+function isMediaFieldName(
+  name: string
+): name is
+  | "image"
+  | "images"
+  | "video"
+  | "videos"
+  | "last_image"
+  | "reference_images"
+  | "reference_videos"
+  | "audio"
+  | "reference_audios" {
+  const normalized = normalizedFieldName(name);
+  return (
+    normalized === "image" ||
+    normalized === "images" ||
+    normalized === "video" ||
+    normalized === "videos" ||
+    normalized === "last_image" ||
+    normalized === "reference_images" ||
+    normalized === "reference_videos" ||
+    normalized === "audio" ||
+    normalized === "reference_audios"
+  );
+}
+
+function resolveMediaPickerSettings(
+  key: string,
+  prop: JsonSchemaProperty
+): { min: number; max: number; allowed_file_types: Array<"image" | "video" | "audio"> } {
+  const normalized = normalizedFieldName(key);
+  const allowed_file_types: Array<"image" | "video" | "audio"> =
+    normalized === "image" ||
+    normalized === "images" ||
+    normalized === "last_image" ||
+    normalized === "reference_images"
+      ? ["image"]
+      : normalized === "audio" || normalized === "reference_audios"
+        ? ["audio"]
+        : ["video"];
+
+  const minCandidate =
+    typeof prop.minItems === "number"
+      ? prop.minItems
+      : typeof prop.minimum === "number"
+        ? prop.minimum
+        : null;
+  const maxCandidate =
+    typeof prop.maxItems === "number"
+      ? prop.maxItems
+      : typeof prop.maximum === "number"
+        ? prop.maximum
+        : null;
+
+  const min =
+    Number.isFinite(minCandidate) && (minCandidate as number) > 0
+      ? Math.floor(minCandidate as number)
+      : 1;
+  let max =
+    Number.isFinite(maxCandidate) && (maxCandidate as number) > 0
+      ? Math.floor(maxCandidate as number)
+      : 1;
+  if (maxCandidate == null && minCandidate != null) {
+    max = Math.max(min, max);
+  }
+  if (min > max) {
+    max = min;
+  }
+
+  return { min, max, allowed_file_types };
 }
 
 export default function PlayGroundRunForm() {
@@ -243,8 +319,14 @@ export default function PlayGroundRunForm() {
 
   const requiredSet = new Set(functionSchema.required ?? []);
   const keys = orderedPropertyKeys(functionSchema);
-  const generationType: "image" | "video" =
-    selectedModel.model_type === "video" ? "video" : "image";
+  const normalizedMediaType =
+    `${selectedModel.model_type ?? ""} ${selectedModel.generation_type ?? ""}`.toLowerCase().trim();
+  let generationType: "image" | "video" | "audio" = "image";
+  if (normalizedMediaType.includes("audio")) {
+    generationType = "audio";
+  } else if (normalizedMediaType.includes("video")) {
+    generationType = "video";
+  }
   const onSubmit = form.onSubmit(async (values) => {
     if (!selectedModel?.id) {
       showNotification({ message: "No model selected.", type: "error" });
@@ -284,76 +366,119 @@ export default function PlayGroundRunForm() {
 
                 const isRequired = requiredSet.has(key);
                 const label = fieldLabel(key);
-                const description = prop.description;
+                const showDescriptionHelper = !DESCRIPTION_HELPER_DISABLED_FIELDS.has(
+                  normalizedFieldName(key)
+                );
+                const labelWithHelp = buildLabelWithDescription(
+                  label,
+                  showDescriptionHelper ? prop.description : undefined,
+                  isRequired
+                );
+                const description = undefined;
                 const err = form.errors[key];
-                const xUi = getStructuredXUiComponent(prop["x-ui-component"]);
 
-                if (xUi) {
-                  switch (xUi.type) {
-                    case "MediaFilePicker": {
+                if (isMediaFieldName(key)) {
+                  const mediaSettings = resolveMediaPickerSettings(key, prop);
+                  return (
+                    <MediaFilePicker
+                      key={key}
+                      fieldName={key}
+                      fieldSchema={{
+                        ...prop,
+                        title: prop.title || label,
+                        "x-ui-component": {
+                          type: "MediaFilePicker",
+                          settings: mediaSettings,
+                        },
+                      }}
+                      description={description}
+                      error={err}
+                      isRequired={isRequired}
+                    />
+                  );
+                }
+
+                if (normalizedFieldName(key) === "size") {
+                  return (
+                    <SizePicker
+                      key={key}
+                      fieldName={key}
+                      label={labelWithHelp}
+                      description={description}
+                      error={err}
+                      isRequired={isRequired}
+                      min={typeof prop.minimum === "number" ? prop.minimum : 1440}
+                      max={typeof prop.maximum === "number" ? prop.maximum : 8192}
+                      readOnly={prop.readOnly}
+                      defaultValue={prop.default}
+                    />
+                  );
+                }
+
+                if (prop.type === "string" && prop.enum?.length) {
+                  const options = prop.enum
+                    .filter((value): value is string => typeof value === "string")
+                    .map((value) => value.trim())
+                    .filter(Boolean);
+                  if (options.length > 0) {
+                    if (normalizedFieldName(key) === "aspect_ratio") {
                       return (
-                        <MediaFilePicker
+                        <AspectRatioPicker
                           key={key}
                           fieldName={key}
-                          fieldSchema={{
-                            ...prop,
-                            title: prop.title || label,
-                          }}
+                          label={labelWithHelp}
                           description={description}
                           error={err}
                           isRequired={isRequired}
-                        />
-                      );
-                    }
-                    case "NumberSlider": {
-                      if (prop.type !== "number" && prop.type !== "integer") break;
-                      if (!isValidNumberSliderSettings(xUi.settings)) break;
-                      const { min, max, step } = xUi.settings;
-                      return (
-                        <NumberSlider
-                          key={key}
-                          fieldName={key}
-                          label={label}
-                          description={description}
-                          error={err}
-                          isRequired={isRequired}
-                          min={min}
-                          max={max}
-                          step={step}
+                          options={options}
                           readOnly={prop.readOnly}
                           defaultValue={prop.default}
                         />
                       );
                     }
-                    case "SizePicker": {
-                      if (prop.type !== "string") break;
-                      if (!isValidSizePickerSettings(xUi.settings)) break;
-                      const { min, max } = xUi.settings;
-                      return (
-                        <SizePicker
-                          key={key}
-                          fieldName={key}
-                          label={label}
-                          description={description}
-                          error={err}
-                          isRequired={isRequired}
-                          min={min}
-                          max={max}
-                          readOnly={prop.readOnly}
-                          defaultValue={prop.default}
-                        />
-                      );
-                    }
-                    default:
-                      break;
+                    return (
+                      <BoxPicker
+                        key={key}
+                        fieldName={key}
+                        label={labelWithHelp}
+                        description={description}
+                        error={err}
+                        isRequired={isRequired}
+                        options={options}
+                        readOnly={prop.readOnly}
+                        defaultValue={prop.default}
+                      />
+                    );
                   }
+                }
+
+                if (
+                  (prop.type === "number" || prop.type === "integer") &&
+                  typeof prop.minimum === "number" &&
+                  typeof prop.maximum === "number"
+                ) {
+                  return (
+                    <NumberSlider
+                      key={key}
+                      fieldName={key}
+                      label={labelWithHelp}
+                      description={description}
+                      error={err}
+                      isRequired={isRequired}
+                      min={prop.minimum}
+                      max={prop.maximum}
+                      step={typeof prop.step === "number" && prop.step > 0 ? prop.step : 1}
+                      readOnly={prop.readOnly}
+                      defaultValue={prop.default}
+                    />
+                  );
                 }
 
                 if (prop.type === "boolean") {
                   return (
                     <Switch
                       key={key}
-                      label={label}
+                      label={labelWithHelp}
                       description={description}
                       checked={Boolean(form.values[key])}
                       onChange={(e) => form.setFieldValue(key, e.currentTarget.checked)}
@@ -372,7 +497,7 @@ export default function PlayGroundRunForm() {
                   return (
                     <Select
                       key={key}
-                      label={label}
+                      label={labelWithHelp}
                       description={description}
                       placeholder={prop["x-placeholder"] ?? "Select…"}
                       data={data}
@@ -395,7 +520,7 @@ export default function PlayGroundRunForm() {
                   return (
                     <Textarea
                       key={key}
-                      label={label}
+                      label={labelWithHelp}
                       description={description}
                       placeholder={prop["x-placeholder"] ?? undefined}
                       value={lines}
@@ -439,9 +564,7 @@ export default function PlayGroundRunForm() {
                   );
                 }
 
-                const multiline =
-                  key === "prompt" ||
-                  (prop.description !== undefined && prop.description.length > 80);
+                const multiline = key === "prompt";
 
                 if (multiline) {
                   const currentValue =
@@ -470,10 +593,11 @@ export default function PlayGroundRunForm() {
                     <Stack key={key} gap="sm">
                       {key === "prompt" && !prop.readOnly && (
                         <Group align="center" justify="space-between">
-                          <Text size="sm" fw={500}>
-                            {prop.title || key}
-                            {isRequired && <span style={{ color: "red" }}> *</span>}
-                          </Text>
+                          {buildLabelWithDescription(
+                            label,
+                            showDescriptionHelper ? prop.description : undefined,
+                            isRequired
+                          )}
 
                           <Group gap="xs">
                             <AgentPromptButton
@@ -489,7 +613,7 @@ export default function PlayGroundRunForm() {
                       )}
 
                       <Textarea
-                        label={key !== "prompt" ? label : undefined}
+                        label={key !== "prompt" ? labelWithHelp : undefined}
                         description={description}
                         placeholder={
                           key === "prompt" && !currentValue
@@ -538,7 +662,7 @@ export default function PlayGroundRunForm() {
                 return (
                   <TextInput
                     key={key}
-                    label={label}
+                    label={labelWithHelp}
                     description={description}
                     placeholder={prop["x-placeholder"]}
                     required={isRequired}

@@ -113,7 +113,7 @@ export interface PlaygroundStoreState {
   runHistoryLoading: boolean;
   runHistoryError: string | null;
   runHistoryGenModelFilter: string | null;
-  runHistoryFileTypeFilter: "all" | "images" | "videos";
+  runHistoryFileTypeFilter: "all" | "images" | "videos" | "audio";
   runHistoryTagIds: string[];
   /** Distinct models from the user's full run history (not route-scoped `items`). */
   runHistoryFilterModels: PlaygroundRunHistoryFilterModelOption[];
@@ -123,7 +123,7 @@ export interface PlaygroundStoreState {
   selectedRunHistoryModelId: string | null;
   setSelectedRunHistoryModelId: (id: string | null) => void;
   setRunHistoryGenModelFilter: (id: string | null) => void;
-  setRunHistoryFileTypeFilter: (v: "all" | "images" | "videos") => void;
+  setRunHistoryFileTypeFilter: (v: "all" | "images" | "videos" | "audio") => void;
   setRunHistoryTagIds: (ids: string[]) => void;
   fetchPlaygroundRunHistoryFilterModels: () => Promise<void>;
   fetchRecentPlaygroundModels: () => Promise<void>;
@@ -137,7 +137,7 @@ export interface PlaygroundStoreState {
     page?: number;
     limit?: number;
     gen_model_id?: string | null;
-    file_type_filter?: "all" | "images" | "videos";
+    file_type_filter?: "all" | "images" | "videos" | "audio";
     tag_ids?: string[];
   }) => Promise<void>;
   deletePlaygroundRun: (runId: string) => Promise<void>;
@@ -178,10 +178,17 @@ export type JsonSchemaProperty = {
   "x-placeholder"?: string;
   /** Legacy string (e.g. `"uploaders"`) or structured `{ type, settings }`. */
   "x-ui-component"?: any;
-  types?: "images" | "videos" | "all";
+  /** Optional UI overrides for schema form rendering. */
+  "x-ui-config"?: any;
+  types?: "images" | "videos" | "audio" | "all";
 };
 
 export type StructuredXUiComponent = { type: string; settings: Record<string, unknown> };
+export type StructuredXUiConfig = {
+  showDesc: boolean;
+  label: string | null;
+  hidden: boolean;
+};
 
 export type PlaygroundMediaFilePickerInputProps = {
   fieldName: string;
@@ -193,7 +200,7 @@ export type PlaygroundMediaFilePickerInputProps = {
 
 export type NumberSliderProps = {
   fieldName: string;
-  label: string;
+  label: ReactNode;
   description?: ReactNode;
   error?: ReactNode;
   isRequired?: boolean;
@@ -208,7 +215,7 @@ export type NumberSliderProps = {
 /** `x-ui-component` type `SizePicker` — form value is `"width*height"` (string). */
 export type SizePickerProps = {
   fieldName: string;
-  label: string;
+  label: ReactNode;
   description?: ReactNode;
   error?: ReactNode;
   isRequired?: boolean;
@@ -216,6 +223,30 @@ export type SizePickerProps = {
   max: number;
   readOnly?: boolean;
   /** JSON Schema `default`, e.g. `"1024*768"`. */
+  defaultValue?: unknown;
+};
+
+/** `x-ui-component` type `BoxPicker` — enum string choices rendered as selectable boxes. */
+export type BoxPickerProps = {
+  fieldName: string;
+  label: ReactNode;
+  description?: ReactNode;
+  error?: ReactNode;
+  isRequired?: boolean;
+  options: string[];
+  readOnly?: boolean;
+  defaultValue?: unknown;
+};
+
+/** `x-ui-component` type `AspectRatioPicker` — enum ratio choices rendered as ratio-shaped boxes. */
+export type AspectRatioPickerProps = {
+  fieldName: string;
+  label: ReactNode;
+  description?: ReactNode;
+  error?: ReactNode;
+  isRequired?: boolean;
+  options: string[];
+  readOnly?: boolean;
   defaultValue?: unknown;
 };
 

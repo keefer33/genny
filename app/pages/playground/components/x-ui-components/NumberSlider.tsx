@@ -34,7 +34,7 @@ export function NumberSlider({
       error={error}
       required={isRequired}
     >
-      <Group align="center" gap="sm" wrap="nowrap">
+      <Group align="center" gap="sm" wrap="wrap">
         <Slider
           min={min}
           max={hi}
@@ -42,7 +42,7 @@ export function NumberSlider({
           value={sliderValue}
           onChange={(v) => form.setFieldValue(fieldName, v)}
           disabled={readOnly}
-          style={{ flex: 1 }}
+          style={{ flex: 1, minWidth: 180 }}
         />
         <NumberInput
           value={sliderValue}
@@ -56,7 +56,7 @@ export function NumberSlider({
             form.setFieldValue(fieldName, clamped);
           }}
           disabled={readOnly}
-          w={50}
+          w={72}
           hideControls
           decimalScale={0}
         />

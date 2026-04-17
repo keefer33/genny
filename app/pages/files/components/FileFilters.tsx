@@ -1,5 +1,5 @@
 import { Badge, Button, Group, Stack, Text } from "@mantine/core";
-import { RiImageLine, RiVideoLine } from "@remixicon/react";
+import { RiImageLine, RiMusic2Line, RiVideoLine } from "@remixicon/react";
 import useFilesFoldersStore from "~/lib/stores/filesFoldersStore";
 import useTagStore from "~/lib/stores/tagStore";
 import TagManagerModal from "~/shared/TagManagerModal";
@@ -8,11 +8,11 @@ interface FileFiltersProps {
   showTagManager?: boolean;
   onTagFilterChange?: (tags: string[]) => void;
   showFileTypeFilter?: boolean; // Option to show/hide file type filter
-  lockFileType?: "images" | "videos" | null; // Lock file type filter to specific type
+  lockFileType?: "images" | "videos" | "audio" | null; // Lock file type filter to specific type
   /** When set, file type + tags use these values instead of filesFoldersStore (e.g. playground run history). */
   controlled?: {
-    fileType: "all" | "images" | "videos";
-    onFileTypeChange: (v: "all" | "images" | "videos") => void;
+    fileType: "all" | "images" | "videos" | "audio";
+    onFileTypeChange: (v: "all" | "images" | "videos" | "audio") => void;
     selectedTags: string[];
     onSelectedTagsChange: (ids: string[]) => void;
   };
@@ -68,7 +68,7 @@ export function FileFilters({
             )}
           </Group>
           <Group gap="xs">
-            {(["images", "videos", "all"] as const).map((type) => {
+            {(["images", "videos", "audio", "all"] as const).map((type) => {
               const isSelected = fileTypeFilter === type;
               return (
                 <Badge
@@ -105,6 +105,11 @@ export function FileFilters({
                     <Group gap={4}>
                       <RiVideoLine size={14} />
                       <span>Videos</span>
+                    </Group>
+                  ) : type === "audio" ? (
+                    <Group gap={4}>
+                      <RiMusic2Line size={14} />
+                      <span>Audio</span>
                     </Group>
                   ) : (
                     "All"

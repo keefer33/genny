@@ -48,7 +48,7 @@ function formatFormValuesForAgent(formValues: Record<string, unknown>): string {
 }
 
 interface AgentPromptButtonProps {
-  generationType: "image" | "video";
+  generationType: "image" | "video" | "audio";
   fieldName: string;
   promptMaxLength?: number;
   disabled?: boolean;
