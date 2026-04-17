@@ -17,14 +17,15 @@ export default defineConfig({
     tsconfigPaths(),
     VitePWA({
       registerType: "autoUpdate",
+      manifestFilename: "manifest.webmanifest",
       includeAssets: ["favicon.ico", "icons/*.png"],
       manifest: {
         name: "Genny.bot - AI Content Generation",
         short_name: "Genny",
         description:
           "A modern generative AI application for creating stunning images and videos using the latest AI models",
-        theme_color: "#ffffff",
-        background_color: "#ffffff",
+        theme_color: "#000000",
+        background_color: "#000000",
         display: "standalone",
         orientation: "portrait-primary",
         scope: "/",
@@ -79,23 +80,7 @@ export default defineConfig({
             purpose: "maskable any",
           },
         ],
-        shortcuts: [
-          {
-            name: "Generate Image",
-            short_name: "Image",
-            description: "Generate AI images",
-            url: "/generate/image",
-            icons: [{ src: "/icons/icon-192x192.png", sizes: "192x192" }],
-          },
-          {
-            name: "Generate Video",
-            short_name: "Video",
-            description: "Generate AI videos",
-            url: "/generate/video",
-            icons: [{ src: "/icons/icon-192x192.png", sizes: "192x192" }],
-          },
-        ],
-        categories: ["productivity", "utilities", "entertainment"],
+        categories: ["productivity", "graphics", "photo"],
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
@@ -137,18 +122,6 @@ export default defineConfig({
                 maxEntries: 10,
                 maxAgeSeconds: 60 * 60 * 24, // 1 day
               },
-            },
-          },
-          {
-            urlPattern: /\/api\/.*/i,
-            handler: "NetworkFirst",
-            options: {
-              cacheName: "api-cache",
-              expiration: {
-                maxEntries: 50,
-                maxAgeSeconds: 60 * 5, // 5 minutes
-              },
-              networkTimeoutSeconds: 10,
             },
           },
         ],

@@ -54,60 +54,6 @@ function fileNameFromPreviewUrl(url: string): string {
   }
 }
 
-/** URLs + `preview_files` from `polling_response` (saved `files.files` preferred over `webhook.outputs`). */
-function previewsFromRunPollingRecord(record: Record<string, unknown>): {
-  preview_urls: string[];
-  preview_files: Array<{ id: string; file_name: string }>;
-} {
-  const polling = record.polling_response;
-  if (!polling || typeof polling !== "object") {
-    return { preview_urls: [], preview_files: [] };
-  }
-  const p = polling as Record<string, unknown>;
-  const filesWrap = p.files;
-  if (filesWrap && typeof filesWrap === "object") {
-    const files = (filesWrap as Record<string, unknown>).files;
-    if (Array.isArray(files) && files.length > 0) {
-      const preview_urls: string[] = [];
-      const preview_files: Array<{ id: string; file_name: string }> = [];
-      for (const item of files) {
-        if (!item || typeof item !== "object") continue;
-        const rec = item as Record<string, unknown>;
-        const u = typeof rec.file_url === "string" ? rec.file_url.trim() : "";
-        const fid = rec.file_id;
-        const idStr = typeof fid === "string" ? fid.trim() : fid != null ? String(fid).trim() : "";
-        if (!u || !idStr) continue;
-        const file_name =
-          typeof rec.file_name === "string" && rec.file_name.trim()
-            ? rec.file_name.trim()
-            : fileNameFromPreviewUrl(u);
-        preview_urls.push(u);
-        preview_files.push({ id: idStr, file_name });
-      }
-      if (preview_urls.length > 0) {
-        return { preview_urls, preview_files };
-      }
-    }
-  }
-  const webhook = p.webhook;
-  if (webhook && typeof webhook === "object") {
-    const outputs = (webhook as Record<string, unknown>).outputs;
-    const preview_urls: string[] = [];
-    const seen = new Set<string>();
-    if (Array.isArray(outputs)) {
-      for (const o of outputs) {
-        if (typeof o !== "string") continue;
-        const t = o.trim();
-        if (!t || seen.has(t)) continue;
-        seen.add(t);
-        preview_urls.push(t);
-      }
-    }
-    return { preview_urls, preview_files: [] };
-  }
-  return { preview_urls: [], preview_files: [] };
-}
-
 export const PLAYGROUND_RUN_IN_FLIGHT_STATUSES = new Set(["pending", "processing"]);
 
 export function isPlaygroundRunHistoryInFlight(status: string | null | undefined): boolean {
