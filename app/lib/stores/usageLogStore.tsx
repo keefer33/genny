@@ -9,7 +9,7 @@ export interface UsageLogEntry {
   created_at: string;
   updated_at: string;
   usage_amount: number;
-  generation_id: string | null;
+  gen_model_run_id: string | null;
   transaction_id: string | null;
   type_id: number | null;
   meta: any;
@@ -19,12 +19,16 @@ export interface UsageLogEntry {
     reason_code: string;
     meta_data: any;
   } | null;
-  user_generations?: {
+  /** Playground / gen-model runs (replaces legacy `user_generations`). */
+  user_gen_model_runs?: {
     id: string;
-    model_id: string;
-    models?: {
-      id: string;
-      name: string;
+    gen_model_id: string | null;
+    gen_models?: {
+      model_name: string | null;
+      model_id: string | null;
+      brand_name: string | null;
+      model_product: string | null;
+      model_variant: string | null;
     } | null;
   } | null;
   transactions?: {

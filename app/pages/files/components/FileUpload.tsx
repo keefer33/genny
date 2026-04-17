@@ -6,7 +6,7 @@ import useAppStore from "~/lib/stores/appStore";
 
 interface FileUploadProps {
   onUploadComplete?: () => void;
-  allowedTypes?: "images" | "videos" | "all";
+  allowedTypes?: "images" | "videos" | "audio" | "all";
 }
 
 export default function FileUpload({ onUploadComplete, allowedTypes = "all" }: FileUploadProps) {
@@ -66,7 +66,9 @@ export default function FileUpload({ onUploadComplete, allowedTypes = "all" }: F
             ? "image/*"
             : allowedTypes === "videos"
               ? "video/*"
-              : "image/*,video/*"
+              : allowedTypes === "audio"
+                ? "audio/*"
+                : "image/*,video/*,audio/*"
         }
       />
 

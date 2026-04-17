@@ -11,8 +11,6 @@ import {
   RiFolder2Line,
   RiDashboardLine,
   RiRobot2Line,
-  RiImageLine,
-  RiVideoLine,
   RiLoginBoxLine,
   RiHistoryLine,
   RiUserLine,
@@ -21,10 +19,10 @@ import {
   RiCoinLine,
   RiCustomerService2Line,
   RiToolsLine,
+  RiAiGenerate2,
 } from "@remixicon/react";
 import { NavLink, useLocation } from "react-router";
 import useAppStore from "~/lib/stores/appStore";
-import useGenerateStore from "~/lib/stores/generateStore";
 import { CurrentBalance } from "./CurrentBalance";
 
 interface NavbarProps {
@@ -37,22 +35,24 @@ export function Navbar({ toggleMobile, collapsed }: NavbarProps) {
   const theme = useMantineTheme();
   const location = useLocation();
   const { getUser, isMobile, themeSettings } = useAppStore();
-  const { models } = useGenerateStore();
 
   const user = getUser();
   const isLoggedIn = !!user?.user?.id;
 
-  const resolveModelRoute = (generationType: "image" | "video") => {
-    const orderedModelsForType = (models || []).filter(
-      (model) => model.generation_type === generationType
-    );
-    if (orderedModelsForType.length > 0) {
-      return `/generate/${generationType}/${orderedModelsForType[0].slug}`;
-    }
-    return `/generate/${generationType}`;
-  };
-
   const navItems = [
+    {
+      to: "/playground",
+      icon: RiAiGenerate2,
+      label: "Playground",
+      description: "Playground",
+      matchPrefix: "/playground",
+    },
+    {
+      to: "/generations",
+      icon: RiHistoryLine,
+      label: "Generations",
+      description: "Generation History",
+    },
     {
       to: "/agents",
       icon: RiRobot2Line,
@@ -60,38 +60,12 @@ export function Navbar({ toggleMobile, collapsed }: NavbarProps) {
       description: "AI Agents",
       matchPrefix: "/agents",
     },
-    /*{
-      to: "/generate",
-      icon: RiRobot2Line,
-      label: "Generate",
-      description: "AI Content Generation",
-    },*/
-    {
-      to: resolveModelRoute("image"),
-      icon: RiImageLine,
-      label: "Images",
-      description: "Image Generation",
-      matchPrefix: "/generate/image",
-    },
-    {
-      to: resolveModelRoute("video"),
-      icon: RiVideoLine,
-      label: "Videos",
-      description: "Video Generation",
-      matchPrefix: "/generate/video",
-    },
     {
       to: "/tools",
       icon: RiToolsLine,
       label: "Tools",
       description: "Connect toolkits (Composio)",
       matchPrefix: "/tools",
-    },
-    {
-      to: "/generations",
-      icon: RiHistoryLine,
-      label: "Generations",
-      description: "Generation History",
     },
     {
       to: "/files",

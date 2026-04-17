@@ -1,65 +1,11 @@
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import useAppStore from "../stores/appStore";
-import useGenerateStore from "../stores/generateStore";
 import { useChatsStore } from "../stores/chatsStore";
 export function useAuth() {
-  const {
-    setUser,
-    setAppLoading,
-    setApi,
-    getApi,
-    userProfile,
-    setUserUsageBalance,
-    setAuthRealtimeChannel,
-    checkApiHealth,
-    getUser,
-  } = useAppStore();
+  const { setUser, setAppLoading, setApi, getApi, userProfile, checkApiHealth, getUser } =
+    useAppStore();
 
-  const { loadGenerationModels } = useGenerateStore();
   const { loadAgentModels } = useChatsStore();
-
-  const channelRef = useRef<any>(null);
-
-  const subscribeToBalance = async (userId: string) => {
-    const supabase = getApi();
-    const topic = `user:${userId}:profile`;
-
-    if (channelRef.current?.state === "subscribed") return;
-
-    const { data } = await supabase.auth.getSession();
-    const accessToken = data.session?.access_token;
-    if (accessToken) {
-      await supabase.realtime.setAuth(accessToken);
-    }
-
-    const channel = supabase.channel(topic, {
-      config: { private: true },
-    });
-    channelRef.current = channel;
-    setAuthRealtimeChannel(channel);
-
-    channel
-      .on("broadcast", { event: "UPDATE" }, (payload: any) => {
-        console.log("UPDATE", payload);
-        if (payload?.payload?.record?.usage_balance != null) {
-          setUserUsageBalance(payload.payload.record.usage_balance);
-        }
-      })
-      .subscribe((status) => {
-        if (status === "SUBSCRIBED") {
-          // console.log("Subscribed to", topic);
-        }
-      });
-  };
-
-  const cleanupChannel = () => {
-    const supabase = getApi();
-    if (channelRef.current) {
-      supabase.removeChannel(channelRef.current);
-      channelRef.current = null;
-      setAuthRealtimeChannel(null);
-    }
-  };
 
   useEffect(() => {
     setApi();
@@ -84,15 +30,11 @@ export function useAuth() {
       if (session?.user) {
         if (getUser()?.user?.id !== session.user.id) {
           await userProfile(session); // your existing profile fetcher/populator
-          // Subscribe to balance updates for this user
-          subscribeToBalance(session.user.id);
         }
-        await loadGenerationModels();
         await loadAgentModels();
         setAppLoading(false);
       } else {
         // Logout flow
-        cleanupChannel();
         setUser(null);
         setAppLoading(false);
       }
@@ -109,7 +51,6 @@ export function useAuth() {
     return () => {
       subscription.unsubscribe();
       refreshSub.subscription.unsubscribe();
-      cleanupChannel();
     };
   }, []);
 

@@ -35,7 +35,7 @@ Google, Flux, Alibaba, Xai, Kling, Anthropic, Minimax, Vidu, ByteDance, Zai, LTX
 │   │   ├── account/     # Profile, billing, usage log, support tickets
 │   │   ├── agents/    # Agent chat (sidebar, composer, messages)
 │   │   ├── dashboard/ # Signed-in home / overview
-│   │   ├── generate/  # Generation flows and schema-driven forms
+│   │   ├── playground/  # Generation flows and schema-driven forms
 │   │   ├── generations/
 │   │   ├── files/
 │   │   ├── tools/     # Toolkits catalog and detail

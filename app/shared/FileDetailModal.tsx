@@ -18,6 +18,7 @@ import {
   RiDeleteBinLine,
   RiDownloadLine,
   RiExternalLinkLine,
+  RiEyeLine,
   RiFileCopyLine,
   RiFileLine,
   RiFilePdf2Fill,
@@ -26,6 +27,7 @@ import {
   RiPlayLine,
 } from "@remixicon/react";
 import dayjs from "dayjs";
+import type { MouseEvent } from "react";
 import FileTagModal from "~/pages/files/components/FileTagModal";
 import FileShare from "~/shared/FileShare";
 import { formatDate, formatFileSize, getFileExtension, isTextFile } from "~/lib/utils";
@@ -44,7 +46,7 @@ interface UserFileTag {
   user_tags: UserTag;
 }
 
-interface FileData {
+export interface FileDetailModalFile {
   id: string;
   file_name: string;
   file_path: string;
@@ -63,13 +65,40 @@ interface FileData {
 interface FileDetailModalProps {
   opened: boolean;
   onClose: () => void;
-  file: FileData;
+  file: FileDetailModalFile;
   modelName?: string | null;
   onDownload: () => void;
   onEdit: () => void;
   onDelete: () => void;
   deleting?: boolean;
   onTagsUpdated: (updatedTags: UserFileTag[]) => void;
+}
+
+/** Eye control for file tiles — opens {@link FileDetailModal} (place inside a `position: relative` preview). */
+export function FileCardViewDetailsButton({
+  onClick,
+  size = "md",
+}: {
+  onClick: (e: MouseEvent<HTMLButtonElement>) => void;
+  size?: "xs" | "sm" | "md" | "lg" | "xl";
+}) {
+  const iconPx =
+    size === "xs" ? 14 : size === "sm" ? 16 : size === "lg" ? 20 : size === "xl" ? 22 : 18;
+  return (
+    <ActionIcon
+      pos="absolute"
+      bottom={6}
+      right={6}
+      variant="default"
+      radius="md"
+      size={size}
+      aria-label="View file details"
+      title="View file details"
+      onClick={onClick}
+    >
+      <RiEyeLine size={iconPx} />
+    </ActionIcon>
+  );
 }
 
 export default function FileDetailModal({
@@ -149,7 +178,7 @@ export default function FileDetailModal({
     >
       <Stack gap="lg" p="md">
         {/* File Preview Section */}
-        <Box>
+        <Box pos="relative">
           {file.file_type.startsWith("image/") ? (
             <Image
               src={file.file_path}
@@ -184,6 +213,24 @@ export default function FileDetailModal({
               </Stack>
             </Center>
           )}
+          <ActionIcon
+            component="a"
+            href={file.file_path}
+            target="_blank"
+            rel="noopener noreferrer"
+            pos="absolute"
+            bottom={8}
+            right={8}
+            style={{ zIndex: 2 }}
+            variant="filled"
+            color="dark"
+            radius="md"
+            size="md"
+            aria-label="View file in new tab"
+            title="View file in new tab"
+          >
+            <RiEyeLine size={18} />
+          </ActionIcon>
         </Box>
 
         {/* File Information */}

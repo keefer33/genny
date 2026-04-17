@@ -10,6 +10,13 @@ interface CostBadgeProps {
   leftSection?: React.ReactNode;
   clickable?: boolean;
 }
+function formatCost(cost: number): string {
+  const fixed = cost.toFixed(4);
+  const [whole, decimal = "00"] = fixed.split(".");
+  const base = decimal.slice(0, 2);
+  const extra = decimal.slice(2).replace(/0+$/, "");
+  return `${whole}.${base}${extra}`;
+}
 
 export function CostBadge({
   cost = 0,
@@ -20,7 +27,6 @@ export function CostBadge({
   clickable = true,
 }: CostBadgeProps) {
   const { openPaymentModal } = usePaymentModal();
-
   const handleClick = () => {
     if (clickable) {
       openPaymentModal(null);
@@ -37,7 +43,7 @@ export function CostBadge({
       style={clickable ? { cursor: "pointer" } : undefined}
       onClick={clickable ? handleClick : undefined}
     >
-      {cost.toFixed(2)}
+      ${formatCost(cost)}
     </Badge>
   );
 }

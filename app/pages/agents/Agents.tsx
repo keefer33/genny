@@ -8,7 +8,7 @@ import AgentsMessagesSection from "~/pages/agents/components/AgentsMessagesSecti
 const DESKTOP_FORM_WIDTH = 360;
 const LS_SELECTED_MODEL = "genny:selectedModelName";
 
-export default function Chats() {
+export default function Agents() {
   const { isMobile } = useAppStore();
   const { agentModels, selectedModelName, setSelectedModelName, hydrateSelectedChatFromStorage } =
     useChatsStore();
