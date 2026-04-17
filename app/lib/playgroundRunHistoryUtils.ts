@@ -23,7 +23,7 @@ export function playgroundRunBadgeLabelFromUrl(url: string): string {
   if (/\.(mp4|webm|mov|m4v|mkv)(\?|$)/.test(pathOnly)) return "Video";
   if (/\.gif(\?|$)/.test(pathOnly)) return "GIF";
   if (/\.(jpe?g|png|webp|avif|bmp|svg|tiff?)(\?|$)/.test(pathOnly)) return "Image";
-  if (/\.(mp3|wav|aac|flac|m4a|ogg)(\?|$)/.test(pathOnly)) return "Audio";
+  if (/\.(mp3|wav|aac|flac|m4a|ogg|opus|aiff|aif|wma)(\?|$)/.test(pathOnly)) return "Audio";
   return "File";
 }
 

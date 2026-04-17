@@ -1,17 +1,8 @@
-import {
-  Avatar,
-  Badge,
-  Button,
-  Card,
-  Group,
-  Stack,
-  Text,
-  Title,
-  UnstyledButton,
-} from "@mantine/core";
+import { Avatar, Button, Card, Group, Stack, Text, Title, UnstyledButton } from "@mantine/core";
 import { useMemo } from "react";
 import { useNavigate } from "react-router";
 import usePlaygroundStore from "~/lib/stores/playgroundStore";
+import { MediaTypeBadge } from "~/shared/MediaTypeBadge";
 import type { BrandGroup, PlaygroundItem } from "~/types/playground";
 
 function routeBrandKey(item: PlaygroundItem): string {
@@ -191,13 +182,12 @@ export default function PlayGroundModelGrid({
                           {productGroup.productLabel}
                         </Text>
                         {productGroup.generationType ? (
-                          <Badge
+                          <MediaTypeBadge
+                            type={productGroup.generationType}
                             size="xs"
-                            //variant="light"
-                            color={productGroup.generationType === "video" ? "violet" : "orange"}
-                          >
-                            {productGroup.generationType}
-                          </Badge>
+                            variant="filled"
+                            showUnknown={false}
+                          />
                         ) : null}
                       </Group>
                     </UnstyledButton>
@@ -207,13 +197,12 @@ export default function PlayGroundModelGrid({
                         {productGroup.productLabel}
                       </Text>
                       {productGroup.generationType ? (
-                        <Badge
+                        <MediaTypeBadge
+                          type={productGroup.generationType}
                           size="xs"
                           variant="light"
-                          color={productGroup.generationType === "video" ? "violet" : "cyan"}
-                        >
-                          {productGroup.generationType}
-                        </Badge>
+                          showUnknown={false}
+                        />
                       ) : null}
                     </Group>
                   )}
@@ -270,9 +259,12 @@ export default function PlayGroundModelGrid({
                               <Text size="md" lineClamp={2}>
                                 {variantParam || "Unknown variant"}
                               </Text>
-                              <Badge size="xs" variant="light" style={{ flexShrink: 0 }}>
-                                {modelType}
-                              </Badge>
+                              <MediaTypeBadge
+                                type={modelType}
+                                size="xs"
+                                variant="light"
+                                unknownLabel={modelType}
+                              />
                             </Group>
                           </UnstyledButton>
                         </Card>

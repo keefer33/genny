@@ -24,12 +24,14 @@ import {
   RiFilePdf2Fill,
   RiFileTextLine,
   RiImageLine,
+  RiMusic2Line,
   RiPlayLine,
 } from "@remixicon/react";
 import dayjs from "dayjs";
 import type { MouseEvent } from "react";
 import FileTagModal from "~/pages/files/components/FileTagModal";
 import FileShare from "~/shared/FileShare";
+import { MediaTypeBadge } from "~/shared/MediaTypeBadge";
 import { formatDate, formatFileSize, getFileExtension, isTextFile } from "~/lib/utils";
 
 interface UserTag {
@@ -60,6 +62,13 @@ export interface FileDetailModalFile {
       prompt: string;
     };
   };
+}
+
+function resolveFileShareType(fileType: string): "image" | "video" | "audio" | "other" {
+  if (fileType.startsWith("image/")) return "image";
+  if (fileType.startsWith("video/")) return "video";
+  if (fileType.startsWith("audio/")) return "audio";
+  return "other";
 }
 
 interface FileDetailModalProps {
@@ -118,6 +127,9 @@ export default function FileDetailModal({
     if (file.file_type.startsWith("video/")) {
       return <RiPlayLine size={size} />;
     }
+    if (file.file_type.startsWith("audio/")) {
+      return <RiMusic2Line size={size} />;
+    }
     if (file.file_type === "application/pdf") {
       return <RiFilePdf2Fill size={size} />;
     }
@@ -130,18 +142,13 @@ export default function FileDetailModal({
   const getFileTypeBadge = () => {
     const ext = getFileExtension(file.file_name);
     if (file.file_type.startsWith("image/")) {
-      return (
-        <Badge color="green" size="sm">
-          Image
-        </Badge>
-      );
+      return <MediaTypeBadge type="image" size="sm" variant="filled" />;
     }
     if (file.file_type.startsWith("video/")) {
-      return (
-        <Badge color="orange" size="sm">
-          Video
-        </Badge>
-      );
+      return <MediaTypeBadge type="video" size="sm" variant="filled" />;
+    }
+    if (file.file_type.startsWith("audio/")) {
+      return <MediaTypeBadge type="audio" size="sm" variant="filled" />;
     }
     if (file.file_type === "application/pdf") {
       return (
@@ -200,6 +207,19 @@ export default function FileDetailModal({
             >
               Your browser does not support the video tag.
             </video>
+          ) : file.file_type.startsWith("audio/") ? (
+            <audio
+              src={file.file_path}
+              style={{
+                width: "100%",
+                maxHeight: "60vh",
+                borderRadius: "8px",
+              }}
+              controls
+              preload="metadata"
+            >
+              Your browser does not support the audio element.
+            </audio>
           ) : (
             <Center
               h={400}
@@ -246,13 +266,7 @@ export default function FileDetailModal({
                 <FileShare
                   fileUrl={file.file_path}
                   fileName={file.file_name}
-                  fileType={
-                    file.file_type.startsWith("image/")
-                      ? "image"
-                      : file.file_type.startsWith("video/")
-                        ? "video"
-                        : "other"
-                  }
+                  fileType={resolveFileShareType(file.file_type)}
                   variant="icon"
                   size="lg"
                 />

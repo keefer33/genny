@@ -25,8 +25,13 @@ export function HistoryPreviewWithBadge({
   showViewButton?: boolean;
   onViewClick?: () => void;
 }) {
-  const mediaKind = playgroundRunBadgeLabelFromUrl(url);
-  const isVideo = mediaKind === "Video";
+  const mediaKindFromUrl = playgroundRunBadgeLabelFromUrl(url);
+  const badgeLower = badgeLabel.trim().toLowerCase();
+  const isImageLikeUrl = mediaKindFromUrl === "Image" || mediaKindFromUrl === "GIF";
+  const isVideo =
+    mediaKindFromUrl === "Video" || (badgeLower === "video" && !isImageLikeUrl);
+  const isAudio =
+    mediaKindFromUrl === "Audio" || (badgeLower === "audio" && !isImageLikeUrl);
   const isClickable = Boolean(showViewButton && fileId && onViewClick);
 
   return (
@@ -57,6 +62,31 @@ export function HistoryPreviewWithBadge({
             verticalAlign: "top",
           }}
         />
+      ) : isAudio ? (
+        <Box
+          h={RUN_HISTORY_THUMB_H}
+          w="100%"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+          p="xs"
+        >
+          <audio
+            src={url}
+            controls
+            preload="metadata"
+            aria-label="Audio preview"
+            onClick={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+            style={{
+              width: "100%",
+              maxWidth: "100%",
+              height: 40,
+            }}
+          />
+        </Box>
       ) : (
         <Image src={url} alt="" h={RUN_HISTORY_THUMB_H} w="100%" fit="cover" />
       )}

@@ -25,7 +25,7 @@ import {
 interface FileShareProps {
   fileUrl: string;
   fileName: string;
-  fileType?: "image" | "video" | "other";
+  fileType?: "image" | "video" | "audio" | "other";
   variant?: "button" | "icon";
   size?: "sm" | "md" | "lg";
 }
@@ -38,7 +38,9 @@ export default function FileShare({
   size = "lg",
 }: FileShareProps) {
   const [opened, { open, close }] = useDisclosure(false);
-  const shareText = `Check out this ${fileType === "image" ? "image" : fileType === "video" ? "video" : "file"}: ${fileName}`;
+  const shareText = `Check out this ${
+    fileType === "image" ? "image" : fileType === "video" ? "video" : fileType === "audio" ? "audio" : "file"
+  }: ${fileName}`;
 
   // Check if Web Share API is available
   const canUseNativeShare = typeof navigator !== "undefined" && "share" in navigator;
@@ -56,8 +58,8 @@ export default function FileShare({
         url: fileUrl,
       };
 
-      // For images/videos, try to share the file itself if possible
-      if (fileType === "image" || fileType === "video") {
+      // For media files, try to share the file itself if possible
+      if (fileType === "image" || fileType === "video" || fileType === "audio") {
         try {
           const response = await fetch(fileUrl);
           const blob = await response.blob();
@@ -155,7 +157,15 @@ export default function FileShare({
       <Modal opened={opened} onClose={close} title="Share File" size="md">
         <Stack gap="md">
           <Text size="sm" c="dimmed">
-            Share this {fileType === "image" ? "image" : fileType === "video" ? "video" : "file"} on
+            Share this{" "}
+            {fileType === "image"
+              ? "image"
+              : fileType === "video"
+                ? "video"
+                : fileType === "audio"
+                  ? "audio"
+                  : "file"}{" "}
+            on
             social media or copy the link
           </Text>
 

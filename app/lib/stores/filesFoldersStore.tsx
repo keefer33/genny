@@ -52,7 +52,7 @@ interface FilesFoldersState {
   error: string | null;
   selectedTags: string[];
   selectedUploadType: string | null;
-  fileTypeFilter: "images" | "videos" | "all";
+  fileTypeFilter: "images" | "videos" | "audio" | "all";
 
   // Actions
   setFiles: (files: FileData[]) => void;
@@ -63,7 +63,7 @@ interface FilesFoldersState {
   setError: (error: string | null) => void;
   setSelectedTags: (tags: string[]) => void;
   setSelectedUploadType: (uploadType: string | null) => void;
-  setFileTypeFilter: (filter: "images" | "videos" | "all") => void;
+  setFileTypeFilter: (filter: "images" | "videos" | "audio" | "all") => void;
   resetFilters: () => void;
 
   // Getters
@@ -75,7 +75,7 @@ interface FilesFoldersState {
   getError: () => string | null;
   getSelectedTags: () => string[];
   getSelectedUploadType: () => string | null;
-  getFileTypeFilter: () => "images" | "videos" | "all";
+  getFileTypeFilter: () => "images" | "videos" | "audio" | "all";
   getFilteredFiles: (files?: FileData[]) => FileData[];
   // File operations
   uploadFile: (file: File, userId: string) => Promise<boolean>;
@@ -173,6 +173,10 @@ const useFilesFoldersStoreBase = create<FilesFoldersState>((set, get) => ({
 
       if (fileTypeFilter === "videos") {
         return normalizedFileType.startsWith("video/");
+      }
+
+      if (fileTypeFilter === "audio") {
+        return normalizedFileType.startsWith("audio/");
       }
 
       return true;

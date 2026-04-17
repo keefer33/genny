@@ -1,6 +1,7 @@
-import { Card, SimpleGrid, Stack, Image, Box, Group, Text, Badge, ThemeIcon } from "@mantine/core";
-import { RiImageLine, RiVideoLine, RiFileLine } from "@remixicon/react";
+import { Card, SimpleGrid, Stack, Image, Box, Group, Text, ThemeIcon } from "@mantine/core";
+import { RiFileLine, RiImageLine, RiMusic2Line, RiVideoLine } from "@remixicon/react";
 import type { FileData } from "~/lib/stores/filesFoldersStore";
+import { MediaTypeBadge } from "~/shared/MediaTypeBadge";
 
 interface FileGridProps {
   files: FileData[];
@@ -17,6 +18,9 @@ const getFileIcon = (fileType: string) => {
   if (fileType.startsWith("video/")) {
     return <RiVideoLine size={20} />;
   }
+  if (fileType.startsWith("audio/")) {
+    return <RiMusic2Line size={20} />;
+  }
   return <RiFileLine size={20} />;
 };
 
@@ -26,6 +30,9 @@ const getFileTypeColor = (fileType: string) => {
   }
   if (fileType.startsWith("video/")) {
     return "purple";
+  }
+  if (fileType.startsWith("audio/")) {
+    return "cyan";
   }
   return "gray";
 };
@@ -124,6 +131,17 @@ export function FileGrid({
                       preload="metadata"
                     />
                   )
+                ) : file.file_type.startsWith("audio/") ? (
+                  <audio
+                    src={file.file_path}
+                    style={{
+                      width: "100%",
+                      maxWidth: "100%",
+                      height: "36px",
+                    }}
+                    controls
+                    preload="metadata"
+                  />
                 ) : (
                   <ThemeIcon size="xl" color={getFileTypeColor(file.file_type)} variant="light">
                     {getFileIcon(file.file_type)}
@@ -138,14 +156,13 @@ export function FileGrid({
                 {file.file_name}
               </Text>
               <Group justify="space-between" align="center">
-                <Badge
+                <MediaTypeBadge
+                  type={file.file_type}
                   size="xs"
-                  color={getFileTypeColor(file.file_type)}
                   variant="light"
-                  leftSection={getFileIcon(file.file_type)}
-                >
-                  {file.file_type.split("/")[0]}
-                </Badge>
+                  unknownColor={getFileTypeColor(file.file_type)}
+                  unknownLabel={file.file_type.split("/")[0]}
+                />
                 <Text size="xs" c="dimmed">
                   {formatFileSize(file.file_size)}
                 </Text>

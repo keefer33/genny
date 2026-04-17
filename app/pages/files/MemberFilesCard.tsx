@@ -25,6 +25,7 @@ import useFilesFoldersStore from "~/lib/stores/filesFoldersStore";
 import { getFileExtension, isTextFile } from "~/lib/utils";
 import useAppStore from "~/lib/stores/appStore";
 import FileDetailModal, { FileCardViewDetailsButton } from "~/shared/FileDetailModal";
+import { MediaTypeBadge } from "~/shared/MediaTypeBadge";
 
 interface UserTag {
   id: string;
@@ -198,18 +199,13 @@ export default function MemberFilesCard({
   const getFileTypeBadge = () => {
     const ext = getFileExtension(currentFile.file_name);
     if (currentFile.file_type.startsWith("image/")) {
-      return (
-        <Badge color="green" size="sm">
-          Image
-        </Badge>
-      );
+      return <MediaTypeBadge type="image" size="sm" variant="filled" />;
     }
     if (currentFile.file_type.startsWith("video/")) {
-      return (
-        <Badge color="orange" size="sm">
-          Video
-        </Badge>
-      );
+      return <MediaTypeBadge type="video" size="sm" variant="filled" />;
+    }
+    if (currentFile.file_type.startsWith("audio/")) {
+      return <MediaTypeBadge type="audio" size="sm" variant="filled" />;
     }
     if (currentFile.file_type === "application/pdf") {
       return (
