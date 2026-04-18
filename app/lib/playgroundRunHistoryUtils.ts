@@ -55,16 +55,6 @@ export function normalizeRunHistoryItem(item: PlaygroundRunHistoryItem): Playgro
   return { ...item, preview_urls: urls, preview_file_types, preview_files };
 }
 
-function fileNameFromPreviewUrl(url: string): string {
-  try {
-    const seg = new URL(url).pathname.split("/").filter(Boolean).pop() ?? "";
-    return seg || "file";
-  } catch {
-    const seg = url.split("?")[0].split("/").filter(Boolean).pop() ?? "";
-    return seg || "file";
-  }
-}
-
 export const PLAYGROUND_RUN_IN_FLIGHT_STATUSES = new Set(["pending", "processing"]);
 
 export function isPlaygroundRunHistoryInFlight(status: string | null | undefined): boolean {
