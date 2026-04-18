@@ -1,12 +1,23 @@
 import type { PlaygroundRunHistoryItem } from "~/types/playground";
 
+/** `gen_models.brand_name` is a string on catalog rows; run-history embeds `brands` as `{ name, logo }`. */
+function brandLabelFromGenModel(m: { brand_name?: unknown }): string {
+  const b = m.brand_name;
+  if (typeof b === "string") return b.trim();
+  if (b && typeof b === "object" && b !== null && "name" in b) {
+    const n = (b as { name?: unknown }).name;
+    return typeof n === "string" ? n.trim() : "";
+  }
+  return "";
+}
+
 /** Display label for playground gen_models: brand, product, variant (matches routing identity). */
 export function formatPlaygroundGenModelDisplayName(m: {
-  brand_name?: string | null;
+  brand_name?: string | null | { name?: string | null } | null;
   model_product?: string | null;
   model_variant?: string | null;
 }): string {
-  const parts = [m.brand_name, m.model_product, m.model_variant]
+  const parts = [brandLabelFromGenModel(m), m.model_product, m.model_variant]
     .map((s) => (typeof s === "string" ? s.trim() : ""))
     .filter(Boolean);
   return parts.join(" / ") || "—";
@@ -62,7 +73,7 @@ export function isPlaygroundRunHistoryInFlight(status: string | null | undefined
 
 export function runHistoryModelLabel(row: {
   gen_models: {
-    brand_name: string | null;
+    brand_name?: string | null | { name?: string | null } | null;
     model_product: string | null;
     model_variant: string | null;
   } | null;
