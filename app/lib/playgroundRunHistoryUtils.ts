@@ -152,7 +152,7 @@ export function normalizeRunHistoryItem(item: PlaygroundRunHistoryItem): Playgro
   return { ...item, thumbnail_url, preview_urls: urls, preview_file_types, preview_files };
 }
 
-export const PLAYGROUND_RUN_IN_FLIGHT_STATUSES = new Set(["pending", "processing", "finalizing"]);
+export const PLAYGROUND_RUN_IN_FLIGHT_STATUSES = new Set(["pending", "processing"]);
 
 export function isPlaygroundRunHistoryInFlight(status: string | null | undefined): boolean {
   return PLAYGROUND_RUN_IN_FLIGHT_STATUSES.has((status ?? "").toLowerCase().trim());
