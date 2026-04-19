@@ -10,7 +10,7 @@ import { RiAiGenerate2 } from "@remixicon/react";
 import type { PlaygroundItem } from "~/types/playground";
 
 function playgroundRunPath(item: PlaygroundItem): string | null {
-  const brand = (item.brands.slug ?? item.brand_name ?? "").trim();
+  const brand = item.brand_name?.slug ?? "";
   const product = (item.model_product ?? "").trim();
   const variant = (item.model_variant ?? "").trim();
   if (!brand || !product || !variant) return null;

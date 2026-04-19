@@ -234,15 +234,15 @@ export default function PlayGroundRunForm() {
   } = usePlaygroundStore();
 
   const functionSchema = useMemo(
-    () => parseFunctionSchema(selectedModel?.function_schema),
-    [selectedModel?.function_schema]
+    () => parseFunctionSchema(selectedModel?.gen_models_apis?.function_schema),
+    [selectedModel?.gen_models_apis?.function_schema]
   );
 
   const form = useForm({
     initialValues: {} as Record<string, unknown>,
     validate: (values) => {
       const errors: Record<string, string> = {};
-      const fs = parseFunctionSchema(selectedModel?.function_schema);
+      const fs = parseFunctionSchema(selectedModel?.gen_models_apis?.function_schema);
       if (!fs?.properties) return errors;
       const required = fs.required ?? [];
       for (const key of required) {
@@ -270,7 +270,7 @@ export default function PlayGroundRunForm() {
   });
 
   useEffect(() => {
-    const fs = parseFunctionSchema(selectedModel?.function_schema);
+    const fs = parseFunctionSchema(selectedModel?.gen_models_apis?.function_schema);
     const nextValues = fs?.properties ? buildInitialValues(fs) : {};
 
     // `initialize` only applies once per form instance in Mantine.
@@ -282,7 +282,7 @@ export default function PlayGroundRunForm() {
     if (!fs?.properties) {
       return;
     }
-  }, [selectedModel?.id, selectedModel?.function_schema]);
+  }, [selectedModel?.id, selectedModel?.gen_models_apis?.function_schema]);
 
   useEffect(() => {
     if (!selectedModel?.id) return;

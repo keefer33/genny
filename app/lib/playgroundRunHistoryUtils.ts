@@ -11,6 +11,70 @@ function brandLabelFromGenModel(m: { brand_name?: unknown }): string {
   return "";
 }
 
+/** Brand line only (for cards); catalog string or `{ name }` embed. */
+export function brandTextFromGenModel(m: { brand_name?: unknown } | null | undefined): string {
+  if (!m) return "—";
+  return brandLabelFromGenModel(m) || "—";
+}
+
+export function brandLogoFromGenModel(
+  m: { brand_name?: unknown } | null | undefined
+): string | null {
+  if (!m) return null;
+  const b = m.brand_name;
+  if (b && typeof b === "object" && b !== null && "logo" in b) {
+    const logo = (b as { logo?: unknown }).logo;
+    return typeof logo === "string" && logo.trim() ? logo.trim() : null;
+  }
+  return null;
+}
+
+/** Catalog row id or embedded `gen_model_id.id` for filters and maps. */
+export function genModelCatalogIdFromRunRow(
+  row: Pick<PlaygroundRunHistoryItem, "gen_model_id">
+): string {
+  const g = row.gen_model_id;
+  if (g == null) return "";
+  if (typeof g === "string") return g.trim();
+  if (typeof g === "object" && g !== null && "id" in g) {
+    const id = (g as { id: unknown }).id;
+    return typeof id === "string" ? id.trim() : "";
+  }
+  return "";
+}
+
+/** Prefer embedded `gen_model_id` object; fall back to legacy `gen_models`. */
+export function genModelDisplayEmbedFromRunRow(
+  row: Pick<PlaygroundRunHistoryItem, "gen_model_id" | "gen_models">
+): {
+  brand_name?: unknown;
+  model_product?: string | null;
+  model_variant?: string | null;
+  generation_type?: string | null;
+} | null {
+  const g = row.gen_model_id;
+  if (g && typeof g === "object" && !Array.isArray(g) && "id" in g) {
+    return g as {
+      brand_name?: unknown;
+      model_product?: string | null;
+      model_variant?: string | null;
+      generation_type?: string | null;
+    };
+  }
+  const raw = row.gen_models;
+  if (raw == null) return null;
+  const m = Array.isArray(raw) ? raw[0] : raw;
+  if (m && typeof m === "object") {
+    return m as {
+      brand_name?: unknown;
+      model_product?: string | null;
+      model_variant?: string | null;
+      generation_type?: string | null;
+    };
+  }
+  return null;
+}
+
 /** Display label for playground gen_models: brand, product, variant (matches routing identity). */
 export function formatPlaygroundGenModelDisplayName(m: {
   brand_name?: string | null | { name?: string | null } | null;
@@ -39,9 +103,36 @@ export function playgroundRunBadgeLabelFromUrl(url: string): string {
 }
 
 export function normalizeRunHistoryItem(item: PlaygroundRunHistoryItem): PlaygroundRunHistoryItem {
-  const urls = item.preview_urls ?? [];
-  const types = item.preview_file_types ?? [];
-  const files = item.preview_files ?? [];
+  const userFiles = item.user_files ?? [];
+  let urls = item.preview_urls ?? [];
+  let types = item.preview_file_types ?? [];
+  let files = item.preview_files ?? [];
+
+  if (urls.length === 0 && userFiles.length > 0) {
+    const paired = userFiles
+      .map((u) => {
+        const path = (u.file_path ?? "").trim();
+        if (!path) return null;
+        const mime = u.file_type?.trim().toLowerCase();
+        let badge: string;
+        if (mime?.startsWith("video/")) badge = "Video";
+        else if (mime?.startsWith("audio/")) badge = "Audio";
+        else if (mime?.startsWith("image/")) badge = "Image";
+        else badge = playgroundRunBadgeLabelFromUrl(path);
+        const id = String(u.id ?? "").trim();
+        if (!id) return null;
+        return {
+          url: path,
+          badge,
+          file: { id, file_name: (u.file_name ?? "").trim() || "file" },
+        };
+      })
+      .filter((x): x is NonNullable<typeof x> => x !== null);
+    urls = paired.map((p) => p.url);
+    types = paired.map((p) => p.badge);
+    files = paired.map((p) => p.file);
+  }
+
   const preview_file_types =
     types.length === urls.length
       ? types
@@ -52,24 +143,25 @@ export function normalizeRunHistoryItem(item: PlaygroundRunHistoryItem): Playgro
       : urls
           .map((_, i) => files[i])
           .filter((f): f is { id: string; file_name: string } => Boolean(f?.id));
-  return { ...item, preview_urls: urls, preview_file_types, preview_files };
+
+  const thumbFromUser = userFiles
+    .find((u) => (u.thumbnail_url ?? "").trim())
+    ?.thumbnail_url?.trim();
+  const thumbnail_url = item.thumbnail_url?.trim() || thumbFromUser || null;
+
+  return { ...item, thumbnail_url, preview_urls: urls, preview_file_types, preview_files };
 }
 
-export const PLAYGROUND_RUN_IN_FLIGHT_STATUSES = new Set(["pending", "processing"]);
+export const PLAYGROUND_RUN_IN_FLIGHT_STATUSES = new Set(["pending", "processing", "finalizing"]);
 
 export function isPlaygroundRunHistoryInFlight(status: string | null | undefined): boolean {
   return PLAYGROUND_RUN_IN_FLIGHT_STATUSES.has((status ?? "").toLowerCase().trim());
 }
 
-export function runHistoryModelLabel(row: {
-  gen_models: {
-    brand_name?: string | null | { name?: string | null } | null;
-    model_product: string | null;
-    model_variant: string | null;
-  } | null;
-}): string {
-  const raw = row.gen_models;
-  const m = Array.isArray(raw) ? raw[0] : raw;
+export function runHistoryModelLabel(
+  row: Pick<PlaygroundRunHistoryItem, "gen_model_id" | "gen_models">
+): string {
+  const m = genModelDisplayEmbedFromRunRow(row);
   if (!m) return "—";
   return formatPlaygroundGenModelDisplayName(m);
 }
