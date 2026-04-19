@@ -30,7 +30,10 @@ import {
 } from "@remixicon/react";
 
 import Mounted from "~/shared/Mounted";
-import { runHistoryModelLabel } from "~/lib/playgroundRunHistoryUtils";
+import {
+  genModelDisplayEmbedFromRunRow,
+  runHistoryModelLabel,
+} from "~/lib/playgroundRunHistoryUtils";
 import useAppStore from "~/lib/stores/appStore";
 import { useChatsStore } from "~/lib/stores/chatsStore";
 import usePlaygroundStore from "~/lib/stores/playgroundStore";
@@ -469,7 +472,7 @@ export default function Dashboard() {
                     <Group key={gen.id} justify="space-between" align="center">
                       <Group gap="sm" align="center" wrap="nowrap">
                         <ThemeIcon size={34} radius="md" variant="light" color="cyan">
-                          {gen.gen_models?.generation_type === "video" ? (
+                          {genModelDisplayEmbedFromRunRow(gen)?.generation_type === "video" ? (
                             <RiVideoLine size={30} />
                           ) : (
                             <RiImageLine size={18} />

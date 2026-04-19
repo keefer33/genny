@@ -1,24 +1,32 @@
 import type { ReactNode } from "react";
 
+export type PlaygroundGenModelsApisEmbed = {
+  id?: number | string | null;
+  api_schema?: unknown;
+  vendor_apis?: unknown;
+  model_pricing?: unknown;
+  function_schema?: unknown;
+};
+
 export type PlaygroundItem = {
   id: string;
-  brands: {
-    slug: string | null;
+  brand_name?: {
+    id?: string | null;
+    slug?: string | null;
     name: string | null;
     logo: string | null;
-    sort_order?: number | null;
-  };
+    sort_order: number | null;
+  } | null;
   model_id: string | null;
   model_name: string | null;
   model_description: string | null;
   model_type: string | null;
   generation_type?: string | null;
-  brand_name: string | null;
   model_product?: string | null;
   model_variant?: string | null;
   sort_order: number | null;
-  /** JSON Schema–like object for playground run inputs (from gen_models.function_schema). */
-  function_schema?: unknown;
+  gen_models_apis_id?: number | string | null;
+  gen_models_apis?: PlaygroundGenModelsApisEmbed | null;
 };
 
 export type PlaygroundSearchFilters = {
@@ -49,28 +57,46 @@ export type PlaygroundRecentModelsResponse = {
 export type PlaygroundRunResponse = unknown;
 export type PlaygroundCostResponse = { cost?: number };
 
+/** Embedded gen model on a run row (`gen_model_id` object from API). */
+export type PlaygroundRunHistoryGenModelEmbed = {
+  id: string;
+  model_id?: string | null;
+  model_name?: string | null;
+  /** image | video | … from catalog */
+  generation_type?: string | null;
+  brand_name?:
+    | string
+    | null
+    | { name?: string | null; logo?: string | null; slug?: string | null }
+    | null;
+  model_product?: string | null;
+  model_variant?: string | null;
+};
+
 export type PlaygroundRunHistoryItem = {
   id: string;
   created_at: string;
   user_id: string;
-  gen_model_id: string | null;
+  gen_model_id: string | PlaygroundRunHistoryGenModelEmbed | null;
   status: string | null;
   task_id: string | null;
   cost: number | null;
   duration: number | null;
-  gen_models: {
-    generation_type: string | null;
-    model_name: string | null;
-    model_id: string | null;
-    brand_name: any | null;
-    model_product: string | null;
-    model_variant: string | null;
-  } | null;
+  /** Legacy flat embed; newer payloads may only nest under `gen_model_id`. */
+  gen_models?: PlaygroundRunHistoryGenModelEmbed | PlaygroundRunHistoryGenModelEmbed[] | null;
   thumbnail_url: string | null;
   preview_urls: string[];
   /** Same length as `preview_urls` — short labels for file-type badges. */
   preview_file_types: string[];
   preview_files: Array<{ id: string; file_name: string }>;
+  /** When present, used to build previews if `preview_urls` is empty. */
+  user_files?: Array<{
+    id: string;
+    file_path?: string | null;
+    file_type?: string | null;
+    file_name?: string | null;
+    thumbnail_url?: string | null;
+  }>;
 };
 
 export type PlaygroundRunHistoryResponse = {
@@ -84,13 +110,18 @@ export type PlaygroundRunByIdResponse = {
   item: PlaygroundRunHistoryItem;
 };
 
+export type PlaygroundRunHistoryModelsCatalogItem = {
+  id: string;
+  model_id?: string | null;
+  model_name?: string | null;
+  brand_name: string | null | { name?: string | null; logo?: string | null; slug?: string | null };
+  model_product?: string | null;
+  model_variant?: string | null;
+};
+
 export type PlaygroundRunHistoryModelsResponse = {
-  items: Array<{
-    id: string;
-    brand_name: string | null;
-    model_product: string | null;
-    model_variant: string | null;
-  }>;
+  items: PlaygroundRunHistoryModelsCatalogItem[];
+  total?: number;
 };
 
 export type PlaygroundRunHistoryFilterModelOption = { id: string; name: string };

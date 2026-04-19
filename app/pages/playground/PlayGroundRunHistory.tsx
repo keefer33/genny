@@ -26,7 +26,11 @@ import useFilesFoldersStore from "~/lib/stores/filesFoldersStore";
 import usePlaygroundStore from "~/lib/stores/playgroundStore";
 import useTagStore from "~/lib/stores/tagStore";
 import {
+  brandLogoFromGenModel,
+  brandTextFromGenModel,
   formatPlaygroundGenModelDisplayName,
+  genModelCatalogIdFromRunRow,
+  genModelDisplayEmbedFromRunRow,
   isPlaygroundRunHistoryInFlight,
   runHistoryModelLabel,
   runHistoryPreviewBadgeLabel,
@@ -90,11 +94,10 @@ export default function PlayGroundRunHistory() {
       byId.set(m.id, m.name);
     }
     for (const row of runHistory) {
-      const gid = row.gen_model_id?.trim();
+      const gid = genModelCatalogIdFromRunRow(row);
       if (!gid || byId.has(gid)) continue;
-      const raw = row.gen_models;
-      const gm = Array.isArray(raw) ? raw[0] : raw;
-      if (gm && typeof gm === "object") {
+      const gm = genModelDisplayEmbedFromRunRow(row);
+      if (gm) {
         byId.set(gid, formatPlaygroundGenModelDisplayName(gm));
       }
     }
@@ -404,6 +407,7 @@ export default function PlayGroundRunHistory() {
           ) : (
             <SimpleGrid cols={{ base: 1, "600px": 2, "900px": 3 }} spacing="xl" type="container">
               {runHistory.map((row) => {
+                const gmRow = genModelDisplayEmbedFromRunRow(row);
                 const inFlight = isPlaygroundRunHistoryInFlight(row.status);
                 const showLoadingThumb = inFlight && row.preview_urls.length === 0;
                 const singlePf = row.preview_files[0];
@@ -510,9 +514,13 @@ export default function PlayGroundRunHistory() {
                       <Stack gap={0}>
                         <Group justify="space-between" align="center">
                           <Group gap="xs">
-                            <Avatar src={row.gen_models?.brand_name?.logo} size="sm" radius="md" />
+                            <Avatar
+                              src={brandLogoFromGenModel(gmRow) ?? undefined}
+                              size="sm"
+                              radius="md"
+                            />
                             <Text size="lg" fw={800}>
-                              {row.gen_models?.brand_name?.name}
+                              {brandTextFromGenModel(gmRow)}
                             </Text>
                           </Group>
                           {row.cost != null ? (
@@ -526,10 +534,10 @@ export default function PlayGroundRunHistory() {
                         </Group>
 
                         <Text size="md" fw={600}>
-                          {row.gen_models?.model_product}
+                          {gmRow?.model_product ?? "—"}
                         </Text>
                         <Text size="sm" fw={600} c="dimmed">
-                          {row.gen_models?.model_variant}
+                          {gmRow?.model_variant ?? "—"}
                         </Text>
                       </Stack>
                       <Group gap="xs" justify="space-between" align="center">

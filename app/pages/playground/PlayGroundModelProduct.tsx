@@ -20,7 +20,7 @@ export default function PlayGroundModelProduct() {
   const filteredItems = useMemo(() => {
     if (!decodedBrand || !decodedProduct) return [];
     return items.filter((item) => {
-      const brand = (item.brands?.slug ?? "").trim();
+      const brand = item.brand_name?.slug ?? "";
       const product = (item.model_product ?? "").trim();
       return brand === decodedBrand && product === decodedProduct;
     });

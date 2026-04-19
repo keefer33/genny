@@ -208,6 +208,7 @@ const usePlaygroundStoreBase = create<PlaygroundStoreState>((set, get) => ({
     }
   },
   calculatePlaygroundRunCost: async (input) => {
+    console.log("input", input);
     set({ costLoading: true, costError: null });
     try {
       const data = await authFetchJson<PlaygroundCostResponse>(
@@ -236,7 +237,7 @@ const usePlaygroundStoreBase = create<PlaygroundStoreState>((set, get) => ({
     set((state) => ({
       selectedModel:
         state.items.find((item) => {
-          const brand = (item.brands?.slug ?? "").trim();
+          const brand = item.brand_name?.slug ?? "";
           const product = (item.model_product ?? "").trim();
           const variant = (item.model_variant ?? "").trim();
           return brand === brand_slug && product === model_product && variant === model_variant;

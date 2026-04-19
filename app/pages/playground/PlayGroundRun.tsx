@@ -33,7 +33,7 @@ export default function PlayGroundRun() {
   /** Avoid refetching when only `model_variant` changes (same brand + product). */
   const loadedProductKeyRef = useRef<string | null>(null);
 
-  const brandSegForSiblings = (selectedModel?.brands?.slug ?? "").trim();
+  const brandSegForSiblings = selectedModel ? (selectedModel.brand_name?.slug ?? "") : "";
   const productSegForSiblings = (selectedModel?.model_product ?? "").trim();
 
   const siblingVariants = useMemo(() => {
@@ -41,7 +41,7 @@ export default function PlayGroundRun() {
     return items
       .filter(
         (item) =>
-          (item.brands?.slug ?? "").trim() === brandSegForSiblings &&
+          item.brand_name?.slug === brandSegForSiblings &&
           (item.model_product ?? "").trim() === productSegForSiblings
       )
       .sort(sortPlaygroundItemsByVariant);
@@ -51,7 +51,7 @@ export default function PlayGroundRun() {
   const routeProduct = decodeURIComponent(model_product).trim();
   const routeVariant = decodeURIComponent(model_variant).trim();
 
-  const brandSegment = selectedModel ? (selectedModel.brands?.slug ?? "").trim() : routeBrand;
+  const brandSegment = selectedModel ? (selectedModel.brand_name?.slug ?? "") : routeBrand;
   const productSegment = (selectedModel?.model_product ?? routeProduct).trim();
   const variantSegment = (selectedModel?.model_variant ?? routeVariant).trim();
 
@@ -146,7 +146,7 @@ export default function PlayGroundRun() {
                 if (!id) return;
                 const item = siblingVariants.find((i) => i.id === id);
                 if (!item) return;
-                const b = (item.brands?.slug ?? "").trim();
+                const b = item.brand_name?.slug ?? "";
                 const p = (item.model_product ?? "").trim();
                 const v = (item.model_variant ?? "").trim();
                 if (!b || !p || !v) return;

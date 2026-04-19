@@ -32,20 +32,24 @@ export function PlayGroundModelBrowser({
   const [typeFilters, setTypeFilters] = useState<string[]>([]);
   const [filtersOpened, { open: openFilters, close: closeFilters }] = useDisclosure(false);
   const { searchPlayground, items, loading, error } = usePlaygroundStore();
-
   useEffect(() => {
     if (!fetchOnMount) return;
     /** Do not toggle global `loading` — it unmounts `PlayGroundRunForm` behind the switcher modal. */
     void searchPlayground(undefined, { silent: true });
   }, [fetchOnMount, searchPlayground]);
 
-  const brandOptions = useMemo(
-    () =>
-      Array.from(new Set(items.map((i) => i.brand_name || "").filter(Boolean))).sort((a, b) =>
-        a.localeCompare(b)
-      ),
-    [items]
-  );
+  /** Slug → display label for filter chips (API uses object `brand_name`). */
+  const brandSlugLabelPairs = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const i of items) {
+      const slug = i.brand_name?.slug ?? "";
+      if (!slug) continue;
+      if (!map.has(slug)) {
+        map.set(slug, i.brand_name?.name ?? slug);
+      }
+    }
+    return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+  }, [items]);
   const typeOptions = useMemo(
     () =>
       Array.from(new Set(items.map((i) => i.model_type || "").filter(Boolean))).sort((a, b) =>
@@ -55,8 +59,8 @@ export function PlayGroundModelBrowser({
   );
 
   const brandSelectData = useMemo(
-    () => brandOptions.map((b) => ({ value: b, label: b })),
-    [brandOptions]
+    () => brandSlugLabelPairs.map(([value, label]) => ({ value, label })),
+    [brandSlugLabelPairs]
   );
   const typeSelectData = useMemo(
     () => typeOptions.map((t) => ({ value: t, label: t })),
@@ -70,11 +74,13 @@ export function PlayGroundModelBrowser({
     const brandSet = new Set(brandFilters);
     const typeSet = new Set(typeFilters);
     return items.filter((item) => {
-      const brand = item.brand_name || "";
-      if (brandSet.size > 0 && !brandSet.has(brand)) return false;
+      const brandSlug = item.brand_name?.slug ?? "";
+      if (brandSet.size > 0 && !brandSet.has(brandSlug)) return false;
       if (typeSet.size > 0 && (!item.model_type || !typeSet.has(item.model_type))) return false;
       if (!q) return true;
-      return [item.model_name, item.model_id, item.model_type, brand]
+      const brandName = item.brand_name?.name ?? "";
+      return [item.model_name, item.model_id, item.model_type, brandSlug, brandName]
+        .filter(Boolean)
         .join(" ")
         .toLowerCase()
         .includes(q);

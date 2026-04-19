@@ -6,7 +6,7 @@ import { MediaTypeBadge } from "~/shared/MediaTypeBadge";
 import type { BrandGroup, PlaygroundItem } from "~/types/playground";
 
 function routeBrandKey(item: PlaygroundItem): string {
-  return (item.brands?.slug ?? item.brand_name ?? "").trim();
+  return item.brand_name?.slug ?? "";
 }
 
 function productKey(item: PlaygroundItem): string {
@@ -38,8 +38,16 @@ function groupItemsByBrandThenProduct(items: PlaygroundItem[]): BrandGroup[] {
     if (b === "\0") return -1;
     const aItems = byBrand.get(a) ?? [];
     const bItems = byBrand.get(b) ?? [];
-    const aSort = aItems[0]?.brands?.sort_order;
-    const bSort = bItems[0]?.brands?.sort_order;
+    const aBrand = aItems[0]?.brand_name;
+    const bBrand = bItems[0]?.brand_name;
+    const aSort =
+      aBrand && typeof aBrand === "object" && "sort_order" in aBrand
+        ? aBrand.sort_order
+        : undefined;
+    const bSort =
+      bBrand && typeof bBrand === "object" && "sort_order" in bBrand
+        ? bBrand.sort_order
+        : undefined;
     if (aSort != null && bSort != null && aSort !== bSort) return aSort - bSort;
     if (aSort != null && bSort == null) return -1;
     if (aSort == null && bSort != null) return 1;
@@ -50,8 +58,8 @@ function groupItemsByBrandThenProduct(items: PlaygroundItem[]): BrandGroup[] {
   for (const bk of brandKeys) {
     const brandItems = byBrand.get(bk)!;
     const first = brandItems[0];
-    const brandLabel = first.brand_name || "Unknown";
-    const brandLogo = first.brands?.logo;
+    const brandLabel = first.brand_name?.name ?? "Unknown";
+    const brandLogo = first.brand_name?.logo ?? null;
 
     const byProduct = new Map<string, PlaygroundItem[]>();
     for (const item of brandItems) {
@@ -114,9 +122,7 @@ export default function PlayGroundModelGrid({
 }) {
   const navigate = useNavigate();
   const { setSelectedModel } = usePlaygroundStore();
-
   const grouped = useMemo(() => groupItemsByBrandThenProduct(items), [items]);
-
   const go = (path: string, item: PlaygroundItem) => {
     setSelectedModel(item);
     navigate(path);
