@@ -63,12 +63,11 @@ export function AspectRatioPicker({
             <Button
               key={`${fieldName}-${ratio.label}`}
               type="button"
-              variant={isSelected ? "filled" : "light"}
-              color={isSelected ? "blue" : "gray"}
+              bd={0}
+              variant={isSelected ? "filled" : "default"}
               onClick={() => form.setFieldValue(fieldName, ratio.label)}
               disabled={readOnly}
-              p={2}
-              h="auto"
+              p={3}
               size="xs"
             >
               <Group gap={6} wrap="nowrap">

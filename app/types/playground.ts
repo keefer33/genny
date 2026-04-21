@@ -144,6 +144,8 @@ export interface PlaygroundStoreState {
   runHistoryLoading: boolean;
   runHistoryError: string | null;
   runHistoryGenModelFilter: string | null;
+  runHistoryBrandFilters: string[];
+  runHistoryModelProductFilters: string[];
   runHistoryFileTypeFilter: "all" | "images" | "videos" | "audio";
   runHistoryTagIds: string[];
   /** Distinct models from the user's full run history (not route-scoped `items`). */
@@ -151,9 +153,20 @@ export interface PlaygroundStoreState {
   /** Recent playground models for this user (distinct gen_model_id by latest run). */
   recentPlaygroundModels: PlaygroundItem[];
   recentPlaygroundModelsLoading: boolean;
+  playgroundSearchQuery: string;
+  playgroundBrandFilters: string[];
+  playgroundTypeFilters: string[];
+  playgroundFiltersOpened: boolean;
+  setPlaygroundSearchQuery: (value: string) => void;
+  setPlaygroundBrandFilters: (values: string[]) => void;
+  setPlaygroundTypeFilters: (values: string[]) => void;
+  openPlaygroundFilters: () => void;
+  closePlaygroundFilters: () => void;
   selectedRunHistoryModelId: string | null;
   setSelectedRunHistoryModelId: (id: string | null) => void;
   setRunHistoryGenModelFilter: (id: string | null) => void;
+  setRunHistoryBrandFilters: (values: string[]) => void;
+  setRunHistoryModelProductFilters: (values: string[]) => void;
   setRunHistoryFileTypeFilter: (v: "all" | "images" | "videos" | "audio") => void;
   setRunHistoryTagIds: (ids: string[]) => void;
   fetchPlaygroundRunHistoryFilterModels: () => Promise<void>;
@@ -168,6 +181,8 @@ export interface PlaygroundStoreState {
     page?: number;
     limit?: number;
     gen_model_id?: string | null;
+    brands?: string[];
+    model_product?: string[];
     file_type_filter?: "all" | "images" | "videos" | "audio";
     tag_ids?: string[];
   }) => Promise<void>;
