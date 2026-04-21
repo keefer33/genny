@@ -1,4 +1,15 @@
-import { Avatar, Button, Card, Group, Stack, Text, Title, UnstyledButton } from "@mantine/core";
+import {
+  ActionIcon,
+  Avatar,
+  Card,
+  Group,
+  Menu,
+  Stack,
+  Text,
+  Title,
+  UnstyledButton,
+} from "@mantine/core";
+import { RiArrowDownSLine } from "@remixicon/react";
 import { useMemo } from "react";
 import { useNavigate } from "react-router";
 import usePlaygroundStore from "~/lib/stores/playgroundStore";
@@ -108,6 +119,99 @@ function groupItemsByBrandThenProduct(items: PlaygroundItem[]): BrandGroup[] {
   return result;
 }
 
+function runPathForItem(item: PlaygroundItem): string {
+  const brandParamItem = routeBrandKey(item);
+  const productParamItem = (item.model_product ?? "").trim();
+  const variantParam = (item.model_variant ?? "").trim();
+  const canBrandItem = Boolean(brandParamItem);
+  const canProductItem = canBrandItem && Boolean(productParamItem);
+  const canVariant = canProductItem && Boolean(variantParam);
+  return canVariant
+    ? `/playground/${encodeURIComponent(brandParamItem)}/${encodeURIComponent(
+        productParamItem
+      )}/${encodeURIComponent(variantParam)}`
+    : "";
+}
+
+function ProductVariantsRunMenu({
+  items,
+  onRun,
+}: {
+  items: PlaygroundItem[];
+  onRun: (path: string, item: PlaygroundItem) => void;
+}) {
+  return (
+    <Menu position="bottom-end" withinPortal>
+      <Menu.Target>
+        <ActionIcon bd={0} variant="default" size="md" aria-label="Open variant list">
+          <RiArrowDownSLine size={24} />
+        </ActionIcon>
+      </Menu.Target>
+      <Menu.Dropdown>
+        <Menu.Label>Variants</Menu.Label>
+        {items.map((item) => {
+          const runPath = runPathForItem(item);
+          const variantParam = (item.model_variant ?? "").trim();
+          return (
+            <Menu.Item
+              key={item.id}
+              disabled={!runPath}
+              onClick={() => {
+                if (!runPath) return;
+                onRun(runPath, item);
+              }}
+            >
+              {variantParam || "Unknown variant"}
+            </Menu.Item>
+          );
+        })}
+      </Menu.Dropdown>
+    </Menu>
+  );
+}
+
+function VariantItemCard({
+  item,
+  onRun,
+}: {
+  item: PlaygroundItem;
+  onRun: (path: string, item: PlaygroundItem) => void;
+}) {
+  const modelType = item.model_type || "unknown";
+  const variantParam = (item.model_variant ?? "").trim();
+  const runPath = runPathForItem(item);
+  const canVariant = Boolean(runPath);
+
+  const label = variantParam || "Unknown variant";
+
+  return (
+    <Card key={item.id} radius="md" p="xs" w="100%">
+      <UnstyledButton
+        disabled={!canVariant}
+        onClick={() => {
+          if (!runPath) return;
+          onRun(runPath, item);
+        }}
+        style={{
+          flex: 1,
+          minWidth: 0,
+          textAlign: "left",
+          cursor: canVariant ? "pointer" : "not-allowed",
+          opacity: canVariant ? 1 : 0.6,
+        }}
+        w="100%"
+      >
+        <Group justify="space-between" wrap="nowrap" gap="sm">
+          <Text size="md" lineClamp={2}>
+            {label}
+          </Text>
+          <MediaTypeBadge type={modelType} size="xs" variant="light" unknownLabel={modelType} />
+        </Group>
+      </UnstyledButton>
+    </Card>
+  );
+}
+
 export default function PlayGroundModelGrid({
   items,
   linkMode = "segments",
@@ -171,22 +275,26 @@ export default function PlayGroundModelGrid({
               const productNavItem = productGroup.items[0];
 
               return (
-                <Stack key={`${brandGroup.brandKey}::${productGroup.productKey}`} gap="xs" w="100%">
+                <Stack key={`${brandGroup.brandKey}::${productGroup.productKey}`} gap={0} w="100%">
                   {canProduct && productNavItem ? (
-                    <UnstyledButton
-                      onClick={() => {
-                        go(
-                          `/playground/${encodeURIComponent(brandParam)}/${encodeURIComponent(productParam)}`,
-                          productNavItem
-                        );
-                      }}
-                      style={{ cursor: "pointer", textAlign: "left", alignSelf: "flex-start" }}
-                      w="100%"
-                    >
-                      <Group align="center" w="100%" justify="space-between">
+                    <Group align="center" w="100%" justify="space-between">
+                      <UnstyledButton
+                        onClick={() => {
+                          go(
+                            `/playground/${encodeURIComponent(brandParam)}/${encodeURIComponent(productParam)}`,
+                            productNavItem
+                          );
+                        }}
+                        style={{ cursor: "pointer", textAlign: "left", alignSelf: "flex-start" }}
+                      >
                         <Text size="lg" fw={600}>
                           {productGroup.productLabel}
                         </Text>
+                      </UnstyledButton>
+                      <Group gap={6} wrap="nowrap">
+                        {linkMode === "run" ? (
+                          <ProductVariantsRunMenu items={productGroup.items} onRun={go} />
+                        ) : null}
                         {productGroup.generationType ? (
                           <MediaTypeBadge
                             type={productGroup.generationType}
@@ -196,12 +304,15 @@ export default function PlayGroundModelGrid({
                           />
                         ) : null}
                       </Group>
-                    </UnstyledButton>
+                    </Group>
                   ) : (
                     <Group align="center" w="100%">
                       <Text size="lg" fw={600}>
                         {productGroup.productLabel}
                       </Text>
+                      {linkMode === "run" ? (
+                        <ProductVariantsRunMenu items={productGroup.items} onRun={go} />
+                      ) : null}
                       {productGroup.generationType ? (
                         <MediaTypeBadge
                           type={productGroup.generationType}
@@ -213,70 +324,13 @@ export default function PlayGroundModelGrid({
                     </Group>
                   )}
 
-                  <Group gap="xs">
-                    {productGroup.items.map((item) => {
-                      const modelType = item.model_type || "unknown";
-                      const brandParamItem = routeBrandKey(item);
-                      const productParamItem = (item.model_product ?? "").trim();
-                      const variantParam = (item.model_variant ?? "").trim();
-                      const canBrandItem = Boolean(brandParamItem);
-                      const canProductItem = canBrandItem && Boolean(productParamItem);
-                      const canVariant = canProductItem && Boolean(variantParam);
-                      const runPath = canVariant
-                        ? `/playground/${encodeURIComponent(brandParamItem)}/${encodeURIComponent(
-                            productParamItem
-                          )}/${encodeURIComponent(variantParam)}`
-                        : "";
-
-                      if (linkMode === "run") {
-                        return (
-                          <Button
-                            size="compact-xs"
-                            variant="light"
-                            disabled={!canVariant}
-                            onClick={() => {
-                              if (!runPath) return;
-                              go(runPath, item);
-                            }}
-                          >
-                            {variantParam || "Unknown variant"}
-                          </Button>
-                        );
-                      }
-
-                      return (
-                        <Card key={item.id} radius="md" p="xs" w="100%">
-                          <UnstyledButton
-                            disabled={!canVariant}
-                            onClick={() => {
-                              if (!runPath) return;
-                              go(runPath, item);
-                            }}
-                            style={{
-                              flex: 1,
-                              minWidth: 0,
-                              textAlign: "left",
-                              cursor: canVariant ? "pointer" : "not-allowed",
-                              opacity: canVariant ? 1 : 0.6,
-                            }}
-                            w="100%"
-                          >
-                            <Group justify="space-between" wrap="nowrap" gap="sm">
-                              <Text size="md" lineClamp={2}>
-                                {variantParam || "Unknown variant"}
-                              </Text>
-                              <MediaTypeBadge
-                                type={modelType}
-                                size="xs"
-                                variant="light"
-                                unknownLabel={modelType}
-                              />
-                            </Group>
-                          </UnstyledButton>
-                        </Card>
-                      );
-                    })}
-                  </Group>
+                  {linkMode === "run" ? null : (
+                    <Group gap="xs">
+                      {productGroup.items.map((item) => {
+                        return <VariantItemCard key={item.id} item={item} onRun={go} />;
+                      })}
+                    </Group>
+                  )}
                 </Stack>
               );
             })}

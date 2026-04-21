@@ -54,16 +54,29 @@ const usePlaygroundStoreBase = create<PlaygroundStoreState>((set, get) => ({
   runHistoryLoading: false,
   runHistoryError: null,
   runHistoryGenModelFilter: null,
+  runHistoryBrandFilters: [],
+  runHistoryModelProductFilters: [],
   runHistoryFileTypeFilter: "all",
   runHistoryTagIds: [],
   runHistoryFilterModels: [],
   recentPlaygroundModels: [],
   recentPlaygroundModelsLoading: false,
+  playgroundSearchQuery: "",
+  playgroundBrandFilters: [],
+  playgroundTypeFilters: [],
+  playgroundFiltersOpened: false,
   selectedModel: null,
   selectedRunHistoryModelId: null,
+  setPlaygroundSearchQuery: (value) => set({ playgroundSearchQuery: value }),
+  setPlaygroundBrandFilters: (values) => set({ playgroundBrandFilters: values }),
+  setPlaygroundTypeFilters: (values) => set({ playgroundTypeFilters: values }),
+  openPlaygroundFilters: () => set({ playgroundFiltersOpened: true }),
+  closePlaygroundFilters: () => set({ playgroundFiltersOpened: false }),
   setSelectedRunHistoryModelId: (id) => set({ selectedRunHistoryModelId: id }),
   setLoading: (loading) => set({ loading }),
   setRunHistoryGenModelFilter: (id) => set({ runHistoryGenModelFilter: id }),
+  setRunHistoryBrandFilters: (values) => set({ runHistoryBrandFilters: values }),
+  setRunHistoryModelProductFilters: (values) => set({ runHistoryModelProductFilters: values }),
   setRunHistoryFileTypeFilter: (v) => set({ runHistoryFileTypeFilter: v }),
   setRunHistoryTagIds: (ids) => set({ runHistoryTagIds: ids }),
   fetchPlaygroundRunHistoryFilterModels: async () => {
@@ -103,6 +116,8 @@ const usePlaygroundStoreBase = create<PlaygroundStoreState>((set, get) => ({
       runHistoryPage: currentPage,
       runHistoryLimit: currentLimit,
       runHistoryGenModelFilter,
+      runHistoryBrandFilters,
+      runHistoryModelProductFilters,
       runHistoryFileTypeFilter,
       runHistoryTagIds,
     } = get();
@@ -116,6 +131,16 @@ const usePlaygroundStoreBase = create<PlaygroundStoreState>((set, get) => ({
       const genModelId = opts.gen_model_id?.trim() ?? runHistoryGenModelFilter?.trim();
       if (genModelId) {
         params.set("gen_model_id", genModelId);
+      }
+      const brands = (opts.brands ?? runHistoryBrandFilters).map((s) => s.trim()).filter(Boolean);
+      if (brands.length > 0) {
+        params.set("brands", brands.join(","));
+      }
+      const products = (opts.model_product ?? runHistoryModelProductFilters)
+        .map((s) => s.trim())
+        .filter(Boolean);
+      if (products.length > 0) {
+        params.set("model_product", products.join(","));
       }
       const fileType = opts.file_type_filter ?? runHistoryFileTypeFilter;
       if (fileType && fileType !== "all") {
@@ -262,11 +287,17 @@ const usePlaygroundStoreBase = create<PlaygroundStoreState>((set, get) => ({
       runHistoryLoading: false,
       runHistoryError: null,
       runHistoryGenModelFilter: null,
+      runHistoryBrandFilters: [],
+      runHistoryModelProductFilters: [],
       runHistoryFileTypeFilter: "all",
       runHistoryTagIds: [],
       runHistoryFilterModels: [],
       recentPlaygroundModels: [],
       recentPlaygroundModelsLoading: false,
+      playgroundSearchQuery: "",
+      playgroundBrandFilters: [],
+      playgroundTypeFilters: [],
+      playgroundFiltersOpened: false,
       selectedModel: null,
     }),
 }));

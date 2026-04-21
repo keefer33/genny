@@ -35,9 +35,9 @@ export function BoxPicker({
           return (
             <Button
               key={`${fieldName}-${option}`}
+              bd={0}
               type="button"
-              variant={isSelected ? "filled" : "light"}
-              color={isSelected ? "blue" : "gray"}
+              variant={isSelected ? "filled" : "default"}
               onClick={() => form.setFieldValue(fieldName, option)}
               disabled={readOnly}
               size="xs"

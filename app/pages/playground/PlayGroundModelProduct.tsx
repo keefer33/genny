@@ -1,58 +1,91 @@
-import { Container, ScrollArea, Stack, Text } from "@mantine/core";
-import { useEffect, useMemo } from "react";
+import { Box, Group, Stack } from "@mantine/core";
+import { useEffect } from "react";
 import { useParams } from "react-router";
+import MobileScrollBox from "~/shared/MobileScrollBox";
+import DesktopSplitLayout from "~/shared/DesktopSplitLayout";
+import { Paper } from "@mantine/core";
+import useAppStore from "~/lib/stores/appStore";
+import PlayGroundProductModelsPanel from "./components/PlayGroundProductModelsPanel";
+import PlayGroundRunHistory from "./PlayGroundRunHistory";
 import usePlaygroundStore from "~/lib/stores/playgroundStore";
-import { PlayGroundBreadcrumbs } from "~/pages/playground/components/PlayGroundBreadcrumbs";
-import PageLoader from "~/shared/PageLoader";
-import PlayGroundModelGrid from "./components/PlayGroundModelGrid";
+import { PlayGroundBreadcrumbs } from "./components/PlayGroundBreadcrumbs";
+import PlayGroundRunHistoryModalAction from "./components/PlayGroundRunHistoryModalAction";
+
+const DESKTOP_FORM_WIDTH = 420;
 
 export default function PlayGroundModelProduct() {
   const { brand_slug = "", model_product = "" } = useParams();
-  const { searchPlayground, items, loading, error } = usePlaygroundStore();
-  const decodedBrand = decodeURIComponent(brand_slug);
-  const decodedProduct = decodeURIComponent(model_product);
+  const { isMobile } = useAppStore();
+  const {
+    setRunHistoryGenModelFilter,
+    setRunHistoryBrandFilters,
+    setRunHistoryModelProductFilters,
+    setRunHistoryFileTypeFilter,
+    setRunHistoryTagIds,
+  } = usePlaygroundStore();
+  const decodedBrand = decodeURIComponent(brand_slug).trim();
+  const decodedProduct = decodeURIComponent(model_product).trim();
 
   useEffect(() => {
-    if (!decodedBrand || !decodedProduct) return;
-    void searchPlayground({ brands: [decodedBrand], model_product: [decodedProduct] });
-  }, [decodedBrand, decodedProduct, searchPlayground]);
+    setRunHistoryGenModelFilter(null);
+    setRunHistoryBrandFilters(decodedBrand ? [decodedBrand] : []);
+    setRunHistoryModelProductFilters(decodedProduct ? [decodedProduct] : []);
+    setRunHistoryFileTypeFilter("all");
+    setRunHistoryTagIds([]);
+  }, [
+    decodedBrand,
+    decodedProduct,
+    setRunHistoryGenModelFilter,
+    setRunHistoryBrandFilters,
+    setRunHistoryModelProductFilters,
+    setRunHistoryFileTypeFilter,
+    setRunHistoryTagIds,
+  ]);
 
-  const filteredItems = useMemo(() => {
-    if (!decodedBrand || !decodedProduct) return [];
-    return items.filter((item) => {
-      const brand = item.brand_name?.slug ?? "";
-      const product = (item.model_product ?? "").trim();
-      return brand === decodedBrand && product === decodedProduct;
-    });
-  }, [items, decodedBrand, decodedProduct]);
-
-  if (loading) return <PageLoader />;
-  if (error) return <Text c="red">{error}</Text>;
-
-  return (
-    <Container
-      size="lg"
-      h="100%"
-      style={{ minHeight: 0, display: "flex", flexDirection: "column" }}
-    >
-      <Stack
-        gap="md"
-        pb="md"
-        style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}
-      >
+  return isMobile ? (
+    <MobileScrollBox>
+      <Group justify="space-between" align="center">
         <PlayGroundBreadcrumbs
           brandSegment={decodedBrand}
           productSegment={decodedProduct}
           depth="product"
         />
-        <ScrollArea h="100%" type="auto" offsetScrollbars="y">
-          {filteredItems.length === 0 ? (
-            <Text c="dimmed">No playground models found for this product.</Text>
-          ) : (
-            <PlayGroundModelGrid items={filteredItems} singleColumn={true} />
-          )}
-        </ScrollArea>
-      </Stack>
-    </Container>
+        <PlayGroundRunHistoryModalAction
+          title={[decodedBrand, decodedProduct].filter(Boolean).join(" ") || "Run history"}
+        />
+      </Group>
+      <Box style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
+        <PlayGroundProductModelsPanel
+          brandSegmentParam={brand_slug}
+          productSegmentParam={model_product}
+        />
+      </Box>
+    </MobileScrollBox>
+  ) : (
+    <DesktopSplitLayout>
+      <Paper
+        w={DESKTOP_FORM_WIDTH}
+        p="xs"
+        style={{
+          flex: "0 0 auto",
+          alignSelf: "stretch",
+          minHeight: 0,
+          maxHeight: "100%",
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+        }}
+      >
+        <Stack gap="sm" style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+          <PlayGroundProductModelsPanel
+            brandSegmentParam={brand_slug}
+            productSegmentParam={model_product}
+          />
+        </Stack>
+      </Paper>
+      <Box style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
+        <PlayGroundRunHistory showFiltersModal={false} showBulkActions={false} />
+      </Box>
+    </DesktopSplitLayout>
   );
 }

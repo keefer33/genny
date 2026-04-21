@@ -31,7 +31,7 @@ export function PlayGroundBreadcrumbs({
   const playgroundCrumb = (
     <Anchor key="playground" component={Link} to="/playground">
       <Group gap="xs">
-        <RiAiGenerate2 size={30} /> All Models
+        <RiAiGenerate2 size={30} />
       </Group>
     </Anchor>
   );

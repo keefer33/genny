@@ -8,22 +8,32 @@ import usePlaygroundStore from "~/lib/stores/playgroundStore";
 
 export function PlayGroundRunHistoryFiltersModal({
   availableModels,
+  availableBrands = [],
+  availableProducts = [],
 }: {
   availableModels: Array<{ id: string; name: string }>;
+  availableBrands?: string[];
+  availableProducts?: string[];
 }) {
   const [opened, { open, close }] = useDisclosure(false);
   const { isMobile } = useAppStore();
   const {
     runHistoryGenModelFilter,
+    runHistoryBrandFilters,
+    runHistoryModelProductFilters,
     runHistoryFileTypeFilter,
     runHistoryTagIds,
     setRunHistoryGenModelFilter,
+    setRunHistoryBrandFilters,
+    setRunHistoryModelProductFilters,
     setRunHistoryFileTypeFilter,
     setRunHistoryTagIds,
   } = usePlaygroundStore();
 
   const selectedFiltersCount =
     (runHistoryGenModelFilter ? 1 : 0) +
+    runHistoryBrandFilters.length +
+    runHistoryModelProductFilters.length +
     (runHistoryFileTypeFilter !== "all" ? 1 : 0) +
     runHistoryTagIds.length;
 
@@ -50,8 +60,14 @@ export function PlayGroundRunHistoryFiltersModal({
         <Stack gap="xl">
           <RunHistoryFilters
             availableModels={availableModels}
+            availableBrands={availableBrands}
+            availableProducts={availableProducts}
             modelId={runHistoryGenModelFilter}
             onModelIdChange={setRunHistoryGenModelFilter}
+            brandFilters={runHistoryBrandFilters}
+            onBrandFiltersChange={setRunHistoryBrandFilters}
+            productFilters={runHistoryModelProductFilters}
+            onProductFiltersChange={setRunHistoryModelProductFilters}
           />
           <FileFilters
             showTagManager

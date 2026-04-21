@@ -22,17 +22,12 @@ export default [
     route("/files", "pages/files/MemberFiles.tsx"),
     route("/generations", "pages/generations/Generations.tsx"),
     route("/browse-models", "pages/root/BrowseModels.tsx"),
-    layout("pages/playground/PlayGroundModelLayout.tsx", [
-      route("/playground", "pages/playground/PlayGround.tsx"),
-      route("/playground/:brand_slug", "pages/playground/PlayGroundBrandName.tsx"),
-      route(
-        "/playground/:brand_slug/:model_product",
-        "pages/playground/PlayGroundModelProduct.tsx"
-      ),
-      route(
-        "/playground/:brand_slug/:model_product/:model_variant",
-        "pages/playground/PlayGroundRun.tsx"
-      ),
-    ]),
+    route("/playground", "pages/playground/PlayGround.tsx"),
+    route("/playground/:brand_slug", "pages/playground/PlayGroundBrandName.tsx"),
+    route("/playground/:brand_slug/:model_product", "pages/playground/PlayGroundModelProduct.tsx"),
+    route(
+      "/playground/:brand_slug/:model_product/:model_variant",
+      "pages/playground/PlayGroundRun.tsx"
+    ),
   ]),
 ] satisfies RouteConfig;

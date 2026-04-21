@@ -46,7 +46,13 @@ import { HistoryRunDurationLabel } from "./components/run-history/HistoryRunDura
 import { HistoryRunLoadingThumb } from "./components/run-history/HistoryRunLoadingThumb";
 import { RUN_HISTORY_THUMB_H } from "./components/run-history/runHistoryConstants";
 
-export default function PlayGroundRunHistory() {
+export default function PlayGroundRunHistory({
+  showFiltersModal = true,
+  showBulkActions = true,
+}: {
+  showFiltersModal?: boolean;
+  showBulkActions?: boolean;
+}) {
   const { isMobile, getUser, themeSettings } = useAppStore();
   const { colorScheme } = themeSettings;
   const user = getUser();
@@ -79,6 +85,8 @@ export default function PlayGroundRunHistory() {
     runHistoryLoading,
     runHistoryError,
     runHistoryGenModelFilter,
+    runHistoryBrandFilters,
+    runHistoryModelProductFilters,
     runHistoryFileTypeFilter,
     runHistoryTagIds,
     runHistoryFilterModels,
@@ -112,6 +120,8 @@ export default function PlayGroundRunHistory() {
   );
 
   const tagIdsKey = runHistoryTagIds.join(",");
+  const brandFiltersKey = runHistoryBrandFilters.join(",");
+  const productFiltersKey = runHistoryModelProductFilters.join(",");
   usePlaygroundRunsRealtime(userId);
 
   useEffect(() => {
@@ -123,7 +133,37 @@ export default function PlayGroundRunHistory() {
 
   useEffect(() => {
     void fetchPlaygroundRunHistory({ page: 1 });
-  }, [runHistoryGenModelFilter, runHistoryFileTypeFilter, tagIdsKey, fetchPlaygroundRunHistory]);
+  }, [
+    runHistoryGenModelFilter,
+    brandFiltersKey,
+    productFiltersKey,
+    runHistoryFileTypeFilter,
+    tagIdsKey,
+    fetchPlaygroundRunHistory,
+  ]);
+
+  const availableBrands = useMemo(() => {
+    const set = new Set<string>();
+    for (const row of runHistory) {
+      const gm = genModelDisplayEmbedFromRunRow(row);
+      const b = gm?.brand_name;
+      if (b && typeof b === "object" && "slug" in b) {
+        const slug = (b.slug as string | undefined)?.trim();
+        if (slug) set.add(slug);
+      }
+    }
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, [runHistory]);
+
+  const availableProducts = useMemo(() => {
+    const set = new Set<string>();
+    for (const row of runHistory) {
+      const gm = genModelDisplayEmbedFromRunRow(row);
+      const p = (gm?.model_product ?? "").trim();
+      if (p) set.add(p);
+    }
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, [runHistory]);
 
   const selectableFilesOnPage = useMemo(() => {
     const out: Array<{ fileId: string; file_name: string }> = [];
@@ -365,7 +405,13 @@ export default function PlayGroundRunHistory() {
       <Stack gap="xs" p="md" h="100%" style={{ minHeight: 0 }}>
         <Group justify="space-between" align="center" wrap="wrap">
           <Text fw={700}>Run history</Text>
-          <PlayGroundRunHistoryFiltersModal availableModels={availableModels} />
+          {showFiltersModal ? (
+            <PlayGroundRunHistoryFiltersModal
+              availableModels={availableModels}
+              availableBrands={availableBrands}
+              availableProducts={availableProducts}
+            />
+          ) : null}
         </Group>
         <Text c="dimmed" size="sm">
           {runHistoryError}
@@ -377,24 +423,34 @@ export default function PlayGroundRunHistory() {
   return (
     <Stack gap="xs" h="100%" px="md" pt="sm" pb="xs" style={{ minHeight: 0 }}>
       <Group gap="sm">
-        <PlayGroundRunHistoryFiltersModal availableModels={availableModels} />
-        <Checkbox
-          disabled={selectableFilesOnPage.length === 0}
-          checked={isAllSelected}
-          indeterminate={isIndeterminate}
-          onChange={(event) => handleSelectAll(event.currentTarget.checked)}
-          label={`${selectedFileIds.size} selected`}
-        />
-        {selectedFileIds.size > 0 ? (
-          <Button
-            variant="light"
-            color="red"
-            size="xs"
-            onClick={openDeleteModal}
-            loading={bulkLoading}
-          >
-            Delete
-          </Button>
+        {showFiltersModal ? (
+          <PlayGroundRunHistoryFiltersModal
+            availableModels={availableModels}
+            availableBrands={availableBrands}
+            availableProducts={availableProducts}
+          />
+        ) : null}
+        {showBulkActions ? (
+          <>
+            <Checkbox
+              disabled={selectableFilesOnPage.length === 0}
+              checked={isAllSelected}
+              indeterminate={isIndeterminate}
+              onChange={(event) => handleSelectAll(event.currentTarget.checked)}
+              label={`${selectedFileIds.size} selected`}
+            />
+            {selectedFileIds.size > 0 ? (
+              <Button
+                variant="light"
+                color="red"
+                size="xs"
+                onClick={openDeleteModal}
+                loading={bulkLoading}
+              >
+                Delete
+              </Button>
+            ) : null}
+          </>
         ) : null}
       </Group>
 
@@ -414,7 +470,7 @@ export default function PlayGroundRunHistory() {
                 const singleFid = singlePf?.id?.trim();
                 const detailFid =
                   singleFid || row.preview_files.find((file) => file.id?.trim())?.id?.trim();
-                const singleShowSelect = !inFlight && Boolean(singleFid);
+                const singleShowSelect = showBulkActions && !inFlight && Boolean(singleFid);
 
                 return (
                   <Card
@@ -448,7 +504,7 @@ export default function PlayGroundRunHistory() {
                           {row.preview_urls.map((url, i) => {
                             const pf = row.preview_files[i];
                             const fid = pf?.id?.trim();
-                            const showSelect = !inFlight && Boolean(fid);
+                            const showSelect = showBulkActions && !inFlight && Boolean(fid);
                             return (
                               <Carousel.Slide key={`${row.id}-${i}`}>
                                 <HistoryPreviewWithBadge
