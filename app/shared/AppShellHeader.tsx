@@ -37,12 +37,11 @@ export function AppShellHeader({ mobileOpened, toggleMobile }: AppShellHeaderPro
               leftSection={<RiLoginBoxLine size={18} />}
               aria-label="Login / Register"
             >
-              Login / Register
+              Login
             </Button>
           )}
-          {isLoggedIn && (
-            <Burger opened={mobileOpened} onClick={toggleMobile} size="sm" hiddenFrom="md" />
-          )}
+
+          <Burger opened={mobileOpened} onClick={toggleMobile} size="sm" hiddenFrom="md" />
         </Group>
       </Group>
     </Box>

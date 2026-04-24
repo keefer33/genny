@@ -13,7 +13,7 @@ import {
 } from "@mantine/core";
 import { RiHistoryLine, RiAddLine, RiSubtractLine } from "@remixicon/react";
 import { useEffect } from "react";
-import { formatPlaygroundGenModelDisplayName } from "~/lib/playgroundRunHistoryUtils";
+import { formatGenModelDisplayName } from "~/lib/generationsHistoryUtils";
 import useAppStore from "~/lib/stores/appStore";
 import useUsageLogStore, { type UsageLogEntry } from "~/lib/stores/usageLogStore";
 import { CurrentBalance } from "~/shared/CurrentBalance";
@@ -100,7 +100,7 @@ export default function UsageLog() {
     const rawGm = entry.user_gen_model_runs?.gen_models;
     const gm = Array.isArray(rawGm) ? rawGm[0] : rawGm;
     if (gm && typeof gm === "object") {
-      const fromParts = formatPlaygroundGenModelDisplayName(gm);
+      const fromParts = formatGenModelDisplayName(gm);
       if (fromParts && fromParts !== "—") return fromParts;
       const name = gm.model_name?.trim();
       if (name) return name;

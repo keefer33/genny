@@ -30,7 +30,7 @@ export function PromptActionButtons({
   return (
     <>
       <ActionIcon
-        variant="light"
+        variant="transparent"
         size="sm"
         color="blue.5"
         onClick={handleCopy}
@@ -40,7 +40,7 @@ export function PromptActionButtons({
         {copied ? <RiCheckLine size={14} /> : <RiFileCopyLine size={14} />}
       </ActionIcon>
       <ActionIcon
-        variant="light"
+        variant="transparent"
         size="sm"
         color="red.5"
         onClick={handleClear}

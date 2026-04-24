@@ -17,6 +17,7 @@ import { createThemeWithColor } from "./lib/theme";
 import { useAuth } from "./lib/hooks/useAuth";
 import { Notifications } from "@mantine/notifications";
 import { PWAInstallPrompt } from "./shared/PWAInstallPrompt";
+import ApiHealthGate from "./shared/ApiHealthGate";
 import type { Route } from "./+types/root";
 import { getColorSchemeBootstrapScript, loadThemeSettings } from "./lib/themeUtils";
 
@@ -108,6 +109,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <DynamicThemeProvider>
           {children}
           <PWAInstallPrompt />
+          <ApiHealthGate />
         </DynamicThemeProvider>
         <ScrollRestoration />
         <Scripts />

@@ -1,5 +1,5 @@
 import { Box, Container } from "@mantine/core";
-import PlayGroundRunHistory from "../playground/PlayGroundRunHistory";
+import GenerationsHistory from "./components/GenerationsHistory";
 
 export default function Generations() {
   return (
@@ -8,7 +8,7 @@ export default function Generations() {
         h="calc(100dvh - var(--app-shell-header-height, 0px) - var(--app-shell-footer-height, 0px))"
         style={{ minHeight: 0 }}
       >
-        <PlayGroundRunHistory />
+        <GenerationsHistory />
       </Box>
     </Container>
   );

@@ -10,7 +10,6 @@ import {
 import {
   RiFolder2Line,
   RiDashboardLine,
-  RiRobot2Line,
   RiLoginBoxLine,
   RiHistoryLine,
   RiUserLine,
@@ -18,8 +17,9 @@ import {
   RiLogoutBoxLine,
   RiCoinLine,
   RiCustomerService2Line,
-  RiToolsLine,
-  RiAiGenerate2,
+  RiImageAiLine,
+  RiVideoAiLine,
+  RiVoiceAiLine,
 } from "@remixicon/react";
 import { NavLink, useLocation } from "react-router";
 import useAppStore from "~/lib/stores/appStore";
@@ -41,37 +41,38 @@ export function Navbar({ toggleMobile, collapsed }: NavbarProps) {
 
   const navItems = [
     {
-      to: "/playground",
-      icon: RiAiGenerate2,
-      label: "Playground",
-      description: "Playground",
-      matchPrefix: "/playground",
+      to: "/dashboard",
+      icon: RiDashboardLine,
+      label: "Dashboard",
+      description: "Your activity & stats",
+      matchPrefix: "/dashboard",
+    },
+    {
+      to: "generate/image",
+      icon: RiImageAiLine,
+      label: "Images",
+      description: "Image Generator",
+      matchPrefix: "/generate/image",
+    },
+    {
+      to: "/generate/video",
+      icon: RiVideoAiLine,
+      label: "Videos",
+      description: "Video Generator",
+      matchPrefix: "/generate/video",
+    },
+    {
+      to: "/generate/audio",
+      icon: RiVoiceAiLine,
+      label: "Audio",
+      description: "Audio Generator",
+      matchPrefix: "/generate/audio",
     },
     {
       to: "/generations",
       icon: RiHistoryLine,
       label: "Generations",
       description: "Generation History",
-    },
-    {
-      to: "/agents",
-      icon: RiRobot2Line,
-      label: "Agents",
-      description: "AI Agents",
-      matchPrefix: "/agents",
-    },
-    {
-      to: "/tools",
-      icon: RiToolsLine,
-      label: "Tools",
-      description: "Connect toolkits (Composio)",
-      matchPrefix: "/tools",
-    },
-    {
-      to: "/files",
-      icon: RiFolder2Line,
-      label: "Files",
-      description: "File Management",
     },
     // Add login item if not logged in
     ...(!isLoggedIn
@@ -88,11 +89,16 @@ export function Navbar({ toggleMobile, collapsed }: NavbarProps) {
 
   const loggedInItems = [
     {
-      to: "/dashboard",
-      icon: RiDashboardLine,
-      label: "Dashboard",
-      description: "Your activity & stats",
-      matchPrefix: "/dashboard",
+      to: "/account/profile",
+      icon: RiUserLine,
+      label: "Profile",
+      description: "Profile",
+    },
+    {
+      to: "/files",
+      icon: RiFolder2Line,
+      label: "Files",
+      description: "File Management",
     },
     {
       to: "/account/usage-log",
@@ -105,12 +111,6 @@ export function Navbar({ toggleMobile, collapsed }: NavbarProps) {
       icon: RiMoneyDollarBoxLine,
       label: "Billing",
       description: "Billing",
-    },
-    {
-      to: "/account/profile",
-      icon: RiUserLine,
-      label: "Profile",
-      description: "Profile",
     },
     {
       to: "/account/support",
