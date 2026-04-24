@@ -122,11 +122,14 @@ async function persistApiKeyToProfile(
   }
 }
 
+export type ApiHealthStatus = "checking" | "healthy" | "unhealthy";
+
 interface AppStoreState {
   // Loading states
   loading: boolean;
   appLoading: boolean;
   pageLoading: boolean;
+  apiHealthStatus: ApiHealthStatus;
   themeSettings: ThemeSettings;
   api: any;
   user: Session | null;
@@ -161,6 +164,8 @@ interface AppStoreState {
     last_name: string;
     bio: string;
     username: string;
+    /** Merged into `user_profiles.meta.model_history` on the server when present. */
+    model_history?: Record<string, { model: string }>;
   }) => Promise<{ success: boolean; error?: string }>;
   createToken: (sessionData: any) => Promise<any>;
   getCurrentUserUsageBalance: () => number;
@@ -175,6 +180,7 @@ const useAppStoreBase = create<AppStoreState>((set, get) => ({
   loading: false,
   appLoading: true,
   pageLoading: false,
+  apiHealthStatus: "checking",
   themeSettings: {
     colorScheme: "dark",
     themeColor: "cyan",
@@ -191,17 +197,24 @@ const useAppStoreBase = create<AppStoreState>((set, get) => ({
   getAuthApiKey: () => get().authApiKey,
   setUserUsageBalance: (usageBalance: number) => set({ userUsageBalance: usageBalance }),
   setThemeSettings: (themeSettings: ThemeSettings) => set({ themeSettings }),
-  setApi: () =>
+  setApi: () => {
+    if (get().api != null) return;
     set({
       api: createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_ANON_KEY),
-    }),
+    });
+  },
   setUser: (user) => set({ user }),
   setLoading: (loading) => set({ loading }),
   setAppLoading: (appLoading) => set({ appLoading }),
   setIsMobile: (isMobile) => set({ isMobile }),
   setPage: (page) => set({ page }),
   getPage: () => get().page,
-  getApi: () => get().api,
+  getApi: () => {
+    if (get().api == null && typeof window !== "undefined") {
+      get().setApi();
+    }
+    return get().api;
+  },
   getUser: () => get().user,
   getThemeSettings: () => get().themeSettings,
   getCurrentUserUsageBalance: () => get().userUsageBalance,
@@ -359,6 +372,7 @@ const useAppStoreBase = create<AppStoreState>((set, get) => ({
     last_name: string;
     bio: string;
     username: string;
+    model_history?: Record<string, { model: string }>;
   }) => {
     const session = get().getUser();
     if (!session?.user?.id || !get().getAuthApiKey()) {
@@ -373,6 +387,7 @@ const useAppStoreBase = create<AppStoreState>((set, get) => ({
           last_name: values.last_name,
           bio: values.bio,
           username: values.username,
+          ...(values.model_history ? { model_history: values.model_history } : {}),
         }),
       });
 
@@ -628,11 +643,15 @@ const useAppStoreBase = create<AppStoreState>((set, get) => ({
           data?: { status?: string };
         };
         const status = payload?.status ?? payload?.data?.status;
-        return status === "OK";
+        const ok = status === "OK";
+        set({ apiHealthStatus: ok ? "healthy" : "unhealthy" });
+        return ok;
       }
+      set({ apiHealthStatus: "unhealthy" });
       return false;
     } catch (error) {
       console.error("API health check failed:", error);
+      set({ apiHealthStatus: "unhealthy" });
       return false;
     }
   },

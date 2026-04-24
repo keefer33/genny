@@ -1,6 +1,6 @@
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import useAppStore from "../stores/appStore";
-import usePlaygroundStore from "../stores/playgroundStore";
+import useGenerationsStore from "../stores/generateStore";
 import { usePrivateRealtimeChannel } from "./usePrivateRealtimeChannel";
 
 /** `user:{id}:profile` — `usage_balance_changed` for CostBadge; registers channel for sign-out. */
@@ -28,14 +28,14 @@ export function useUserProfileUsageBalanceRealtime(userId: string | undefined) {
 }
 
 /** `user:{id}:user_gen_model_runs` — refetch run history on `update_run`. */
-export function usePlaygroundRunsRealtime(userId: string | undefined) {
+export function useGenerationsRunsRealtime(userId: string | undefined) {
   usePrivateRealtimeChannel({
     userId,
     topic: userId ? `user:${userId}:user_gen_model_runs` : undefined,
     configure: (channel) => {
       channel
         .on("broadcast", { event: "update_run" }, () => {
-          void usePlaygroundStore.getState().fetchPlaygroundRunHistory();
+          void useGenerationsStore.getState().fetchGenerationsHistory();
         })
         .subscribe();
     },

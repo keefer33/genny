@@ -1,5 +1,12 @@
 import { Group, SegmentedControl } from "@mantine/core";
-import { RiAiGenerate2, RiDashboardLine, RiHistoryLine, RiRobot2Line } from "@remixicon/react";
+import {
+  RiDashboardLine,
+  RiHistoryLine,
+  RiHomeLine,
+  RiImageAiLine,
+  RiLoginBoxLine,
+  RiVideoAiLine,
+} from "@remixicon/react";
 import { useLocation, useNavigate } from "react-router";
 import type { ComponentType } from "react";
 import useAppStore from "~/lib/stores/appStore";
@@ -7,7 +14,13 @@ import useAppStore from "~/lib/stores/appStore";
 export const MOBILE_GLOBAL_NAV_HEIGHT = 55;
 
 type GlobalNavItem = {
-  key: "agents" | "playground" | "generations" | "dashboard";
+  key:
+    | "agents"
+    | "playground"
+    | "generations"
+    | "dashboard"
+    | "image-generator"
+    | "video-generator";
   label: string;
   icon: ComponentType<{ size?: string | number }>;
   to: string;
@@ -17,37 +30,40 @@ type GlobalNavItem = {
 export function MobileFooterGlobalNav() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { themeSettings } = useAppStore();
+  const { themeSettings, getUser } = useAppStore();
   const themeColor = themeSettings.themeColor;
+  const isLoggedIn = !!getUser()?.user?.id;
 
   const items: GlobalNavItem[] = [
     {
       key: "dashboard",
-      label: "Dashboard",
-      icon: RiDashboardLine,
-      to: "/dashboard",
-      isActive: location.pathname === "/dashboard",
+      label: isLoggedIn ? "Dashboard" : "Home",
+      icon: isLoggedIn ? RiDashboardLine : RiHomeLine,
+      to: isLoggedIn ? "/dashboard" : "/",
+      isActive: isLoggedIn ? location.pathname === "/dashboard" : location.pathname === "/",
     },
     {
-      key: "agents",
-      label: "Agents",
-      icon: RiRobot2Line,
-      to: "/agents",
-      isActive: location.pathname === "/agents",
+      key: "image-generator",
+      label: "Images",
+      icon: RiImageAiLine,
+      to: "/generate/image",
+      isActive: location.pathname.startsWith("/generate/image"),
     },
     {
-      key: "playground",
-      label: "Playground",
-      icon: RiAiGenerate2,
-      to: "/playground",
-      isActive: location.pathname.startsWith("/playground"),
+      key: "video-generator",
+      label: "Videos",
+      icon: RiVideoAiLine,
+      to: "/generate/video",
+      isActive: location.pathname.startsWith("/generate/video"),
     },
     {
       key: "generations",
-      label: "Generations",
-      icon: RiHistoryLine,
-      to: "/generations",
-      isActive: location.pathname.startsWith("/generations"),
+      label: isLoggedIn ? "Generations" : "Login",
+      icon: isLoggedIn ? RiHistoryLine : RiLoginBoxLine,
+      to: isLoggedIn ? "/generations" : "/login",
+      isActive: isLoggedIn
+        ? location.pathname.startsWith("/generations")
+        : location.pathname === "/login",
     },
   ];
 
@@ -58,9 +74,10 @@ export function MobileFooterGlobalNav() {
     {
       dashboard: "/dashboard",
       agents: "/agents",
-      playground: "/playground",
+      "image-generator": "/image-generator",
+      "video-generator": "/video-generator",
       generations: "/generations",
-    }
+    } as Record<GlobalNavItem["key"], string>
   );
 
   return (

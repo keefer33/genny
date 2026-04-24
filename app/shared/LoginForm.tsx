@@ -14,7 +14,7 @@ declare global {
 }
 
 export default function LoginForm() {
-  const { api, setUser, userLogin, signOut } = useAppStore();
+  const { getApi, userLogin, signOut } = useAppStore();
   const [otp, setOtp] = useState(true);
   const [googleLoaded, setGoogleLoaded] = useState(false);
   const navigate = useNavigate();
@@ -50,7 +50,7 @@ export default function LoginForm() {
     const sess = sessionData.access_token ? sessionData : sessionData.session;
     const logUserIn: any = await userLogin(sess);
     if (logUserIn) {
-      navigate("/account/profile");
+      navigate("/dashboard");
     } else {
       notifications.show({
         title: "Error",
@@ -61,6 +61,15 @@ export default function LoginForm() {
   };
 
   const supalogin = async () => {
+    const api = getApi();
+    if (!api) {
+      notifications.show({
+        title: "Error",
+        message: "Sign-in is not available yet. Please refresh the page.",
+        color: "red",
+      });
+      return;
+    }
     await api.auth.signInWithOtp({
       email: form.getValues().email,
       options: {
@@ -81,6 +90,15 @@ export default function LoginForm() {
   };
 
   const supaOtp = async () => {
+    const api = getApi();
+    if (!api) {
+      notifications.show({
+        title: "Error",
+        message: "Sign-in is not available yet. Please refresh the page.",
+        color: "red",
+      });
+      return;
+    }
     const values = form.getValues();
     const {
       data: { session },
@@ -111,6 +129,15 @@ export default function LoginForm() {
     // Set up global callback function
     window.handleSignInWithGoogle = async (response: any) => {
       try {
+        const api = useAppStore.getState().getApi();
+        if (!api) {
+          notifications.show({
+            title: "Error",
+            message: "Sign-in is not available yet. Please refresh the page.",
+            color: "red",
+          });
+          return;
+        }
         const { data, error } = await api.auth.signInWithIdToken({
           provider: "google",
           token: response.credential,
@@ -144,7 +171,7 @@ export default function LoginForm() {
     return () => {
       delete window.handleSignInWithGoogle;
     };
-  }, [api, setUser, navigate, nonce]);
+  }, [nonce]);
 
   // Check if Google script is loaded and initialize
   useEffect(() => {
