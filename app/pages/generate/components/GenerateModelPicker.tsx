@@ -1,6 +1,6 @@
 import { Avatar, Box, Button, Group, Menu, ScrollArea, Skeleton, Stack, Text } from "@mantine/core";
 import { RiArrowDownSLine, RiCheckLine } from "@remixicon/react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import useAppStore from "~/lib/stores/appStore";
 import useGenerationsStore from "~/lib/stores/generateStore";
 import type { GenModelsItem } from "~/types/generations";
@@ -37,11 +37,16 @@ function productDisplayLine(items: GenModelsItem[], productSlug: string): string
 }
 
 function sortVariantsByCatalog(a: GenModelsItem, b: GenModelsItem): number {
-  const oa = a.sort_order;
-  const ob = b.sort_order;
+  const oa = a.sort_order_variant;
+  const ob = b.sort_order_variant;
   if (oa != null && ob != null && oa !== ob) return oa - ob;
   if (oa != null && ob == null) return -1;
   if (oa == null && ob != null) return 1;
+  const pa = a.sort_order;
+  const pb = b.sort_order;
+  if (pa != null && pb != null && pa !== pb) return pa - pb;
+  if (pa != null && pb == null) return -1;
+  if (pa == null && pb != null) return 1;
   return (a.model_variant ?? "").localeCompare(b.model_variant ?? "", undefined, {
     sensitivity: "base",
   });
@@ -52,45 +57,53 @@ function routeModelId(item: GenModelsItem): string {
   return modelId || item.id;
 }
 
-function syncRunHistoryFiltersFromModel(model: GenModelsItem | null) {
-  const {
-    setGenerationsHistoryGenModelFilter,
-    setGenerationsHistoryBrandFilters,
-    setGenerationsHistoryModelProductFilters,
-    setGenerationsHistoryFileTypeFilter,
-    setGenerationsHistoryTagIds,
-  } = useGenerationsStore.getState();
-  if (!model) {
-    setGenerationsHistoryGenModelFilter(null);
-    setGenerationsHistoryBrandFilters([]);
-    setGenerationsHistoryModelProductFilters([]);
-    setGenerationsHistoryFileTypeFilter("all");
-    setGenerationsHistoryTagIds([]);
-    return;
-  }
-  const brandSlug = (model.brand_name?.slug ?? "").trim();
-  const product = (model.model_product ?? "").trim();
-  setGenerationsHistoryGenModelFilter(model.id);
-  setGenerationsHistoryBrandFilters(brandSlug ? [brandSlug] : []);
-  setGenerationsHistoryModelProductFilters(product ? [product] : []);
-  setGenerationsHistoryFileTypeFilter("all");
-  setGenerationsHistoryTagIds([]);
-}
-
 export default function GenerateModelPicker() {
   const params = useParams();
   const navigate = useNavigate();
   const { user, authApiKey, updateUserProfile, isMobile } = useAppStore();
-  const { items, error, selectedModel } = useGenerationsStore();
-
+  const {
+    error,
+    selectedModel,
+    allGenModels,
+    setGenerationsHistoryGenModelFilter,
+    clearGenerationsHistoryFilters,
+  } = useGenerationsStore();
   const generationType = (params.generation_type ?? "").trim().toLowerCase();
-  const uniqueProducts = uniqueModelProductsInOrder(items);
-
+  const routeModelParam = (params["*"] ?? "").trim();
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
-  const selectedModelProduct = (selectedModel?.model_product ?? "").trim() || null;
+  const items = useMemo(
+    () =>
+      allGenModels.filter(
+        (item) => (item.generation_type ?? "").trim().toLowerCase() === generationType
+      ),
+    [allGenModels, generationType]
+  );
+  const uniqueProducts = useMemo(() => uniqueModelProductsInOrder(items), [items]);
+  const routeSelectedModel = useMemo(
+    () =>
+      routeModelParam
+        ? items.find(
+            (item) => item.id === routeModelParam || routeModelId(item) === routeModelParam
+          )
+        : null,
+    [items, routeModelParam]
+  );
+  const currentModel =
+    routeSelectedModel ??
+    ((selectedModel?.generation_type ?? "").trim().toLowerCase() === generationType
+      ? selectedModel
+      : null);
+  const selectedModelProduct =
+    currentModel && (currentModel.model_product ?? "").trim()
+      ? (currentModel.model_product ?? "").trim()
+      : null;
 
   useEffect(() => {
     if (!uniqueProducts.length) {
+      setSelectedProduct(null);
+      return;
+    }
+    if (!routeModelParam && !selectedModelProduct) {
       setSelectedProduct(null);
       return;
     }
@@ -104,7 +117,13 @@ export default function GenerateModelPicker() {
       return;
     }
     setSelectedProduct((prev) => (prev === selectedModelProduct ? prev : selectedModelProduct));
-  }, [selectedModelProduct, uniqueProducts]);
+  }, [routeModelParam, selectedModelProduct, uniqueProducts]);
+
+  useEffect(() => {
+    if (!currentModel?.id) return;
+    clearGenerationsHistoryFilters();
+    setGenerationsHistoryGenModelFilter(currentModel.id);
+  }, [clearGenerationsHistoryFilters, currentModel?.id, setGenerationsHistoryGenModelFilter]);
 
   const variantsForProduct = selectedProduct
     ? items
@@ -131,14 +150,16 @@ export default function GenerateModelPicker() {
     const first = firstItemForProduct(items, value);
     if (!first) return;
     setSelectedProduct(value);
-    syncRunHistoryFiltersFromModel(first);
+    clearGenerationsHistoryFilters();
+    setGenerationsHistoryGenModelFilter(first.id);
     navigate(`/generate/${generationType}/${routeModelId(first)}`, { replace: true });
     persistModelHistory(first);
   }
 
   function handleVariantChange(item: GenModelsItem) {
     if (!generationType) return;
-    syncRunHistoryFiltersFromModel(item);
+    clearGenerationsHistoryFilters();
+    setGenerationsHistoryGenModelFilter(item.id);
     navigate(`/generate/${generationType}/${routeModelId(item)}`, { replace: true });
     persistModelHistory(item);
   }
@@ -161,7 +182,7 @@ export default function GenerateModelPicker() {
   const currentProductTriggerLabel = productDisplayLine(items, currentProductSlug);
 
   const currentVariantLabel = (() => {
-    const match = variantsForProduct.find((v) => v.id === selectedModel?.id);
+    const match = variantsForProduct.find((v) => v.id === currentModel?.id);
     if (match) return variantRowLabel(match);
     return variantsForProduct[0] ? variantRowLabel(variantsForProduct[0]) : "Variant";
   })();
@@ -178,7 +199,7 @@ export default function GenerateModelPicker() {
     );
   }
 
-  if (!uniqueProducts.length) {
+  if (!uniqueProducts.length || !currentProductSlug) {
     return <Skeleton height={36} />;
   }
 
@@ -204,7 +225,7 @@ export default function GenerateModelPicker() {
           <ScrollArea.Autosize mah={280} type="auto" offsetScrollbars>
             {variantsForProduct.map((item) => {
               const label = variantRowLabel(item);
-              const isActive = selectedModel?.id === item.id;
+              const isActive = currentModel?.id === item.id;
               return (
                 <Menu.Item
                   key={item.id}
@@ -312,8 +333,8 @@ export default function GenerateModelPicker() {
       <Group justify="space-between" align="center" wrap="nowrap" gap="xs">
         <Box style={{ flex: 1, minWidth: 0 }}>{variantSelect}</Box>
         <ModelDescription
-          modelName={selectedModel?.model_name}
-          description={selectedModel?.model_description}
+          modelName={currentModel?.model_name}
+          description={currentModel?.model_description}
         />
         {isMobile ? (
           <PlayGroundRunHistoryModalAction title={currentVariantLabel || "Run history"} />

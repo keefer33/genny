@@ -31,7 +31,7 @@ export function FilePickerContent({
 
   useEffect(() => {
     if (userId) {
-      loadUserFiles(currentPage, 12, userId, [], null, effectiveFileType);
+      loadUserFiles(currentPage, userId, [], null, effectiveFileType);
     }
   }, [userId, currentPage, effectiveFileType, loadUserFiles]);
 

@@ -1,7 +1,7 @@
 import { Progress, Stack, Text } from "@mantine/core";
 import dayjs from "dayjs";
 import { useEffect, useState } from "react";
-import { isGenerationsHistoryInFlight } from "~/lib/generationsHistoryUtils";
+import { formatDuration, isGenerationsHistoryInFlight } from "~/lib/generationsHistoryUtils";
 import { GENERATIONS_HISTORY_THUMB_H } from "~/lib/generationsHistoryUtils";
 
 export function HistoryRunLoadingThumb({ status, created_at }) {
@@ -35,7 +35,7 @@ export function HistoryRunLoadingThumb({ status, created_at }) {
         c="orange.7"
         style={{ fontVariantNumeric: "tabular-nums" }}
       >
-        {elapsedSec}s
+        {formatDuration(elapsedSec)}
       </Text>
       <Progress color="orange" radius="lg" value={100} animated />
     </Stack>

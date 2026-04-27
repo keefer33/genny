@@ -1,38 +1,8 @@
-import {
-  Anchor,
-  Badge,
-  Box,
-  Button,
-  Center,
-  Container,
-  Group,
-  Image,
-  Modal,
-  Stack,
-  Table,
-  Text,
-  ActionIcon,
-} from "@mantine/core";
-import { notifications } from "@mantine/notifications";
-import {
-  RiDeleteBinLine,
-  RiDownloadLine,
-  RiExternalLinkLine,
-  RiEyeLine,
-  RiFileCopyLine,
-  RiFileLine,
-  RiFilePdf2Fill,
-  RiFileTextLine,
-  RiImageLine,
-  RiMusic2Line,
-  RiPlayLine,
-} from "@remixicon/react";
-import dayjs from "dayjs";
-import type { MouseEvent } from "react";
-import FileTagModal from "~/pages/files/components/FileTagModal";
-import FileShare from "~/shared/FileShare";
-import { MediaTypeBadge } from "~/shared/MediaTypeBadge";
-import { formatDate, formatFileSize, getFileExtension, isTextFile } from "~/lib/utils";
+import { Modal, ActionIcon, Button, Tabs, Scroller } from "@mantine/core";
+import { RiEyeLine } from "@remixicon/react";
+import type { MouseEvent, ReactNode } from "react";
+import { FileDetails } from "./FileDetails";
+import { useDisclosure } from "@mantine/hooks";
 
 interface UserTag {
   id: string;
@@ -48,7 +18,7 @@ interface UserFileTag {
   user_tags: UserTag;
 }
 
-export interface FileDetailModalFile {
+export interface FileDetailModalFileItem {
   id: string;
   file_name: string;
   file_path: string;
@@ -64,24 +34,29 @@ export interface FileDetailModalFile {
   };
 }
 
-function resolveFileShareType(fileType: string): "image" | "video" | "audio" | "other" {
-  if (fileType.startsWith("image/")) return "image";
-  if (fileType.startsWith("video/")) return "video";
-  if (fileType.startsWith("audio/")) return "audio";
-  return "other";
-}
+export type FileDetailModalFile = Array<
+  { id: string } & Partial<Omit<FileDetailModalFileItem, "id">>
+>;
 
-interface FileDetailModalProps {
-  opened: boolean;
-  onClose: () => void;
-  file: FileDetailModalFile;
-  modelName?: string | null;
-  onDownload: () => void;
-  onEdit: () => void;
-  onDelete: () => void;
+type FileDetailModalFileInput =
+  | FileDetailModalFile
+  | ({ id: string } & Partial<Omit<FileDetailModalFileItem, "id">>)
+  | null
+  | undefined;
+
+type FileDetailModalProps = {
+  file: FileDetailModalFileInput;
+  buttonType?: "button" | "viewicon" | "wrapper";
+  children?: ReactNode;
+  opened?: boolean;
+  onClose?: () => void;
+  modelName?: string;
+  onDownload?: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
   deleting?: boolean;
-  onTagsUpdated: (updatedTags: UserFileTag[]) => void;
-}
+  onTagsUpdated?: (fileId: string, updatedTags: any) => void;
+};
 
 /** Eye control for file tiles — opens {@link FileDetailModal} (place inside a `position: relative` preview). */
 export function FileCardViewDetailsButton({
@@ -111,290 +86,98 @@ export function FileCardViewDetailsButton({
 }
 
 export default function FileDetailModal({
+  file,
+  onTagsUpdated,
+  buttonType = "button",
+  children,
   opened,
   onClose,
-  file,
-  modelName,
-  onDownload,
-  onDelete,
-  deleting = false,
-  onTagsUpdated,
 }: FileDetailModalProps) {
-  const getFileIcon = (size: number = 24) => {
-    if (file.file_type.startsWith("image/")) {
-      return <RiImageLine size={size} />;
-    }
-    if (file.file_type.startsWith("video/")) {
-      return <RiPlayLine size={size} />;
-    }
-    if (file.file_type.startsWith("audio/")) {
-      return <RiMusic2Line size={size} />;
-    }
-    if (file.file_type === "application/pdf") {
-      return <RiFilePdf2Fill size={size} />;
-    }
-    if (file.file_type.startsWith("text/") || isTextFile(file.file_name)) {
-      return <RiFileTextLine size={size} />;
-    }
-    return <RiFileLine size={size} />;
-  };
-
-  const getFileTypeBadge = () => {
-    const ext = getFileExtension(file.file_name);
-    if (file.file_type.startsWith("image/")) {
-      return <MediaTypeBadge type="image" size="sm" variant="filled" />;
-    }
-    if (file.file_type.startsWith("video/")) {
-      return <MediaTypeBadge type="video" size="sm" variant="filled" />;
-    }
-    if (file.file_type.startsWith("audio/")) {
-      return <MediaTypeBadge type="audio" size="sm" variant="filled" />;
-    }
-    if (file.file_type === "application/pdf") {
-      return (
-        <Badge color="red" variant="light" size="sm">
-          PDF
-        </Badge>
-      );
-    }
-    if (file.file_type.startsWith("text/") || isTextFile(file.file_name)) {
-      return (
-        <Badge color="blue" variant="light" size="sm">
-          Text
-        </Badge>
-      );
-    }
-    return (
-      <Badge color="gray" variant="light" size="sm">
-        {ext.toUpperCase()}
-      </Badge>
-    );
-  };
+  const [internalOpened, { open: openFileDetailModal, close: closeFileDetailModal }] =
+    useDisclosure(false);
+  const rawFiles = Array.isArray(file) ? file : file ? [file] : [];
+  const files: FileDetailModalFileItem[] = rawFiles.filter(Boolean).map((f, index) => ({
+    id: f.id,
+    file_name: f.file_name?.trim() || `File ${index + 1}`,
+    file_path: f.file_path ?? "",
+    file_size: f.file_size ?? 0,
+    file_type: f.file_type ?? "",
+    created_at: f.created_at ?? "",
+    user_file_tags: f.user_file_tags,
+    thumbnail_url: f.thumbnail_url,
+    generated_info: f.generated_info,
+  }));
+  const firstFileId = files[0]?.id ?? "file-0";
+  const fileDetailOpened = opened ?? internalOpened;
+  const closeDetails = onClose ?? closeFileDetailModal;
+  const openDetails = () => openFileDetailModal();
+  const shouldRenderTrigger = opened == null;
 
   return (
-    <Modal
-      opened={opened}
-      onClose={onClose}
-      title={modelName ? `${file.file_name} · ${modelName}` : file.file_name}
-      size="xl"
-      fullScreen
-      styles={{
-        body: { padding: 0 },
-        header: { padding: "1rem" },
-      }}
-    >
-      <Stack gap="lg" p="md">
-        {/* File Preview Section */}
-        <Box pos="relative">
-          {file.file_type.startsWith("image/") ? (
-            <Image
-              src={file.file_path}
-              alt={file.file_name}
-              style={{ maxHeight: "60vh", width: "100%", objectFit: "contain" }}
-              radius="md"
-            />
-          ) : file.file_type.startsWith("video/") ? (
-            <video
-              src={file.file_path}
-              style={{
-                width: "100%",
-                maxHeight: "60vh",
-                objectFit: "contain",
-                borderRadius: "8px",
-              }}
-              controls
-              preload="metadata"
-            >
-              Your browser does not support the video tag.
-            </video>
-          ) : file.file_type.startsWith("audio/") ? (
-            <audio
-              src={file.file_path}
-              style={{
-                width: "100%",
-                maxHeight: "60vh",
-                borderRadius: "8px",
-              }}
-              controls
-              preload="metadata"
-            >
-              Your browser does not support the audio element.
-            </audio>
-          ) : (
-            <Center
-              h={400}
-              style={{ backgroundColor: "var(--mantine-color-gray-0)", borderRadius: "8px" }}
-            >
-              <Stack align="center" gap="md">
-                <Box>{getFileIcon(120)}</Box>
-                <Text size="lg" fw={500}>
-                  {file.file_name}
-                </Text>
-              </Stack>
-            </Center>
-          )}
-          <ActionIcon
-            component="a"
-            href={file.file_path}
-            target="_blank"
-            rel="noopener noreferrer"
-            pos="absolute"
-            bottom={8}
-            right={8}
-            style={{ zIndex: 2 }}
-            variant="filled"
-            color="dark"
-            radius="md"
-            size="md"
-            aria-label="View file in new tab"
-            title="View file in new tab"
+    <>
+      {shouldRenderTrigger ? (
+        buttonType === "button" ? (
+          <Button
+            variant="subtle"
+            size="compact-xs"
+            leftSection={<RiEyeLine size={14} />}
+            onClick={openDetails}
           >
-            <RiEyeLine size={18} />
-          </ActionIcon>
-        </Box>
-
-        {/* File Information */}
-        <Container>
-          <Stack gap="xs">
-            <Group justify="space-between" align="flex-start">
-              <Text size="xl" fw={600}>
-                {file.file_name}
-              </Text>
-
-              {/* Action Buttons */}
-              <Group gap="sm">
-                <FileShare
-                  fileUrl={file.file_path}
-                  fileName={file.file_name}
-                  fileType={resolveFileShareType(file.file_type)}
-                  variant="icon"
-                  size="lg"
-                />
-                <ActionIcon size="xl" onClick={onDownload} variant="transparent">
-                  <RiDownloadLine />
-                </ActionIcon>
-                <ActionIcon
-                  size="xl"
-                  onClick={onDelete}
-                  variant="transparent"
-                  color="red"
-                  loading={deleting}
-                >
-                  <RiDeleteBinLine />
-                </ActionIcon>
-              </Group>
-            </Group>
-            <Group gap="xs">
-              {getFileTypeBadge()}
-              <Text size="sm" c="dimmed">
-                {formatFileSize(file.file_size)}
-              </Text>
-              <Text size="sm" c="dimmed">
-                {formatDate(file.created_at)}
-              </Text>
-            </Group>
-            {/* Tags Section */}
-            <Box>
-              <Group gap="xs" justify="space-between" align="center" mb="xs">
-                <Text size="sm" fw={500}>
-                  Tags
-                </Text>
-                <FileTagModal
-                  fileId={file.id}
-                  fileTags={file.user_file_tags || []}
-                  onTagsUpdated={onTagsUpdated}
-                />
-              </Group>
-              <Group gap="xs">
-                {file.user_file_tags && file.user_file_tags.length > 0 ? (
-                  file.user_file_tags.map((fileTag) => (
-                    <Badge key={fileTag.tag_id} color="blue" variant="light" size="sm">
-                      {fileTag.user_tags.tag_name}
-                    </Badge>
-                  ))
-                ) : (
-                  <Text size="sm" c="dimmed">
-                    No tags assigned
-                  </Text>
-                )}
-              </Group>
-            </Box>
-
-            {/* File Details Table */}
-            <Table variant="vertical" layout="fixed" withTableBorder={true}>
-              <Table.Tbody>
-                <Table.Tr>
-                  <Table.Th w={120}>File Name</Table.Th>
-                  <Table.Td>{file.file_name}</Table.Td>
-                </Table.Tr>
-                <Table.Tr>
-                  <Table.Th>File Path</Table.Th>
-                  <Table.Td>
-                    <Anchor href={file.file_path} target="_blank">
-                      <Group gap="xs">
-                        {file.file_path}
-
-                        <RiExternalLinkLine />
-                      </Group>
-                    </Anchor>
-                  </Table.Td>
-                </Table.Tr>
-                <Table.Tr>
-                  <Table.Th>Date Created</Table.Th>
-                  <Table.Td>{`${dayjs(file.created_at).format("MM/DD/YYYY h:mm A")}`}</Table.Td>
-                </Table.Tr>
-                <Table.Tr>
-                  <Table.Th>File Size</Table.Th>
-                  <Table.Td>{formatFileSize(file.file_size)}</Table.Td>
-                </Table.Tr>
-                <Table.Tr>
-                  <Table.Th>File Type</Table.Th>
-                  <Table.Td>{file.file_type.toUpperCase()}</Table.Td>
-                </Table.Tr>
-              </Table.Tbody>
-            </Table>
-
-            {/* Prompt Section */}
-            {file.generated_info?.payload?.prompt && (
-              <Box>
-                <Group gap="xs" justify="space-between" align="center" mb="xs">
-                  <Text size="sm" fw={500}>
-                    Prompt
-                  </Text>
-                  <Button
-                    size="xs"
-                    variant="light"
-                    leftSection={<RiFileCopyLine size={14} />}
-                    onClick={async () => {
-                      try {
-                        await navigator.clipboard.writeText(
-                          file.generated_info?.payload?.prompt || ""
-                        );
-                        notifications.show({
-                          title: "Copied",
-                          message: "Prompt copied to clipboard",
-                          color: "green",
-                        });
-                      } catch {
-                        notifications.show({
-                          title: "Error",
-                          message: "Failed to copy prompt",
-                          color: "red",
-                        });
-                      }
-                    }}
-                  >
-                    Copy
-                  </Button>
-                </Group>
-                <Text size="sm" style={{ wordBreak: "break-word" }}>
-                  {file.generated_info.payload.prompt}
-                </Text>
-              </Box>
-            )}
-          </Stack>
-        </Container>
-      </Stack>
-    </Modal>
+            View details
+          </Button>
+        ) : buttonType === "viewicon" ? (
+          <FileCardViewDetailsButton onClick={openDetails} />
+        ) : (
+          <span
+            role="button"
+            tabIndex={0}
+            onClick={openDetails}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                openDetails();
+              }
+            }}
+            style={{ cursor: "pointer" }}
+          >
+            {children}
+          </span>
+        )
+      ) : null}
+      <Modal
+        opened={fileDetailOpened}
+        onClose={closeDetails}
+        //title={file.file_name}
+        size="xl"
+        fullScreen
+        styles={{
+          body: { padding: 0 },
+          header: { padding: "1rem" },
+        }}
+      >
+        {files.length <= 1 ? (
+          files[0] ? (
+            <FileDetails file={files[0]} onTagsUpdated={onTagsUpdated} />
+          ) : null
+        ) : (
+          <Tabs defaultValue={firstFileId} keepMounted={false}>
+            <Tabs.List px="md">
+              <Scroller>
+                {files.map((f, index) => (
+                  <Tabs.Tab key={f.id} value={f.id}>
+                    {f.file_name?.trim() || `File ${index + 1}`}
+                  </Tabs.Tab>
+                ))}
+              </Scroller>
+            </Tabs.List>
+            {files.map((f) => (
+              <Tabs.Panel key={f.id} value={f.id}>
+                <FileDetails file={f} onTagsUpdated={onTagsUpdated} />
+              </Tabs.Panel>
+            ))}
+          </Tabs>
+        )}
+      </Modal>
+    </>
   );
 }

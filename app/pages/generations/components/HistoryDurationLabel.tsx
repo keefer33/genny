@@ -1,6 +1,6 @@
 import dayjs from "dayjs";
 import { useEffect, useState } from "react";
-import { isGenerationsHistoryInFlight } from "~/lib/generationsHistoryUtils";
+import { formatDuration, isGenerationsHistoryInFlight } from "~/lib/generationsHistoryUtils";
 
 export function HistoryRunDurationLabel({ status, created_at, duration }) {
   const inFlight = isGenerationsHistoryInFlight(status);
@@ -15,10 +15,10 @@ export function HistoryRunDurationLabel({ status, created_at, duration }) {
   if (inFlight) {
     const start = dayjs(created_at).valueOf();
     const elapsedSec = Math.max(0, Math.floor((nowMs - start) / 1000));
-    return `${elapsedSec}s`;
+    return formatDuration(elapsedSec);
   }
   if (duration != null && Number.isFinite(duration)) {
-    return `${duration}s`;
+    return formatDuration(duration);
   }
   return "—";
 }

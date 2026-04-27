@@ -25,6 +25,7 @@ export type GenModelsItem = {
   model_product?: string | null;
   model_variant?: string | null;
   sort_order: number | null;
+  sort_order_variant?: number | null;
   gen_models_apis_id?: number | string | null;
   gen_models_apis?: GenModelsApisEmbed | null;
 };
@@ -79,7 +80,7 @@ export type GenerationsHistoryItem = {
   id: string;
   created_at: string;
   user_id: string;
-  gen_model_id: string | GenerationsHistoryGenModelEmbed | null;
+  gen_model_id: GenerationsHistoryGenModelEmbed | any | null;
   status: string | null;
   task_id: string | null;
   cost: number | null;
@@ -133,6 +134,8 @@ export type PlaygroundRunHistoryFilterModelOption = { id: string; name: string }
 export interface GenerationsStoreState {
   items: GenModelsItem[];
   filters: GenModelsSearchResponse["filters"];
+  allGenModels: GenModelsItem[];
+  allGenModelsFilters: GenModelsSearchResponse["filters"];
   total: number;
   loading: boolean;
   runLoading: boolean;
@@ -150,6 +153,7 @@ export interface GenerationsStoreState {
   generationsHistoryGenModelFilter: string | null;
   generationsHistoryBrandFilters: string[];
   generationsHistoryModelProductFilters: string[];
+  generationsHistoryModelTypeFilters: string[];
   generationsHistoryFileTypeFilter: "all" | "images" | "videos" | "audio";
   generationsHistoryTagIds: string[];
   generationsHistoryFilterModels: PlaygroundRunHistoryFilterModelOption[];
@@ -172,8 +176,10 @@ export interface GenerationsStoreState {
   setGenerationsHistoryGenModelFilter: (id: string | null) => void;
   setGenerationsHistoryBrandFilters: (values: string[]) => void;
   setGenerationsHistoryModelProductFilters: (values: string[]) => void;
+  setGenerationsHistoryModelTypeFilters: (values: string[]) => void;
   setGenerationsHistoryFileTypeFilter: (v: "all" | "images" | "videos" | "audio") => void;
   setGenerationsHistoryTagIds: (ids: string[]) => void;
+  clearGenerationsHistoryFilters: () => void;
   fetchGenerationsHistoryFilterModels: () => Promise<void>;
   fetchRecentGenModels: () => Promise<void>;
   selectedModel: GenModelsItem | null;
@@ -182,12 +188,14 @@ export interface GenerationsStoreState {
     filters?: ModelSearchFilters,
     opts?: { silent?: boolean; clearItems?: boolean }
   ) => Promise<void>;
+  loadGenModels: () => Promise<void>;
   fetchGenerationsHistory: (opts?: {
     page?: number;
     limit?: number;
     gen_model_id?: string | null;
     brands?: string[];
     model_product?: string[];
+    model_type?: string[];
     file_type_filter?: "all" | "images" | "videos" | "audio";
     tag_ids?: string[];
   }) => Promise<void>;

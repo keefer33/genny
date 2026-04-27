@@ -1,8 +1,5 @@
 import { create } from "zustand";
-import {
-  formatGenModelDisplayName,
-  normalizeGenerationsHistoryItem,
-} from "../generationsHistoryUtils";
+import { formatGenModelDisplayName } from "../generationsHistoryUtils";
 import { authFetchJson } from "./authFetch";
 import { endpoint } from "../utils";
 import createUniversalSelectors from "./universalSelectors";
@@ -42,6 +39,8 @@ const toQuery = (filters: ModelSearchFilters = {}) => {
 const useGenerationsStoreBase = create<GenerationsStoreState>((set, get) => ({
   items: [],
   filters: emptyFilters,
+  allGenModels: [],
+  allGenModelsFilters: emptyFilters,
   total: 0,
   loading: false,
   runLoading: false,
@@ -59,6 +58,7 @@ const useGenerationsStoreBase = create<GenerationsStoreState>((set, get) => ({
   generationsHistoryGenModelFilter: null,
   generationsHistoryBrandFilters: [],
   generationsHistoryModelProductFilters: [],
+  generationsHistoryModelTypeFilters: [],
   generationsHistoryFileTypeFilter: "all",
   generationsHistoryTagIds: [],
   generationsHistoryFilterModels: [],
@@ -83,8 +83,19 @@ const useGenerationsStoreBase = create<GenerationsStoreState>((set, get) => ({
   setGenerationsHistoryBrandFilters: (values) => set({ generationsHistoryBrandFilters: values }),
   setGenerationsHistoryModelProductFilters: (values) =>
     set({ generationsHistoryModelProductFilters: values }),
+  setGenerationsHistoryModelTypeFilters: (values) =>
+    set({ generationsHistoryModelTypeFilters: values }),
   setGenerationsHistoryFileTypeFilter: (v) => set({ generationsHistoryFileTypeFilter: v }),
   setGenerationsHistoryTagIds: (ids) => set({ generationsHistoryTagIds: ids }),
+  clearGenerationsHistoryFilters: () =>
+    set({
+      generationsHistoryGenModelFilter: null,
+      generationsHistoryBrandFilters: [],
+      generationsHistoryModelProductFilters: [],
+      generationsHistoryModelTypeFilters: [],
+      generationsHistoryFileTypeFilter: "all",
+      generationsHistoryTagIds: [],
+    }),
   fetchGenerationsHistoryFilterModels: async () => {
     try {
       const data = await authFetchJson<GenerationsHistoryModelsResponse>(
@@ -124,6 +135,7 @@ const useGenerationsStoreBase = create<GenerationsStoreState>((set, get) => ({
       generationsHistoryGenModelFilter,
       generationsHistoryBrandFilters,
       generationsHistoryModelProductFilters,
+      generationsHistoryModelTypeFilters,
       generationsHistoryFileTypeFilter,
       generationsHistoryTagIds,
     } = get();
@@ -150,6 +162,12 @@ const useGenerationsStoreBase = create<GenerationsStoreState>((set, get) => ({
       if (products.length > 0) {
         params.set("model_product", products.join(","));
       }
+      const modelTypes = (opts.model_type ?? generationsHistoryModelTypeFilters)
+        .map((s) => s.trim())
+        .filter(Boolean);
+      if (modelTypes.length > 0) {
+        params.set("model_type", modelTypes.join(","));
+      }
       const fileType = opts.file_type_filter ?? generationsHistoryFileTypeFilter;
       if (fileType && fileType !== "all") {
         params.set("file_type_filter", fileType);
@@ -164,7 +182,7 @@ const useGenerationsStoreBase = create<GenerationsStoreState>((set, get) => ({
         { errorMessage: "Failed to load run history" }
       );
       set({
-        generationsHistory: (data.items ?? []).map(normalizeGenerationsHistoryItem),
+        generationsHistory: data.items ?? [],
         generationsHistoryTotal: data.total ?? 0,
         generationsHistoryPage: data.page ?? page,
         generationsHistoryLimit: data.limit ?? limit,
@@ -220,6 +238,26 @@ const useGenerationsStoreBase = create<GenerationsStoreState>((set, get) => ({
         total: 0,
         ...(silent ? {} : { loading: false }),
         error: err instanceof Error ? err.message : "Failed to load playground models",
+      });
+    }
+  },
+  loadGenModels: async () => {
+    try {
+      const data = await authFetchJson<GenModelsSearchResponse>(
+        `${endpoint}/playground`,
+        undefined,
+        {
+          errorMessage: "Failed to load gen models",
+        }
+      );
+      set({
+        allGenModels: data.items ?? [],
+        allGenModelsFilters: data.filters ?? emptyFilters,
+      });
+    } catch {
+      set({
+        allGenModels: [],
+        allGenModelsFilters: emptyFilters,
       });
     }
   },
@@ -286,6 +324,8 @@ const useGenerationsStoreBase = create<GenerationsStoreState>((set, get) => ({
     set({
       items: [],
       filters: emptyFilters,
+      allGenModels: [],
+      allGenModelsFilters: emptyFilters,
       total: 0,
       error: null,
       catalogGenerationType: null,
@@ -314,6 +354,7 @@ const useGenerationsStoreBase = create<GenerationsStoreState>((set, get) => ({
       generationsHistoryGenModelFilter: null,
       generationsHistoryBrandFilters: [],
       generationsHistoryModelProductFilters: [],
+      generationsHistoryModelTypeFilters: [],
       generationsHistoryFileTypeFilter: "all",
       generationsHistoryTagIds: [],
       generationsHistoryFilterModels: [],

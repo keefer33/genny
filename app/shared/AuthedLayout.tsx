@@ -8,6 +8,7 @@ import useAppStore from "~/lib/stores/appStore";
 import { Outlet, useNavigate } from "react-router";
 import { usePaymentModal } from "./PaymentModal";
 import { MOBILE_GLOBAL_NAV_HEIGHT, MobileFooterGlobalNav } from "./MobileFooterGlobalNav";
+import useGenerateStore from "~/lib/stores/generateStore";
 
 /**
  * Authenticated app shell: waits for session/profile + catalog bootstrap (`appLoading` from useAuth),
@@ -16,6 +17,7 @@ import { MOBILE_GLOBAL_NAV_HEIGHT, MobileFooterGlobalNav } from "./MobileFooterG
 export default function AuthedLayout() {
   const navigate = useNavigate();
   const { getUser, appLoading, isMobile } = useAppStore();
+  const { loadGenModels } = useGenerateStore();
   const userId = getUser()?.user?.id;
 
   const { themeSettings } = useAppStore();
@@ -33,6 +35,14 @@ export default function AuthedLayout() {
       navigate("/login", { replace: true });
     }
   }, [appLoading, userId, navigate]);
+
+  const init = async () => {
+    await loadGenModels();
+  };
+
+  useEffect(() => {
+    void init();
+  }, []);
 
   if (appLoading) {
     return <PageLoader />;

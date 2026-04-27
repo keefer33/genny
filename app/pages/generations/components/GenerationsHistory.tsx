@@ -16,27 +16,15 @@ import {
 } from "@mantine/core";
 import { Carousel } from "@mantine/carousel";
 import { useDisclosure } from "@mantine/hooks";
-import { RiDeleteBinLine, RiEyeLine, RiImageLine } from "@remixicon/react";
+import { RiDeleteBinLine, RiImageLine } from "@remixicon/react";
 import dayjs from "dayjs";
 import { useEffect, useMemo, useState } from "react";
 import { useGenerationsRunsRealtime } from "~/lib/hooks/useUserRealtimeChannels";
 import useAppStore from "~/lib/stores/appStore";
-import { assertAuthFetchOk, authFetch, authFetchJson } from "~/lib/stores/authFetch";
-import useFilesFoldersStore from "~/lib/stores/filesFoldersStore";
 import useTagStore from "~/lib/stores/tagStore";
-import {
-  brandLogoFromGenModel,
-  brandTextFromGenModel,
-  formatGenModelDisplayName,
-  genModelCatalogIdFromRunRow,
-  genModelDisplayEmbedFromRunRow,
-  isGenerationsHistoryInFlight,
-  generationsHistoryModelLabel,
-  generationsHistoryBadgeLabelFromUrl,
-} from "~/lib/generationsHistoryUtils";
-import { endpoint } from "~/lib/utils";
+import { isGenerationsHistoryInFlight } from "~/lib/generationsHistoryUtils";
 import { showNotification } from "~/lib/notificationUtils";
-import FileDetailModal, { type FileDetailModalFile } from "~/shared/FileDetailModal";
+import FileDetailModal from "~/shared/FileDetailModal";
 import { PlayGroundRunHistoryFiltersModal } from "~/pages/generations/components/GenerationsHistoryFiltersModal";
 import { AppPagination } from "~/shared/AppPagination";
 import { CostBadge } from "~/shared/CostBadge";
@@ -58,24 +46,14 @@ export default function GenerationsHistory({
   const user = getUser();
   const userId = user?.user?.id;
   const { loadTags } = useTagStore();
-  const [selectedFileIds, setSelectedFileIds] = useState<Set<string>>(new Set());
-  const [selectedFileMeta, setSelectedFileMeta] = useState<Map<string, { file_name: string }>>(
-    new Map()
-  );
+  const [selectedRunIds, setSelectedRunIds] = useState<Set<string>>(new Set());
   const [deleteModalOpened, { open: openDeleteModal, close: closeDeleteModal }] =
     useDisclosure(false);
-  const [bulkLoading, setBulkLoading] = useState(false);
   const [fileDetailOpened, { open: openFileDetailModal, close: closeFileDetailModal }] =
     useDisclosure(false);
-  const [fileDetail, setFileDetail] = useState<FileDetailModalFile | null>(null);
-  const [fileDetailModelName, setFileDetailModelName] = useState<string | null>(null);
-  const [fileDetailDeleting, setFileDetailDeleting] = useState(false);
+  const [bulkLoading, setBulkLoading] = useState(false);
   const [runDeleteId, setRunDeleteId] = useState<string | null>(null);
-  const [runDeleteModalOpened, { open: openRunDeleteModal, close: closeRunDeleteModal }] =
-    useDisclosure(false);
-  const [runDeleteLoading, setRunDeleteLoading] = useState(false);
-
-  const { deleteFile } = useFilesFoldersStore();
+  const [currentDetailFiles, setCurrentDetailFiles] = useState<any | null>(null);
 
   const {
     generationsHistory,
@@ -87,32 +65,13 @@ export default function GenerationsHistory({
     generationsHistoryGenModelFilter,
     generationsHistoryBrandFilters,
     generationsHistoryModelProductFilters,
+    generationsHistoryModelTypeFilters,
     generationsHistoryFileTypeFilter,
     generationsHistoryTagIds,
-    generationsHistoryFilterModels,
     fetchGenerationsHistory,
     fetchGenerationsHistoryFilterModels,
     deleteGenerate,
   } = useGenerationsStore();
-
-  /** Full list from API, plus any model on the current page not yet in that list (e.g. new run). */
-  const availableModels = useMemo(() => {
-    const byId = new Map<string, string>();
-    for (const m of generationsHistoryFilterModels) {
-      byId.set(m.id, m.name);
-    }
-    for (const row of generationsHistory) {
-      const gid = genModelCatalogIdFromRunRow(row);
-      if (!gid || byId.has(gid)) continue;
-      const gm = genModelDisplayEmbedFromRunRow(row);
-      if (gm) {
-        byId.set(gid, formatGenModelDisplayName(gm));
-      }
-    }
-    return [...byId.entries()]
-      .map(([id, name]) => ({ id, name }))
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [generationsHistoryFilterModels, generationsHistory]);
 
   const generationsHistoryTotalPages = Math.max(
     1,
@@ -122,6 +81,7 @@ export default function GenerationsHistory({
   const tagIdsKey = generationsHistoryTagIds.join(",");
   const brandFiltersKey = generationsHistoryBrandFilters.join(",");
   const productFiltersKey = generationsHistoryModelProductFilters.join(",");
+  const modelTypeFiltersKey = generationsHistoryModelTypeFilters.join(",");
   useGenerationsRunsRealtime(userId);
 
   useEffect(() => {
@@ -137,132 +97,92 @@ export default function GenerationsHistory({
     generationsHistoryGenModelFilter,
     brandFiltersKey,
     productFiltersKey,
+    modelTypeFiltersKey,
     generationsHistoryFileTypeFilter,
     tagIdsKey,
     fetchGenerationsHistory,
   ]);
 
-  const availableBrands = useMemo(() => {
-    const set = new Set<string>();
-    for (const row of generationsHistory) {
-      const gm = genModelDisplayEmbedFromRunRow(row);
-      const b = gm?.brand_name;
-      if (b && typeof b === "object" && "slug" in b) {
-        const slug = (b.slug as string | undefined)?.trim();
-        if (slug) set.add(slug);
-      }
-    }
-    return [...set].sort((a, b) => a.localeCompare(b));
-  }, [generationsHistory]);
+  const selectableRunsOnPage = useMemo(
+    () => generationsHistory.filter((row) => !isGenerationsHistoryInFlight(row.status)),
+    [generationsHistory]
+  );
 
-  const availableProducts = useMemo(() => {
-    const set = new Set<string>();
-    for (const row of generationsHistory) {
-      const gm = genModelDisplayEmbedFromRunRow(row);
-      const p = (gm?.model_product ?? "").trim();
-      if (p) set.add(p);
-    }
-    return [...set].sort((a, b) => a.localeCompare(b));
-  }, [generationsHistory]);
-
-  const selectableFilesOnPage = useMemo(() => {
-    const out: Array<{ fileId: string; file_name: string }> = [];
-    for (const row of generationsHistory) {
-      if (isGenerationsHistoryInFlight(row.status)) continue;
-      for (const f of row.preview_files ?? []) {
-        const id = f.id?.trim();
-        if (!id) continue;
-        const name = (f.file_name ?? "").trim() || "file";
-        out.push({ fileId: id, file_name: name });
-      }
-    }
-    return out;
-  }, [generationsHistory]);
-
-  const handleFileSelect = (fileId: string, selected: boolean, meta: { file_name: string }) => {
-    setSelectedFileIds((prev) => {
+  const handleRunSelect = (runId: string, selected: boolean) => {
+    setSelectedRunIds((prev) => {
       const next = new Set(prev);
-      if (selected) next.add(fileId);
-      else next.delete(fileId);
-      return next;
-    });
-    setSelectedFileMeta((prev) => {
-      const next = new Map(prev);
-      if (selected) next.set(fileId, meta);
-      else next.delete(fileId);
+      if (selected) next.add(runId);
+      else next.delete(runId);
       return next;
     });
   };
 
-  const selectedFilesOnPage = selectableFilesOnPage.filter((f) => selectedFileIds.has(f.fileId));
+  const selectedRunsOnPage = selectableRunsOnPage.filter((row) => selectedRunIds.has(row.id));
   const isAllSelected =
-    selectableFilesOnPage.length > 0 && selectedFilesOnPage.length === selectableFilesOnPage.length;
+    selectableRunsOnPage.length > 0 && selectedRunsOnPage.length === selectableRunsOnPage.length;
   const isIndeterminate =
-    selectedFilesOnPage.length > 0 && selectedFilesOnPage.length < selectableFilesOnPage.length;
+    selectedRunsOnPage.length > 0 && selectedRunsOnPage.length < selectableRunsOnPage.length;
 
   const handleSelectAll = (selected: boolean) => {
-    const pageFileIds = new Set(selectableFilesOnPage.map((f) => f.fileId));
+    const pageRunIds = new Set(selectableRunsOnPage.map((row) => row.id));
     if (selected) {
-      setSelectedFileIds((prev) => {
+      setSelectedRunIds((prev) => {
         const merged = new Set(prev);
-        pageFileIds.forEach((id) => merged.add(id));
-        return merged;
-      });
-      setSelectedFileMeta((prev) => {
-        const merged = new Map(prev);
-        for (const f of selectableFilesOnPage) {
-          merged.set(f.fileId, { file_name: f.file_name });
-        }
+        pageRunIds.forEach((id) => merged.add(id));
         return merged;
       });
     } else {
-      setSelectedFileIds((prev) => {
+      setSelectedRunIds((prev) => {
         const filtered = new Set(prev);
-        pageFileIds.forEach((id) => filtered.delete(id));
-        return filtered;
-      });
-      setSelectedFileMeta((prev) => {
-        const filtered = new Map(prev);
-        pageFileIds.forEach((id) => filtered.delete(id));
+        pageRunIds.forEach((id) => filtered.delete(id));
         return filtered;
       });
     }
   };
 
-  const handleBulkDelete = async () => {
-    if (!userId || selectedFileIds.size === 0) return;
+  const closeDeleteConfirmModal = () => {
+    closeDeleteModal();
+    setRunDeleteId(null);
+  };
+
+  const openBulkDeleteModal = () => {
+    setRunDeleteId(null);
+    openDeleteModal();
+  };
+
+  const openDeleteRunModal = (id: string) => {
+    setRunDeleteId(id);
+    openDeleteModal();
+  };
+
+  const openFileDetails = (files: unknown) => {
+    setCurrentDetailFiles(files);
+    openFileDetailModal();
+  };
+
+  const handleConfirmDelete = async () => {
+    const runIds = runDeleteId ? [runDeleteId] : [...selectedRunIds];
+    if (!userId || runIds.length === 0) return;
     setBulkLoading(true);
     try {
       let deleted = 0;
-      for (const fileId of selectedFileIds) {
-        const meta =
-          selectedFileMeta.get(fileId) ??
-          (() => {
-            for (const row of generationsHistory) {
-              const f = row.preview_files?.find((p) => p.id === fileId);
-              if (f) {
-                return { file_name: (f.file_name ?? "").trim() || "file" };
-              }
-            }
-            return null;
-          })();
-        if (!meta) continue;
-        const res = await authFetch(`${endpoint}/user/files/${encodeURIComponent(fileId)}`, {
-          method: "DELETE",
-          body: JSON.stringify({ idOrName: meta.file_name }),
-        });
-        await assertAuthFetchOk(res, "Failed to delete file");
+      for (const id of runIds) {
+        await deleteGenerate(id);
         deleted += 1;
       }
       if (deleted > 0) {
         showNotification({
           type: "success",
           title: "Deleted",
-          message: `Removed ${deleted} file${deleted !== 1 ? "s" : ""}.`,
+          message: `Removed ${deleted} run${deleted !== 1 ? "s" : ""}.`,
         });
-        setSelectedFileIds(new Set());
-        setSelectedFileMeta(new Map());
-        closeDeleteModal();
+        setSelectedRunIds((prev) => {
+          if (!runDeleteId) return new Set();
+          const next = new Set(prev);
+          next.delete(runDeleteId);
+          return next;
+        });
+        closeDeleteConfirmModal();
         void fetchGenerationsHistory({ page: generationsHistoryPage });
       }
     } catch (e) {
@@ -275,176 +195,25 @@ export default function GenerationsHistory({
     }
   };
 
-  const openRunHistoryFileDetail = async (fileId: string, modelName: string | null) => {
-    if (!userId) return;
-    try {
-      const data = await authFetchJson<{ file: FileDetailModalFile }>(
-        `${endpoint}/user/files/${encodeURIComponent(fileId)}`,
-        undefined,
-        { errorMessage: "Failed to load file" }
-      );
-      setFileDetail(data.file);
-      setFileDetailModelName(modelName);
-      openFileDetailModal();
-    } catch (e) {
-      showNotification({
-        type: "error",
-        message: e instanceof Error ? e.message : "Failed to load file",
-      });
-    }
-  };
-
-  const handleFileDetailDownload = async () => {
-    if (!fileDetail) return;
-    try {
-      const res = await fetch(fileDetail.file_path, { mode: "cors" });
-      if (!res.ok) throw new Error("Fetch failed");
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = fileDetail.file_name || "download";
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch {
-      window.open(fileDetail.file_path, "_blank");
-    }
-  };
-
-  const handleFileDetailDelete = async () => {
-    if (!fileDetail || !userId) return;
-    setFileDetailDeleting(true);
-    try {
-      const ok = await deleteFile(fileDetail.file_name, fileDetail.id, userId);
-      if (ok) {
-        const removedId = fileDetail.id;
-        closeFileDetailModal();
-        setFileDetail(null);
-        setFileDetailModelName(null);
-        setSelectedFileIds((prev) => {
-          const next = new Set(prev);
-          next.delete(removedId);
-          return next;
-        });
-        setSelectedFileMeta((prev) => {
-          const next = new Map(prev);
-          next.delete(removedId);
-          return next;
-        });
-        void fetchGenerationsHistory({ page: generationsHistoryPage });
-      }
-    } finally {
-      setFileDetailDeleting(false);
-    }
-  };
-
-  const handleFileDetailTagsUpdated = (
-    updatedTags: NonNullable<FileDetailModalFile["user_file_tags"]>
-  ) => {
-    setFileDetail((prev) => (prev ? { ...prev, user_file_tags: updatedTags } : null));
-  };
-
-  const openDeleteRunModal = (id: string) => {
-    setRunDeleteId(id);
-    openRunDeleteModal();
-  };
-
-  const handleConfirmDeleteRun = async () => {
-    if (!runDeleteId) return;
-    const runRow = generationsHistory.find((r) => r.id === runDeleteId);
-    const fileIdsFromRun = new Set(
-      (runRow?.preview_files ?? [])
-        .map((p) => p.id?.trim())
-        .filter((id): id is string => Boolean(id))
-    );
-    setRunDeleteLoading(true);
-    try {
-      await deleteGenerate(runDeleteId);
-      setSelectedFileIds((prev) => {
-        const next = new Set(prev);
-        fileIdsFromRun.forEach((fid) => next.delete(fid));
-        return next;
-      });
-      setSelectedFileMeta((prev) => {
-        const next = new Map(prev);
-        fileIdsFromRun.forEach((fid) => next.delete(fid));
-        return next;
-      });
-      if (fileDetail && fileIdsFromRun.has(fileDetail.id)) {
-        closeFileDetailModal();
-        setFileDetail(null);
-        setFileDetailModelName(null);
-      }
-      showNotification({
-        type: "success",
-        title: "Run deleted",
-        message: "The run and its files were removed.",
-      });
-      closeRunDeleteModal();
-      setRunDeleteId(null);
-    } catch (e) {
-      showNotification({
-        type: "error",
-        message: e instanceof Error ? e.message : "Failed to delete run",
-      });
-    } finally {
-      setRunDeleteLoading(false);
-    }
-  };
-
-  if (generationsHistoryLoading && generationsHistory.length === 0) {
-    return (
-      <Box h="100%" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <Loader size="sm" />
-      </Box>
-    );
-  }
-
-  if (generationsHistoryError) {
-    return (
-      <Stack gap="xs" p="md" h="100%" style={{ minHeight: 0 }}>
-        <Group justify="space-between" align="center" wrap="wrap">
-          <Text fw={700}>Run history</Text>
-          {showFiltersModal ? (
-            <PlayGroundRunHistoryFiltersModal
-              availableModels={availableModels}
-              availableBrands={availableBrands}
-              availableProducts={availableProducts}
-            />
-          ) : null}
-        </Group>
-        <Text c="dimmed" size="sm">
-          {generationsHistoryError}
-        </Text>
-      </Stack>
-    );
-  }
-
   return (
     <Stack gap="xs" h="100%" px="md" pt="sm" pb="xs" style={{ minHeight: 0 }}>
       <Group gap="sm">
-        {showFiltersModal ? (
-          <PlayGroundRunHistoryFiltersModal
-            availableModels={availableModels}
-            availableBrands={availableBrands}
-            availableProducts={availableProducts}
-          />
-        ) : null}
+        {showFiltersModal ? <PlayGroundRunHistoryFiltersModal /> : null}
         {showBulkActions ? (
           <>
             <Checkbox
-              disabled={selectableFilesOnPage.length === 0}
+              disabled={selectableRunsOnPage.length === 0}
               checked={isAllSelected}
               indeterminate={isIndeterminate}
               onChange={(event) => handleSelectAll(event.currentTarget.checked)}
-              label={`${selectedFileIds.size} selected`}
+              label={`${selectedRunIds.size} selected`}
             />
-            {selectedFileIds.size > 0 ? (
+            {selectedRunIds.size > 0 ? (
               <Button
                 variant="light"
                 color="red"
                 size="xs"
-                onClick={openDeleteModal}
+                onClick={openBulkDeleteModal}
                 loading={bulkLoading}
               >
                 Delete
@@ -456,21 +225,30 @@ export default function GenerationsHistory({
 
       <Box style={{ flex: 1, minHeight: 0, minWidth: 0 }}>
         <ScrollArea h="100%" type="auto" offsetScrollbars pr={!isMobile ? "xs" : 0}>
-          {generationsHistory.length === 0 ? (
+          {generationsHistoryError ? (
+            <Text c="dimmed" size="sm">
+              {generationsHistoryError}
+            </Text>
+          ) : generationsHistoryLoading && generationsHistory.length === 0 ? (
+            <Box
+              h="100%"
+              style={{ display: "flex", alignItems: "center", justifyContent: "center" }}
+            >
+              <Loader size="sm" />
+            </Box>
+          ) : generationsHistory.length === 0 ? (
             <Text c="dimmed" size="sm">
               No runs yet.
             </Text>
           ) : (
             <SimpleGrid cols={{ base: 1, "600px": 2, "900px": 3 }} spacing="xl" type="container">
               {generationsHistory.map((row) => {
-                const gmRow = genModelDisplayEmbedFromRunRow(row);
                 const inFlight = isGenerationsHistoryInFlight(row.status);
-                const showLoadingThumb = inFlight && row.preview_urls.length === 0;
-                const singlePf = row.preview_files[0];
+                const showLoadingThumb = inFlight && row.user_files.length === 0;
+                const singlePf = row.user_files[0];
                 const singleFid = singlePf?.id?.trim();
                 const detailFid =
-                  singleFid || row.preview_files.find((file) => file.id?.trim())?.id?.trim();
-                const singleShowSelect = showBulkActions && !inFlight && Boolean(singleFid);
+                  singleFid || row.user_files.find((file) => file.id?.trim())?.id?.trim();
                 const pollingError = (() => {
                   const raw = (row as { polling_response?: unknown }).polling_response;
                   if (!raw || typeof raw !== "object") return null;
@@ -485,7 +263,21 @@ export default function GenerationsHistory({
                     padding={0}
                     radius="md"
                     bg={colorScheme === "dark" ? "gray.9" : "gray.1"}
+                    pos="relative"
                   >
+                    {showBulkActions && !inFlight ? (
+                      <Checkbox
+                        checked={selectedRunIds.has(row.id)}
+                        onChange={(event) => handleRunSelect(row.id, event.currentTarget.checked)}
+                        onClick={(event) => event.stopPropagation()}
+                        style={{
+                          position: "absolute",
+                          top: 6,
+                          right: 6,
+                          zIndex: 12,
+                        }}
+                      />
+                    ) : null}
                     <Box
                       h={GENERATIONS_HISTORY_THUMB_H}
                       style={{
@@ -496,81 +288,53 @@ export default function GenerationsHistory({
                     >
                       {showLoadingThumb ? (
                         <HistoryRunLoadingThumb status={row.status} created_at={row.created_at} />
-                      ) : row.preview_urls.length > 1 ? (
-                        <Carousel
-                          height={GENERATIONS_HISTORY_THUMB_H}
-                          withControls
-                          withIndicators
-                          slideSize="100%"
-                          emblaOptions={{ loop: true }}
-                          styles={{
-                            controls: { top: "50%", transform: "translateY(-50%)" },
-                            indicator: { width: 6, height: 6 },
-                          }}
-                        >
-                          {row.preview_urls.map((url, i) => {
-                            const pf = row.preview_files[i];
-                            const fid = pf?.id?.trim();
-                            const showSelect = showBulkActions && !inFlight && Boolean(fid);
-                            return (
-                              <Carousel.Slide key={`${row.id}-${i}`}>
-                                <HistoryPreviewWithBadge
-                                  url={url}
-                                  badgeLabel={generationsHistoryBadgeLabelFromUrl(url)}
-                                  fileId={fid}
-                                  showSelect={showSelect}
-                                  checked={fid ? selectedFileIds.has(fid) : false}
-                                  onSelectChange={(next) => {
-                                    if (!fid) return;
-                                    handleFileSelect(fid, next, {
-                                      file_name: (pf?.file_name ?? "").trim() || "file",
-                                    });
-                                  }}
-                                  showViewButton={Boolean(fid) && !inFlight}
-                                  onViewClick={
-                                    fid
-                                      ? () =>
-                                          void openRunHistoryFileDetail(
-                                            fid,
-                                            generationsHistoryModelLabel(row)
-                                          )
-                                      : undefined
-                                  }
-                                />
-                              </Carousel.Slide>
-                            );
-                          })}
-                        </Carousel>
-                      ) : row.preview_urls.length === 1 ? (
-                        <HistoryPreviewWithBadge
-                          url={row.thumbnail_url?.trim() || row.preview_urls[0]}
-                          badgeLabel={generationsHistoryBadgeLabelFromUrl(row.preview_urls[0])}
-                          fileId={singleFid}
-                          showSelect={singleShowSelect}
-                          checked={singleFid ? selectedFileIds.has(singleFid) : false}
-                          onSelectChange={(next) => {
-                            if (!singleFid) return;
-                            handleFileSelect(singleFid, next, {
-                              file_name: (singlePf?.file_name ?? "").trim() || "file",
-                            });
-                          }}
-                          showViewButton={Boolean(singleFid) && !inFlight}
-                          onViewClick={
-                            singleFid
-                              ? () =>
-                                  void openRunHistoryFileDetail(
-                                    singleFid,
-                                    generationsHistoryModelLabel(row)
-                                  )
-                              : undefined
-                          }
-                        />
-                      ) : (
+                      ) : row.user_files.length === 0 ? (
                         <Center h={GENERATIONS_HISTORY_THUMB_H}>
                           <ThemeIcon variant="light" size="xl" radius="md" color="gray">
                             <RiImageLine size={28} />
                           </ThemeIcon>
                         </Center>
+                      ) : (
+                        <Box
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => openFileDetails(row.user_files)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              openFileDetails(row.user_files);
+                            }
+                          }}
+                          style={{ cursor: "pointer" }}
+                        >
+                          {row.user_files.length > 1 ? (
+                            <Carousel
+                              height={GENERATIONS_HISTORY_THUMB_H}
+                              withControls
+                              withIndicators
+                              slideSize="100%"
+                              emblaOptions={{ loop: true }}
+                              styles={{
+                                controls: { top: "50%", transform: "translateY(-50%)" },
+                                indicator: { width: 6, height: 6 },
+                              }}
+                            >
+                              {row.user_files.map((file, i) => (
+                                <Carousel.Slide key={`${file.id}-${i}`}>
+                                  <HistoryPreviewWithBadge
+                                    url={file.thumbnail_url ?? file.file_path}
+                                    file_type={file.file_type}
+                                  />
+                                </Carousel.Slide>
+                              ))}
+                            </Carousel>
+                          ) : (
+                            <HistoryPreviewWithBadge
+                              url={row.user_files[0].thumbnail_url ?? row.user_files[0].file_path}
+                              file_type={row.user_files[0].file_type}
+                            />
+                          )}
+                        </Box>
                       )}
                     </Box>
                     <Stack gap="xs" p="xs">
@@ -578,12 +342,16 @@ export default function GenerationsHistory({
                         <Group justify="space-between" align="center">
                           <Group gap="xs">
                             <Avatar
-                              src={brandLogoFromGenModel(gmRow) ?? undefined}
+                              src={
+                                (row.gen_model_id as { brand_name?: { logo?: string } })?.brand_name
+                                  ?.logo ?? undefined
+                              }
                               size="sm"
                               radius="md"
                             />
                             <Text size="lg" fw={800}>
-                              {brandTextFromGenModel(gmRow)}
+                              {(row.gen_model_id as { brand_name?: { name?: string } })?.brand_name
+                                ?.name ?? "—"}
                             </Text>
                           </Group>
                           {row.cost != null ? (
@@ -597,10 +365,10 @@ export default function GenerationsHistory({
                         </Group>
 
                         <Text size="md" fw={600}>
-                          {gmRow?.model_product ?? "—"}
+                          {row?.gen_model_id?.model_product ?? "—"}
                         </Text>
                         <Text size="sm" fw={600} c="dimmed">
-                          {gmRow?.model_variant ?? "—"}
+                          {row?.gen_model_id?.model_variant ?? "—"}
                         </Text>
                       </Stack>
                       <Group gap="xs" justify="space-between" align="center">
@@ -645,13 +413,7 @@ export default function GenerationsHistory({
                             <Button
                               variant="subtle"
                               size="compact-xs"
-                              leftSection={<RiEyeLine size={14} />}
-                              onClick={() =>
-                                void openRunHistoryFileDetail(
-                                  detailFid,
-                                  generationsHistoryModelLabel(row)
-                                )
-                              }
+                              onClick={() => openFileDetails(row.user_files)}
                             >
                               View details
                             </Button>
@@ -682,70 +444,30 @@ export default function GenerationsHistory({
         </Group>
       )}
 
+      <FileDetailModal
+        opened={fileDetailOpened}
+        onClose={closeFileDetailModal}
+        file={currentDetailFiles}
+      />
+
       <Modal
         opened={deleteModalOpened}
-        onClose={closeDeleteModal}
-        title="Delete selected files"
+        onClose={closeDeleteConfirmModal}
+        title={runDeleteId ? "Delete this run?" : "Delete selected runs?"}
         centered
       >
         <Stack gap="md">
           <Text>
-            Delete {selectedFileIds.size} file{selectedFileIds.size !== 1 ? "s" : ""}? This removes
-            them from your library; it cannot be undone.
+            {runDeleteId
+              ? "This removes the run from your history and deletes any output files stored in your library. This cannot be undone."
+              : `Delete ${selectedRunIds.size} run${selectedRunIds.size !== 1 ? "s" : ""}? This removes the selected runs and their files from your library; it cannot be undone.`}
           </Text>
           <Group justify="flex-end" gap="sm">
-            <Button variant="light" onClick={closeDeleteModal} disabled={bulkLoading}>
+            <Button variant="light" onClick={closeDeleteConfirmModal} disabled={bulkLoading}>
               Cancel
             </Button>
-            <Button color="red" onClick={() => void handleBulkDelete()} loading={bulkLoading}>
-              Delete
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
-
-      {fileDetail ? (
-        <FileDetailModal
-          opened={fileDetailOpened}
-          onClose={() => {
-            closeFileDetailModal();
-            setFileDetail(null);
-            setFileDetailModelName(null);
-          }}
-          file={fileDetail}
-          modelName={fileDetailModelName ?? undefined}
-          onDownload={() => void handleFileDetailDownload()}
-          onEdit={() => {}}
-          onDelete={() => void handleFileDetailDelete()}
-          deleting={fileDetailDeleting}
-          onTagsUpdated={handleFileDetailTagsUpdated}
-        />
-      ) : null}
-
-      <Modal
-        opened={runDeleteModalOpened}
-        onClose={() => {
-          closeRunDeleteModal();
-          setRunDeleteId(null);
-        }}
-        title="Delete this run?"
-        centered
-      >
-        <Stack gap="md">
-          <Text size="sm">
-            This removes the run from your history and deletes any output files stored in your
-            library. This cannot be undone.
-          </Text>
-          <Group justify="flex-end" gap="sm">
-            <Button variant="light" onClick={closeRunDeleteModal} disabled={runDeleteLoading}>
-              Cancel
-            </Button>
-            <Button
-              color="red"
-              onClick={() => void handleConfirmDeleteRun()}
-              loading={runDeleteLoading}
-            >
-              Delete run
+            <Button color="red" onClick={() => void handleConfirmDelete()} loading={bulkLoading}>
+              {runDeleteId ? "Delete run" : "Delete"}
             </Button>
           </Group>
         </Stack>
