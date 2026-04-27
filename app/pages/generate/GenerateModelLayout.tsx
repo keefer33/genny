@@ -35,13 +35,7 @@ export default function GenerateModelLayout() {
   const params = useParams();
   const navigate = useNavigate();
   const { isMobile, getUser } = useAppStore();
-  const {
-    items,
-    catalogGenerationType,
-    searchGenModels,
-    setCatalogGenerationType,
-    setSelectedModel,
-  } = useGenerationsStore();
+  const { allGenModels, loadGenModels, setSelectedModel } = useGenerationsStore();
 
   const init = async () => {
     const generationType = (params.generation_type ?? "").trim().toLowerCase();
@@ -49,14 +43,22 @@ export default function GenerateModelLayout() {
       navigate("/generate", { replace: true });
       return;
     }
-    const shouldReloadCatalog = catalogGenerationType !== generationType || !items.length;
-    if (shouldReloadCatalog) {
-      await searchGenModels({ generation_type: [generationType] }, { clearItems: true });
-      setCatalogGenerationType(generationType);
+
+    if (!useGenerationsStore.getState().allGenModels.length) {
+      await loadGenModels();
     }
 
-    const catalog = useGenerationsStore.getState().items;
+    const catalog = useGenerationsStore
+      .getState()
+      .allGenModels.filter(
+        (item) => (item.generation_type ?? "").trim().toLowerCase() === generationType
+      );
     const modelParam = (params["*"] ?? "").trim();
+
+    if (!catalog.length) {
+      setSelectedModel(null);
+      return;
+    }
 
     if (!modelParam) {
       const defaultModel = catalog[0];
@@ -66,13 +68,13 @@ export default function GenerateModelLayout() {
         const preferredItem = catalog.find(
           (item) => item.id === savedModelId || routeModelId(item) === savedModelId
         );
+        const nextModel = preferredItem ?? defaultModel;
 
-        navigate(
-          `/generate/${generationType}/${routeModelId(preferredItem ? preferredItem : defaultModel)}`,
-          { replace: true }
-        );
+        setSelectedModel(nextModel);
+        navigate(`/generate/${generationType}/${routeModelId(nextModel)}`, { replace: true });
         return;
       } else {
+        setSelectedModel(defaultModel);
         navigate(`/generate/${generationType}/${routeModelId(defaultModel)}`, { replace: true });
         return;
       }
@@ -91,7 +93,7 @@ export default function GenerateModelLayout() {
 
   useEffect(() => {
     init();
-  }, [catalogGenerationType, navigate, params["*"]]);
+  }, [allGenModels.length, navigate, params["*"], params.generation_type]);
 
   return isMobile ? (
     <MobileScrollBox>

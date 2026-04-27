@@ -44,11 +44,16 @@ function firstItemForProduct(items: GenModelsItem[], product: string): GenModels
 }
 
 function sortVariantsByCatalog(a: GenModelsItem, b: GenModelsItem): number {
-  const oa = a.sort_order;
-  const ob = b.sort_order;
+  const oa = a.sort_order_variant;
+  const ob = b.sort_order_variant;
   if (oa != null && ob != null && oa !== ob) return oa - ob;
   if (oa != null && ob == null) return -1;
   if (oa == null && ob != null) return 1;
+  const pa = a.sort_order;
+  const pb = b.sort_order;
+  if (pa != null && pb != null && pa !== pb) return pa - pb;
+  if (pa != null && pb == null) return -1;
+  if (pa == null && pb != null) return 1;
   return (a.model_variant ?? "").localeCompare(b.model_variant ?? "", undefined, {
     sensitivity: "base",
   });
@@ -104,25 +109,19 @@ function syncRunHistoryFiltersFromModel(model: GenModelsItem | null) {
 
 export default function ModelProductPicker({ generationType }: ModelProductPickerProps) {
   const { themeSettings, user, authApiKey, updateUserProfile, isMobile } = useAppStore();
-  const { items, loading, error, searchGenModels, setSelectedModel, selectedModel } =
+  const { allGenModels, loading, error, searchGenModels, setSelectedModel, selectedModel } =
     useGenerationsStore();
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
   const lastGenerationTypeRef = useRef<string | null>(null);
+  let catalog = allGenModels.filter((it) => it.generation_type === generationType);
 
   useEffect(() => {
     let cancelled = false;
 
     async function init() {
-      const genChanged = lastGenerationTypeRef.current !== generationType;
-      if (genChanged) {
-        lastGenerationTypeRef.current = generationType;
-        await searchGenModels({ generation_type: [generationType] }, { clearItems: true });
-      }
-
       if (cancelled) return;
       if (loading) return;
-
-      const catalog = items;
+      catalog = allGenModels.filter((it) => it.generation_type === generationType);
       if (!catalog.length) {
         setSelectedProduct(null);
         setSelectedModel(null);
@@ -171,12 +170,12 @@ export default function ModelProductPicker({ generationType }: ModelProductPicke
     return () => {
       cancelled = true;
     };
-  }, [items, loading, generationType]);
+  }, [loading, generationType]);
 
   function handleProductChange(value: string | null) {
     if (!value) return;
     setSelectedProduct(value);
-    const first = items.find((it) => (it.model_product ?? "").trim() === value);
+    const first = catalog.find((it) => (it.model_product ?? "").trim() === value);
     if (!first) return;
     setSelectedModel(first);
     syncRunHistoryFiltersFromModel(first);
@@ -209,16 +208,17 @@ export default function ModelProductPicker({ generationType }: ModelProductPicke
     });
   }
 
-  const staleCatalog = items.length > 0 && itemsConflictWithGenerationType(items, generationType);
-  const uniqueProducts = uniqueModelProductsInOrder(items);
+  const staleCatalog =
+    catalog.length > 0 && itemsConflictWithGenerationType(catalog, generationType);
+  const uniqueProducts = uniqueModelProductsInOrder(catalog);
   const variantsForProduct = selectedProduct
-    ? items
+    ? catalog
         .filter((it) => (it.model_product ?? "").trim() === selectedProduct)
         .sort(sortVariantsByCatalog)
     : [];
 
   const productSelectData = uniqueProducts.map((p) => {
-    const row = firstItemForProduct(items, p);
+    const row = firstItemForProduct(catalog, p);
     const brand = row?.brand_name;
     const brandPart = (brand?.name ?? "").trim() || (brand?.slug ?? "").trim();
     const label = brandPart ? `${brandPart} ${p}` : p;
@@ -228,7 +228,7 @@ export default function ModelProductPicker({ generationType }: ModelProductPicke
   const productSelectLeftSection = (() => {
     const p = selectedProduct ?? uniqueProducts[0] ?? "";
     if (!p) return null;
-    const row = firstItemForProduct(items, p);
+    const row = firstItemForProduct(catalog, p);
     const brand = row?.brand_name;
     const logoUrl = typeof brand?.logo === "string" && brand.logo.trim() ? brand.logo.trim() : null;
     const brandLabel = (brand?.name ?? "").trim() || (brand?.slug ?? "").trim() || "—";
@@ -245,7 +245,7 @@ export default function ModelProductPicker({ generationType }: ModelProductPicke
     return variantsForProduct[0] ? variantRowLabel(variantsForProduct[0]) : "Variant";
   })();
 
-  if ((loading && !items.length) || staleCatalog) {
+  if ((loading && !catalog.length) || staleCatalog) {
     return <Loader size="sm" />;
   }
 
@@ -344,7 +344,7 @@ export default function ModelProductPicker({ generationType }: ModelProductPicke
         renderOption={({ option, checked }) => {
           const currentValue = selectedProduct ?? uniqueProducts[0] ?? null;
           const isSelected = Boolean(checked) || option.value === currentValue;
-          const row = firstItemForProduct(items, option.value);
+          const row = firstItemForProduct(catalog, option.value);
           const brand = row?.brand_name;
           const logoUrl =
             typeof brand?.logo === "string" && brand.logo.trim() ? brand.logo.trim() : null;

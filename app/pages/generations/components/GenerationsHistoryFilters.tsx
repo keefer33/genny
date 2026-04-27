@@ -1,10 +1,11 @@
-import { Button, Group, Stack, Text, Select, MultiSelect } from "@mantine/core";
+import { Group, Stack, Text, Select, MultiSelect } from "@mantine/core";
 import useGenerationsStore from "~/lib/stores/generateStore";
 
 interface GenerationFiltersProps {
   availableModels?: Array<{ id: string; name: string }>;
   availableBrands?: string[];
   availableProducts?: string[];
+  availableModelTypes?: string[];
   /** When set with `onModelIdChange`, controls model filter without using generate store. */
   modelId?: string | null;
   onModelIdChange?: (id: string | null) => void;
@@ -12,18 +13,23 @@ interface GenerationFiltersProps {
   onBrandFiltersChange?: (values: string[]) => void;
   productFilters?: string[];
   onProductFiltersChange?: (values: string[]) => void;
+  modelTypeFilters?: string[];
+  onModelTypeFiltersChange?: (values: string[]) => void;
 }
 
 export function RunHistoryFilters({
   availableModels = [],
   availableBrands = [],
   availableProducts = [],
+  availableModelTypes = [],
   modelId: controlledModelId,
   onModelIdChange,
   brandFilters: controlledBrandFilters,
   onBrandFiltersChange,
   productFilters: controlledProductFilters,
   onProductFiltersChange,
+  modelTypeFilters: controlledModelTypeFilters,
+  onModelTypeFiltersChange,
 }: GenerationFiltersProps) {
   const store = useGenerationsStore();
   const {
@@ -31,12 +37,10 @@ export function RunHistoryFilters({
     setGenerationsHistoryGenModelFilter,
     setGenerationsHistoryBrandFilters,
     setGenerationsHistoryModelProductFilters,
-    setGenerationsHistoryFileTypeFilter,
-    setGenerationsHistoryTagIds,
+    setGenerationsHistoryModelTypeFilters,
     generationsHistoryBrandFilters,
     generationsHistoryModelProductFilters,
-    generationsHistoryFileTypeFilter,
-    generationsHistoryTagIds,
+    generationsHistoryModelTypeFilters,
   } = store;
   const selectedFilterModelId =
     controlledModelId !== undefined ? controlledModelId : generationsHistoryGenModelFilter;
@@ -50,32 +54,15 @@ export function RunHistoryFilters({
       : generationsHistoryModelProductFilters;
   const setSelectedProductFilters =
     onProductFiltersChange ?? setGenerationsHistoryModelProductFilters;
-
-  const hasAnyFilter =
-    Boolean(selectedFilterModelId) ||
-    selectedBrandFilters.length > 0 ||
-    selectedProductFilters.length > 0 ||
-    generationsHistoryFileTypeFilter !== "all" ||
-    generationsHistoryTagIds.length > 0;
-
-  const clearAllFilters = () => {
-    setGenerationsHistoryGenModelFilter(null);
-    setGenerationsHistoryBrandFilters([]);
-    setGenerationsHistoryModelProductFilters([]);
-    setGenerationsHistoryFileTypeFilter("all");
-    setGenerationsHistoryTagIds([]);
-  };
+  const selectedModelTypeFilters =
+    controlledModelTypeFilters !== undefined
+      ? controlledModelTypeFilters
+      : generationsHistoryModelTypeFilters;
+  const setSelectedModelTypeFilters =
+    onModelTypeFiltersChange ?? setGenerationsHistoryModelTypeFilters;
 
   return (
     <Stack gap="xl">
-      {hasAnyFilter ? (
-        <Group justify="flex-end">
-          <Button variant="light" size="xs" color="red" onClick={clearAllFilters}>
-            Clear all filters
-          </Button>
-        </Group>
-      ) : null}
-
       {/* Model Filter */}
       <Stack gap="sm">
         <Group justify="space-between" align="center">
@@ -91,13 +78,14 @@ export function RunHistoryFilters({
         <Select
           placeholder="Select a model"
           value={selectedFilterModelId}
-          onChange={(value) => setGenerationsHistoryGenModelFilter(value)}
+          onChange={setSelectedFilterModelId}
           data={availableModels.map((model) => ({
             value: model.id,
             label: model.name,
           }))}
           clearable
           searchable
+          comboboxProps={{ withinPortal: false }}
         />
       </Stack>
 
@@ -112,6 +100,7 @@ export function RunHistoryFilters({
           data={availableBrands.map((value) => ({ value, label: value }))}
           clearable
           searchable
+          comboboxProps={{ withinPortal: false }}
         />
       </Stack>
 
@@ -126,6 +115,22 @@ export function RunHistoryFilters({
           data={availableProducts.map((value) => ({ value, label: value }))}
           clearable
           searchable
+          comboboxProps={{ withinPortal: false }}
+        />
+      </Stack>
+
+      <Stack gap="sm">
+        <Text size="sm" fw={500}>
+          Filter by model type
+        </Text>
+        <MultiSelect
+          placeholder="Select one or more model types"
+          value={selectedModelTypeFilters}
+          onChange={setSelectedModelTypeFilters}
+          data={availableModelTypes.map((value) => ({ value, label: value }))}
+          clearable
+          searchable
+          comboboxProps={{ withinPortal: false }}
         />
       </Stack>
     </Stack>

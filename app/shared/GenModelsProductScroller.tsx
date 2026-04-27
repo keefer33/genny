@@ -5,7 +5,6 @@ import {
   RiArrowRightWideFill,
   RiArrowLeftWideFill,
 } from "@remixicon/react";
-import { useEffect } from "react";
 import { Link } from "react-router";
 import useGenerationsStore from "~/lib/stores/generateStore";
 
@@ -18,20 +17,12 @@ export default function GenModelsProductScroller({
   title,
   generationType,
 }: GenModelsProductScrollerProps) {
-  const { searchGenModels, items, loading, error } = useGenerationsStore();
+  const { allGenModels, loading, error } = useGenerationsStore();
 
-  const init = async () => {
-    await searchGenModels();
-  };
-
-  useEffect(() => {
-    void init();
-  }, []);
-
-  if (loading && !items.length) return <Loader size="sm" />;
+  if (loading && !allGenModels.length) return <Loader size="sm" />;
   if (error) return <Text c="red">{error}</Text>;
   const seen = new Set<string>();
-  const products = items.filter((it) => {
+  const products = allGenModels.filter((it) => {
     const rowType = (it.generation_type ?? "").trim().toLowerCase();
     if (rowType !== generationType) return false;
     const product = (it.model_product ?? "").trim();

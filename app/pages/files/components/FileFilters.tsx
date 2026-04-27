@@ -9,6 +9,7 @@ interface FileFiltersProps {
   onTagFilterChange?: (tags: string[]) => void;
   showFileTypeFilter?: boolean; // Option to show/hide file type filter
   lockFileType?: "images" | "videos" | "audio" | null; // Lock file type filter to specific type
+  showClearButtons?: boolean;
   /** When set, file type + tags use these values instead of filesFoldersStore (e.g. playground run history). */
   controlled?: {
     fileType: "all" | "images" | "videos" | "audio";
@@ -23,6 +24,7 @@ export function FileFilters({
   onTagFilterChange,
   showFileTypeFilter = true,
   lockFileType = null,
+  showClearButtons = true,
   controlled,
 }: FileFiltersProps) {
   const store = useFilesFoldersStore();
@@ -56,7 +58,7 @@ export function FileFilters({
                 </Text>
               )}
             </Text>
-            {fileTypeFilter !== "all" && (
+            {showClearButtons && fileTypeFilter !== "all" && (
               <Button
                 variant="light"
                 size="xs"
@@ -133,7 +135,7 @@ export function FileFilters({
                 </Text>
               )}
             </Text>
-            {selectedTags.length > 0 && (
+            {showClearButtons && selectedTags.length > 0 && (
               <Button variant="light" size="xs" color="red" onClick={() => setSelectedTags([])}>
                 Clear all
               </Button>

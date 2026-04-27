@@ -60,7 +60,7 @@ export default function Dashboard() {
     void fetchGenerationsHistory({ page: 1, limit: 9 });
 
     // Dashboard file count should match Files page semantics: uploads only.
-    void loadUserFiles(1, 4, userId, undefined, "upload", undefined);
+    void loadUserFiles(1, userId, undefined, "upload", undefined);
     void fetchTickets();
     void fetchUsageLog(1, 8);
   }, [userId]);

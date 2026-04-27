@@ -1,31 +1,28 @@
 import {
+  ActionIcon,
   Badge,
   Box,
-  Button,
   Card,
   Center,
   Checkbox,
   Group,
   Image,
-  Modal,
-  Stack,
-  TextInput,
   useMantineTheme,
 } from "@mantine/core";
-import { useDisclosure } from "@mantine/hooks";
 import {
   RiFileLine,
   RiFilePdf2Fill,
   RiFileTextLine,
   RiImageLine,
   RiPlayLine,
+  RiDeleteBinLine,
 } from "@remixicon/react";
 import { useEffect, useState } from "react";
-import useFilesFoldersStore from "~/lib/stores/filesFoldersStore";
-import { getFileExtension, isTextFile } from "~/lib/utils";
+import { isTextFile } from "~/lib/utils";
 import useAppStore from "~/lib/stores/appStore";
-import FileDetailModal, { FileCardViewDetailsButton } from "~/shared/FileDetailModal";
+import { FileCardViewDetailsButton } from "~/shared/FileDetailModal";
 import { MediaTypeBadge } from "~/shared/MediaTypeBadge";
+import useFilesFoldersStore from "~/lib/stores/filesFoldersStore";
 
 interface UserTag {
   id: string;
@@ -65,50 +62,25 @@ interface MemberFilesCardProps {
   onTagsUpdated?: (fileId: string, updatedTags: UserFileTag[]) => void;
   selected?: boolean;
   onSelect?: (selected: boolean) => void;
+  onOpen?: () => void;
 }
 
 export default function MemberFilesCard({
   file,
-  modelName: modelNameProp,
   onFileUpdate,
-  onTagsUpdated,
   selected = false,
   onSelect,
+  onOpen,
 }: MemberFilesCardProps) {
   const theme = useMantineTheme();
-  const [opened, { open, close }] = useDisclosure(false);
-  const [editOpened, { open: openEdit, close: closeEdit }] = useDisclosure(false);
   const [deleting, setDeleting] = useState(false);
-  const [editing, setEditing] = useState(false);
-  const [newFileName, setNewFileName] = useState(file.file_name);
   const [currentFile, setCurrentFile] = useState(file);
   const { user } = useAppStore();
-  const { deleteFile, updateFileName } = useFilesFoldersStore();
-
-  const handleTagsUpdated = (updatedTags: UserFileTag[]) => {
-    // Check if this is a signal for full refresh (empty array means tag was deleted)
-    if (updatedTags.length === 0 && onFileUpdate) {
-      // Trigger full refresh to update all files
-      onFileUpdate();
-      return;
-    }
-
-    // Update local file state with new tags
-    setCurrentFile((prev) => ({
-      ...prev,
-      user_file_tags: updatedTags,
-    }));
-
-    // Notify parent component if callback is provided
-    if (onTagsUpdated) {
-      onTagsUpdated(currentFile.id, updatedTags);
-    }
-  };
+  const { deleteFile } = useFilesFoldersStore();
 
   // Update currentFile when file prop changes
   useEffect(() => {
     setCurrentFile(file);
-    setNewFileName(file.file_name);
   }, [file]);
 
   const handleDelete = async () => {
@@ -130,56 +102,6 @@ export default function MemberFilesCard({
     }
   };
 
-  const handleDownload = async () => {
-    try {
-      const res = await fetch(currentFile.file_path, { mode: "cors" });
-      if (!res.ok) throw new Error("Fetch failed");
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = currentFile.file_name || "download";
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch {
-      window.open(currentFile.file_path, "_blank");
-    }
-  };
-
-  const handleEdit = () => {
-    setNewFileName(currentFile.file_name);
-    openEdit();
-  };
-
-  const handleSaveEdit = async () => {
-    if (!user?.user?.id || newFileName.trim() === "" || newFileName === currentFile.file_name) {
-      closeEdit();
-      return;
-    }
-
-    setEditing(true);
-    try {
-      const result = await updateFileName(currentFile.id, newFileName.trim(), user.user.id);
-      if (result && typeof result === "object" && result.success && result.updatedFile) {
-        // Update the local file state with the updated file data
-        setCurrentFile((prev) => ({
-          ...prev,
-          file_name: result.updatedFile.file_name,
-          file_path: result.updatedFile.file_path,
-        }));
-        closeEdit();
-        // Call the parent's update function to refresh the current page
-        if (onFileUpdate) {
-          onFileUpdate();
-        }
-      }
-    } catch (error) {
-      console.error("Error updating file name:", error);
-    } finally {
-      setEditing(false);
-    }
-  };
-
   const getFileIcon = (size: number = 24) => {
     if (currentFile.file_type.startsWith("image/")) {
       return <RiImageLine size={size} />;
@@ -196,38 +118,6 @@ export default function MemberFilesCard({
     return <RiFileLine size={size} />;
   };
 
-  const getFileTypeBadge = () => {
-    const ext = getFileExtension(currentFile.file_name);
-    if (currentFile.file_type.startsWith("image/")) {
-      return <MediaTypeBadge type="image" size="sm" variant="filled" />;
-    }
-    if (currentFile.file_type.startsWith("video/")) {
-      return <MediaTypeBadge type="video" size="sm" variant="filled" />;
-    }
-    if (currentFile.file_type.startsWith("audio/")) {
-      return <MediaTypeBadge type="audio" size="sm" variant="filled" />;
-    }
-    if (currentFile.file_type === "application/pdf") {
-      return (
-        <Badge color="red" variant="light" size="sm">
-          PDF
-        </Badge>
-      );
-    }
-    if (currentFile.file_type.startsWith("text/") || isTextFile(currentFile.file_name)) {
-      return (
-        <Badge color="blue" variant="light" size="sm">
-          Text
-        </Badge>
-      );
-    }
-    return (
-      <Badge color="gray" variant="light" size="sm">
-        {ext.toUpperCase()}
-      </Badge>
-    );
-  };
-
   return (
     <>
       <Card
@@ -241,12 +131,6 @@ export default function MemberFilesCard({
         }}
         pos="relative"
         data-member-files-card="true"
-        onClick={(e) => {
-          // Stop propagation to prevent parent handlers (like in GenerationsFileCard) from firing
-          e.preventDefault();
-          e.stopPropagation();
-          open();
-        }}
       >
         <Card.Section pos="relative">
           <Box pos="relative" onMouseDown={(e) => e.preventDefault()} style={{ cursor: "pointer" }}>
@@ -290,7 +174,7 @@ export default function MemberFilesCard({
               }
 
               return (
-                <Center h={240}>
+                <Center h={200}>
                   <Box>{getFileIcon(200)}</Box>
                 </Center>
               );
@@ -299,7 +183,7 @@ export default function MemberFilesCard({
               onClick={(e) => {
                 e.stopPropagation();
                 e.preventDefault();
-                open();
+                onOpen?.();
               }}
             />
           </Box>
@@ -320,7 +204,16 @@ export default function MemberFilesCard({
             }}
           >
             <Group gap="xs" justify="space-between" align="center">
-              <Box>{getFileTypeBadge()}</Box>
+              <Box>
+                <MediaTypeBadge
+                  file_type={
+                    isTextFile(currentFile.file_name) ? "text/plain" : currentFile.file_type
+                  }
+                  file_name={currentFile.file_name}
+                  size="sm"
+                  variant="filled"
+                />
+              </Box>
 
               <Group gap="xs">
                 {onSelect && (
@@ -364,40 +257,26 @@ export default function MemberFilesCard({
               </Group>
             </Box>
           )}
+          <ActionIcon
+            pos="absolute"
+            bottom={6}
+            left={6}
+            color="red"
+            variant="light"
+            size="md"
+            loading={deleting}
+            aria-label="Delete file"
+            style={{ zIndex: 21 }}
+            onClick={(event) => {
+              event.stopPropagation();
+              event.preventDefault();
+              void handleDelete();
+            }}
+          >
+            <RiDeleteBinLine size={16} />
+          </ActionIcon>
         </Card.Section>
       </Card>
-
-      <FileDetailModal
-        opened={opened}
-        onClose={close}
-        file={currentFile}
-        modelName={modelNameProp ?? currentFile?.model_name ?? undefined}
-        onDownload={handleDownload}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
-        deleting={deleting}
-        onTagsUpdated={handleTagsUpdated}
-      />
-
-      <Modal opened={editOpened} onClose={closeEdit} title="Edit File Name" size="md">
-        <Stack gap="md">
-          <TextInput
-            label="File Name"
-            value={newFileName}
-            onChange={(event) => setNewFileName(event.currentTarget.value)}
-            placeholder="Enter new file name"
-            required
-          />
-          <Group justify="flex-end" mt="md">
-            <Button variant="light" onClick={closeEdit}>
-              Cancel
-            </Button>
-            <Button onClick={handleSaveEdit} loading={editing}>
-              Save
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
     </>
   );
 }

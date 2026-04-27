@@ -53,6 +53,7 @@ interface FilesFoldersState {
   selectedTags: string[];
   selectedUploadType: string | null;
   fileTypeFilter: "images" | "videos" | "audio" | "all";
+  filesPageSize: number;
 
   // Actions
   setFiles: (files: FileData[]) => void;
@@ -64,6 +65,7 @@ interface FilesFoldersState {
   setSelectedTags: (tags: string[]) => void;
   setSelectedUploadType: (uploadType: string | null) => void;
   setFileTypeFilter: (filter: "images" | "videos" | "audio" | "all") => void;
+  setFilesPageSize: (pageSize: number) => void;
   resetFilters: () => void;
 
   // Getters
@@ -76,6 +78,7 @@ interface FilesFoldersState {
   getSelectedTags: () => string[];
   getSelectedUploadType: () => string | null;
   getFileTypeFilter: () => "images" | "videos" | "audio" | "all";
+  getFilesPageSize: () => number;
   getFilteredFiles: (files?: FileData[]) => FileData[];
   // File operations
   uploadFile: (file: File, userId: string) => Promise<boolean>;
@@ -89,7 +92,6 @@ interface FilesFoldersState {
   // Data loading
   loadUserFiles: (
     page?: number,
-    limit?: number,
     userId?: string,
     selectedTags?: string[],
     uploadType?: string | null,
@@ -122,6 +124,7 @@ const useFilesFoldersStoreBase = create<FilesFoldersState>((set, get) => ({
   selectedTags: [],
   selectedUploadType: null,
   fileTypeFilter: "all",
+  filesPageSize: 16,
 
   // Basic setters
   setFiles: (files) => set({ files }),
@@ -133,6 +136,7 @@ const useFilesFoldersStoreBase = create<FilesFoldersState>((set, get) => ({
   setSelectedTags: (selectedTags) => set({ selectedTags }),
   setSelectedUploadType: (selectedUploadType) => set({ selectedUploadType }),
   setFileTypeFilter: (fileTypeFilter) => set({ fileTypeFilter }),
+  setFilesPageSize: (filesPageSize) => set({ filesPageSize }),
   resetFilters: () =>
     set({
       selectedTags: [],
@@ -149,6 +153,7 @@ const useFilesFoldersStoreBase = create<FilesFoldersState>((set, get) => ({
   getSelectedTags: () => get().selectedTags,
   getSelectedUploadType: () => get().selectedUploadType,
   getFileTypeFilter: () => get().fileTypeFilter,
+  getFilesPageSize: () => get().filesPageSize,
   getFilteredFiles: (files) => {
     const filesToFilter = files || get().paginationData.data;
     const fileTypeFilter = get().fileTypeFilter;
@@ -260,7 +265,7 @@ const useFilesFoldersStoreBase = create<FilesFoldersState>((set, get) => ({
       });
 
       // Refresh the files list
-      await get().loadUserFiles(1, 12, userId, undefined, undefined, undefined);
+      await get().loadUserFiles(1, userId, undefined, undefined, undefined);
 
       return true;
     } catch (error: any) {
@@ -294,7 +299,6 @@ const useFilesFoldersStoreBase = create<FilesFoldersState>((set, get) => ({
       // Refresh the files list
       await get().loadUserFiles(
         get().paginationData.currentPage,
-        12,
         userId,
         undefined,
         undefined,
@@ -355,13 +359,13 @@ const useFilesFoldersStoreBase = create<FilesFoldersState>((set, get) => ({
   // Data loading
   loadUserFiles: async (
     page = 1,
-    limit = 12,
     userId?: string,
     selectedTags?: string[],
     uploadType?: string | null,
     fileTypeFilter?: "images" | "videos" | "audio" | "all" | null,
     _isPageChange?: boolean
   ) => {
+    const finalLimit = get().filesPageSize;
     // Auto-get userId from appStore if not provided
     set({ paginationData: { ...get().paginationData, currentPage: page } });
     const finalUserId = userId || useAppStore.getState().getUser()?.user?.id;
@@ -389,7 +393,7 @@ const useFilesFoldersStoreBase = create<FilesFoldersState>((set, get) => ({
     try {
       const params = new URLSearchParams();
       params.set("page", String(page));
-      params.set("limit", String(limit));
+      params.set("limit", String(finalLimit));
       if (finalSelectedTags && finalSelectedTags.length > 0) {
         params.set("tags", finalSelectedTags.join(","));
       }
@@ -417,7 +421,7 @@ const useFilesFoldersStoreBase = create<FilesFoldersState>((set, get) => ({
       }
 
       const total = payload.total ?? 0;
-      const totalPages = payload.totalPages ?? Math.ceil(total / limit);
+      const totalPages = payload.totalPages ?? Math.ceil(total / finalLimit);
 
       set({
         files: payload.files ?? [],
@@ -442,26 +446,17 @@ const useFilesFoldersStoreBase = create<FilesFoldersState>((set, get) => ({
 
   handleFilesPageChange: async (page: number) => {
     set({ paginationData: { ...get().paginationData, currentPage: page } });
-    await get().loadUserFiles(page, 12, undefined, undefined, undefined, undefined, undefined);
+    await get().loadUserFiles(page);
   },
 
   handleFileUpdate: async () => {
-    await get().loadUserFiles(
-      get().paginationData.currentPage,
-      12,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined
-    );
+    await get().loadUserFiles(get().paginationData.currentPage);
   },
 
   refreshData: async (userId?: string) => {
     const { paginationData } = get();
     await get().loadUserFiles(
       paginationData.currentPage,
-      12,
       userId,
       undefined,
       undefined,
@@ -489,6 +484,7 @@ const useFilesFoldersStoreBase = create<FilesFoldersState>((set, get) => ({
       selectedTags: [],
       selectedUploadType: null,
       fileTypeFilter: "all",
+      filesPageSize: 16,
     }),
 }));
 

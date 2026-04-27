@@ -28,7 +28,7 @@ export default function LandingLayout() {
         <AppShell.Header bg={themeSettings.colorScheme === "dark" ? "dark.6" : "gray.1"}>
           <Container size="lg" h="100%">
             <Group justify="space-between" align="center" h="100%" py="xs" wrap="nowrap">
-              <Logo fontSizeSmall="20px" fontSize="40px" />
+              <Logo />
               {isLoggedIn ? (
                 <Button
                   component={Link}
