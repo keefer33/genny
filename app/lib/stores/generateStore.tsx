@@ -1,14 +1,11 @@
 import { create } from "zustand";
-import { formatGenModelDisplayName } from "../generationsHistoryUtils";
 import { authFetchJson } from "./authFetch";
 import { endpoint } from "../utils";
 import createUniversalSelectors from "./universalSelectors";
 import type {
-  GenerationsHistoryModelsResponse,
   GenerationsHistoryResponse,
   ModelSearchFilters,
   GenerationsStoreState,
-  GenModelsRecentModelsResponse,
   GenModelsSearchResponse,
   GenerateResponse,
   GenerateCostResponse,
@@ -36,6 +33,8 @@ const toQuery = (filters: ModelSearchFilters = {}) => {
   return `${endpoint}/playground${qs ? `?${qs}` : ""}`;
 };
 
+let generationsHistoryInFlight: { key: string; promise: Promise<void> } | null = null;
+
 const useGenerationsStoreBase = create<GenerationsStoreState>((set, get) => ({
   items: [],
   filters: emptyFilters,
@@ -52,15 +51,13 @@ const useGenerationsStoreBase = create<GenerationsStoreState>((set, get) => ({
   generationsHistory: [],
   generationsHistoryTotal: 0,
   generationsHistoryPage: 1,
-  generationsHistoryLimit: 9,
+  generationsHistoryLimit: 12,
   generationsHistoryLoading: false,
   generationsHistoryError: null,
   generationsHistoryGenModelFilter: null,
   generationsHistoryBrandFilters: [],
   generationsHistoryModelProductFilters: [],
   generationsHistoryModelTypeFilters: [],
-  generationsHistoryFileTypeFilter: "all",
-  generationsHistoryTagIds: [],
   generationsHistoryFilterModels: [],
   recentGenModels: [],
   recentGenModelsLoading: false,
@@ -85,49 +82,13 @@ const useGenerationsStoreBase = create<GenerationsStoreState>((set, get) => ({
     set({ generationsHistoryModelProductFilters: values }),
   setGenerationsHistoryModelTypeFilters: (values) =>
     set({ generationsHistoryModelTypeFilters: values }),
-  setGenerationsHistoryFileTypeFilter: (v) => set({ generationsHistoryFileTypeFilter: v }),
-  setGenerationsHistoryTagIds: (ids) => set({ generationsHistoryTagIds: ids }),
   clearGenerationsHistoryFilters: () =>
     set({
       generationsHistoryGenModelFilter: null,
       generationsHistoryBrandFilters: [],
       generationsHistoryModelProductFilters: [],
       generationsHistoryModelTypeFilters: [],
-      generationsHistoryFileTypeFilter: "all",
-      generationsHistoryTagIds: [],
     }),
-  fetchGenerationsHistoryFilterModels: async () => {
-    try {
-      const data = await authFetchJson<GenerationsHistoryModelsResponse>(
-        `${endpoint}/playground/runs/models`,
-        undefined,
-        { errorMessage: "Failed to load run history models" }
-      );
-      const opts = (data.items ?? []).map((row) => ({
-        id: row.id,
-        name: formatGenModelDisplayName(row),
-      }));
-      set({ generationsHistoryFilterModels: opts });
-    } catch {
-      set({ generationsHistoryFilterModels: [] });
-    }
-  },
-  fetchRecentGenModels: async () => {
-    set({ recentGenModelsLoading: true });
-    try {
-      const data = await authFetchJson<GenModelsRecentModelsResponse>(
-        `${endpoint}/playground/models/recent?limit=12`,
-        undefined,
-        { errorMessage: "Failed to load recent gen models" }
-      );
-      set({
-        recentGenModels: data.items ?? [],
-        recentGenModelsLoading: false,
-      });
-    } catch {
-      set({ recentGenModels: [], recentGenModelsLoading: false });
-    }
-  },
   fetchGenerationsHistory: async (opts = {}) => {
     const {
       generationsHistoryPage: currentPage,
@@ -136,78 +97,78 @@ const useGenerationsStoreBase = create<GenerationsStoreState>((set, get) => ({
       generationsHistoryBrandFilters,
       generationsHistoryModelProductFilters,
       generationsHistoryModelTypeFilters,
-      generationsHistoryFileTypeFilter,
-      generationsHistoryTagIds,
     } = get();
     const page = Math.max(1, opts.page ?? currentPage);
     const limit = Math.min(100, Math.max(1, opts.limit ?? currentLimit));
+    const params = new URLSearchParams();
+    params.set("page", String(page));
+    params.set("limit", String(limit));
+    const genModelId = opts.gen_model_id?.trim() ?? generationsHistoryGenModelFilter?.trim();
+    if (genModelId) {
+      params.set("gen_model_id", genModelId);
+    }
+    const brands = (opts.brands ?? generationsHistoryBrandFilters)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (brands.length > 0) {
+      params.set("brands", brands.join(","));
+    }
+    const products = (opts.model_product ?? generationsHistoryModelProductFilters)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (products.length > 0) {
+      params.set("model_product", products.join(","));
+    }
+    const modelTypes = (opts.model_type ?? generationsHistoryModelTypeFilters)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (modelTypes.length > 0) {
+      params.set("model_type", modelTypes.join(","));
+    }
+
+    const requestUrl = `${endpoint}/playground/runs?${params.toString()}`;
+    if (generationsHistoryInFlight?.key === requestUrl) {
+      return generationsHistoryInFlight.promise;
+    }
+
     set({ generationsHistoryLoading: true, generationsHistoryError: null });
+    const request = (async () => {
+      try {
+        const data = await authFetchJson<GenerationsHistoryResponse>(requestUrl, undefined, {
+          errorMessage: "Failed to load run history",
+        });
+        set({
+          generationsHistory: data.items ?? [],
+          generationsHistoryTotal: data.total ?? 0,
+          generationsHistoryPage: data.page ?? page,
+          generationsHistoryLimit: data.limit ?? limit,
+          generationsHistoryLoading: false,
+        });
+      } catch (err) {
+        set({
+          generationsHistory: [],
+          generationsHistoryTotal: 0,
+          generationsHistoryLoading: false,
+          generationsHistoryError:
+            err instanceof Error ? err.message : "Failed to load run history",
+        });
+      }
+    })();
+    generationsHistoryInFlight = { key: requestUrl, promise: request };
     try {
-      const params = new URLSearchParams();
-      params.set("page", String(page));
-      params.set("limit", String(limit));
-      const genModelId = opts.gen_model_id?.trim() ?? generationsHistoryGenModelFilter?.trim();
-      if (genModelId) {
-        params.set("gen_model_id", genModelId);
+      await request;
+    } finally {
+      if (generationsHistoryInFlight?.promise === request) {
+        generationsHistoryInFlight = null;
       }
-      const brands = (opts.brands ?? generationsHistoryBrandFilters)
-        .map((s) => s.trim())
-        .filter(Boolean);
-      if (brands.length > 0) {
-        params.set("brands", brands.join(","));
-      }
-      const products = (opts.model_product ?? generationsHistoryModelProductFilters)
-        .map((s) => s.trim())
-        .filter(Boolean);
-      if (products.length > 0) {
-        params.set("model_product", products.join(","));
-      }
-      const modelTypes = (opts.model_type ?? generationsHistoryModelTypeFilters)
-        .map((s) => s.trim())
-        .filter(Boolean);
-      if (modelTypes.length > 0) {
-        params.set("model_type", modelTypes.join(","));
-      }
-      const fileType = opts.file_type_filter ?? generationsHistoryFileTypeFilter;
-      if (fileType && fileType !== "all") {
-        params.set("file_type_filter", fileType);
-      }
-      const tagIds = opts.tag_ids ?? generationsHistoryTagIds;
-      if (tagIds.length > 0) {
-        params.set("tags", tagIds.join(","));
-      }
-      const data = await authFetchJson<GenerationsHistoryResponse>(
-        `${endpoint}/playground/runs?${params.toString()}`,
-        undefined,
-        { errorMessage: "Failed to load run history" }
-      );
-      set({
-        generationsHistory: data.items ?? [],
-        generationsHistoryTotal: data.total ?? 0,
-        generationsHistoryPage: data.page ?? page,
-        generationsHistoryLimit: data.limit ?? limit,
-        generationsHistoryLoading: false,
-      });
-    } catch (err) {
-      set({
-        generationsHistory: [],
-        generationsHistoryTotal: 0,
-        generationsHistoryLoading: false,
-        generationsHistoryError: err instanceof Error ? err.message : "Failed to load run history",
-      });
     }
   },
   deleteGenerate: async (runId: string) => {
-    const { generationsHistoryPage, generationsHistoryLimit, generationsHistoryTotal } = get();
     await authFetchJson<{ ok: boolean }>(
       `${endpoint}/playground/runs/${encodeURIComponent(runId)}`,
       { method: "DELETE" },
       { errorMessage: "Failed to delete run" }
     );
-    const newTotal = Math.max(0, generationsHistoryTotal - 1);
-    const maxPage = Math.max(1, Math.ceil(newTotal / generationsHistoryLimit));
-    const page = Math.min(generationsHistoryPage, maxPage);
-    await get().fetchGenerationsHistory({ page });
   },
   searchGenModels: async (filters = {}, opts) => {
     const silent = Boolean(opts?.silent);
@@ -274,8 +235,6 @@ const useGenerationsStoreBase = create<GenerationsStoreState>((set, get) => ({
       );
       set({ runLoading: false });
       void get().fetchGenerationsHistory({ page: 1 });
-      void get().fetchGenerationsHistoryFilterModels();
-      void get().fetchRecentGenModels();
       return data;
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to run playground model";
@@ -355,8 +314,6 @@ const useGenerationsStoreBase = create<GenerationsStoreState>((set, get) => ({
       generationsHistoryBrandFilters: [],
       generationsHistoryModelProductFilters: [],
       generationsHistoryModelTypeFilters: [],
-      generationsHistoryFileTypeFilter: "all",
-      generationsHistoryTagIds: [],
       generationsHistoryFilterModels: [],
       recentGenModels: [],
       recentGenModelsLoading: false,

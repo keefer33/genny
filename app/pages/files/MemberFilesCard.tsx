@@ -1,12 +1,14 @@
 import {
-  ActionIcon,
   Badge,
   Box,
+  Button,
   Card,
   Center,
   Checkbox,
   Group,
   Image,
+  Stack,
+  Text,
   useMantineTheme,
 } from "@mantine/core";
 import {
@@ -20,7 +22,6 @@ import {
 import { useEffect, useState } from "react";
 import { isTextFile } from "~/lib/utils";
 import useAppStore from "~/lib/stores/appStore";
-import { FileCardViewDetailsButton } from "~/shared/FileDetailModal";
 import { MediaTypeBadge } from "~/shared/MediaTypeBadge";
 import useFilesFoldersStore from "~/lib/stores/filesFoldersStore";
 
@@ -179,13 +180,6 @@ export default function MemberFilesCard({
                 </Center>
               );
             })()}
-            <FileCardViewDetailsButton
-              onClick={(e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                onOpen?.();
-              }}
-            />
           </Box>
           {/* Selection Checkbox */}
           <Box
@@ -227,55 +221,57 @@ export default function MemberFilesCard({
               </Group>
             </Group>
           </Box>
-
-          {/* Tags Overlay - Bottom */}
-          {currentFile.user_file_tags && currentFile.user_file_tags.length > 0 && (
-            <Box
-              pos="absolute"
-              bottom={8}
-              left={8}
-              right={48}
-              style={{
-                zIndex: 20,
-                backgroundColor: "rgba(0, 0, 0, 0.6)",
-                borderRadius: "4px",
-                padding: "4px 8px",
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <Group gap="xs" justify="center" wrap="wrap">
-                {currentFile.user_file_tags.slice(0, 3).map((fileTag) => (
-                  <Badge key={fileTag.tag_id} color="blue" variant="light" size="xs">
-                    {fileTag.user_tags.tag_name}
-                  </Badge>
-                ))}
-                {currentFile.user_file_tags.length > 3 && (
-                  <Badge color="gray" variant="light" size="xs">
-                    +{currentFile.user_file_tags.length - 3} more
-                  </Badge>
-                )}
-              </Group>
-            </Box>
-          )}
-          <ActionIcon
-            pos="absolute"
-            bottom={6}
-            left={6}
-            color="red"
-            variant="light"
-            size="md"
-            loading={deleting}
-            aria-label="Delete file"
-            style={{ zIndex: 21 }}
-            onClick={(event) => {
-              event.stopPropagation();
-              event.preventDefault();
-              void handleDelete();
-            }}
-          >
-            <RiDeleteBinLine size={16} />
-          </ActionIcon>
         </Card.Section>
+        <Stack gap={6} p="xs">
+          <Text size="sm" fw={600} lineClamp={2}>
+            {currentFile.file_name}
+          </Text>
+          {currentFile.user_file_tags && currentFile.user_file_tags.length > 0 ? (
+            <Group gap={4} wrap="wrap">
+              {currentFile.user_file_tags.slice(0, 3).map((fileTag) => (
+                <Badge key={fileTag.tag_id} size="xs">
+                  {fileTag.user_tags.tag_name}
+                </Badge>
+              ))}
+              {currentFile.user_file_tags.length > 3 ? (
+                <Badge color="gray" variant="light" size="xs">
+                  +{currentFile.user_file_tags.length - 3} more
+                </Badge>
+              ) : null}
+            </Group>
+          ) : null}
+          <Group gap="xs" justify="space-between">
+            <Button
+              variant="subtle"
+              color="red"
+              size="compact-xs"
+              leftSection={<RiDeleteBinLine size={14} />}
+              loading={deleting}
+              aria-label="Delete file"
+              title="Delete file"
+              onClick={(event) => {
+                event.stopPropagation();
+                event.preventDefault();
+                void handleDelete();
+              }}
+            >
+              Delete file
+            </Button>
+            <Button
+              variant="subtle"
+              size="compact-xs"
+              aria-label="View file details"
+              title="View file details"
+              onClick={(event) => {
+                event.stopPropagation();
+                event.preventDefault();
+                onOpen?.();
+              }}
+            >
+              View details
+            </Button>
+          </Group>
+        </Stack>
       </Card>
     </>
   );

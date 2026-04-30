@@ -9,12 +9,12 @@ export default function PlayGroundRunHistoryModalAction({ title }: { title: stri
   return (
     <>
       <ActionIcon
-        variant="light"
+        variant="filled"
         size="lg"
         aria-label={`Open run history: ${title}`}
         onClick={open}
       >
-        <RiHistoryLine size={30} />
+        <RiHistoryLine size={26} />
       </ActionIcon>
       <GenerationsHistoryModal title={title} opened={opened} onClose={close} />
     </>

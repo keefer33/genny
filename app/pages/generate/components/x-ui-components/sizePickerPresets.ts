@@ -1,6 +1,6 @@
 import type { ComboboxData, ComboboxItem, ComboboxItemGroup } from "@mantine/core";
 
-/** Preset tiers (short side / “K” class) → aspect ratio label → `"width*height"` */
+/** Preset tiers (short side / “K” class) → aspect ratio label → internal `"width*height"` */
 export const SIZE_PICKER_PRESETS: Record<string, Record<string, string>> = {
   "0.5k": {
     "1:1": "512*512",
@@ -101,7 +101,8 @@ function fitsRange(w: number, h: number, min: number, hi: number) {
 /** Grouped `Select` data and the set of preset values that are in range (for controlled value matching). */
 export function buildSizePresetSelectData(
   min: number,
-  max: number
+  max: number,
+  separator = "*"
 ): { data: ComboboxData; validValues: Set<string> } {
   let hi = max;
   if (hi <= min) {
@@ -118,9 +119,10 @@ export function buildSizePresetSelectData(
       if (!parsed) continue;
       const { w, h } = parsed;
       if (!fitsRange(w, h, min, hi)) continue;
-      validValues.add(wh);
+      const value = `${w}${separator}${h}`;
+      validValues.add(value);
       items.push({
-        value: wh,
+        value,
         label: `${ratioLabel} (${w}×${h})`,
       });
     }

@@ -51,7 +51,9 @@ export function MediaFilePicker({
 }: PlaygroundMediaFilePickerInputProps) {
   const form = useFormContext();
 
+  const isArrayField = fieldSchema.type === "array";
   const isMulti =
+    isArrayField ||
     fieldSchema["x-ui-component"].settings.max > 1 ||
     fieldSchema["x-ui-component"].settings.min > 1;
   const allowedTypes = allowedFileTypesToPickerTypes(

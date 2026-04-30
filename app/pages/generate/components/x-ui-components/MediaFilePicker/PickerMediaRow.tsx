@@ -3,8 +3,8 @@ import { useDisclosure } from "@mantine/hooks";
 import { useEffect, useState } from "react";
 import type React from "react";
 import { RiCloseLine } from "@remixicon/react";
-import { FilePreviewModal } from "~/pages/files/components/FilePreviewModal";
 import { extensionMediaKind } from "~/lib/utils";
+import FileDetailModal from "~/shared/FileDetailModal";
 import { FilePickerModal } from "~/shared/FilePickerModal";
 import { buildMinimalFile, fetchUserFileByPath } from "./mediaFilePickerByPath";
 
@@ -166,11 +166,10 @@ export function PickerMediaRow({
       />
 
       {previewOpen && selectedFile && (
-        <FilePreviewModal
+        <FileDetailModal
           opened={previewOpen}
           onClose={closePreview}
           file={selectedFile}
-          showActions
           onDelete={() => {
             onRemove();
             closePreview();

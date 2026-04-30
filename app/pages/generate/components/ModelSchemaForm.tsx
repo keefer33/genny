@@ -59,6 +59,7 @@ function orderedPropertyKeys(schema: FunctionSchema): string[] {
 
 function getInitialValue(prop: JsonSchemaProperty): unknown {
   if (prop.default !== undefined) return prop.default;
+  if (prop.enum?.length === 1) return prop.enum[0];
   switch (prop.type) {
     case "boolean":
       return false;
@@ -138,6 +139,58 @@ function parseEnumValue(raw: string | null, prop: JsonSchemaProperty): unknown {
     if (raw === "false") return false;
   }
   return raw;
+}
+
+function schemaValuesEqual(left: unknown, right: unknown): boolean {
+  if (Object.is(left, right)) return true;
+  if (
+    (typeof left === "string" || typeof left === "number" || typeof left === "boolean") &&
+    (typeof right === "string" || typeof right === "number" || typeof right === "boolean")
+  ) {
+    return String(left) === String(right);
+  }
+  return false;
+}
+
+function evaluateConditions(
+  schema: FunctionSchema | null,
+  values: Record<string, unknown>
+): { setValues: Record<string, unknown>; disabledFields: Set<string> } {
+  const setValues: Record<string, unknown> = {};
+  const disabledFields = new Set<string>();
+  const conditions = schema?.["x-conditions"];
+  if (!Array.isArray(conditions)) return { setValues, disabledFields };
+
+  for (const condition of conditions) {
+    const field = typeof condition?.if?.field === "string" ? condition.if.field : "";
+    if (!field) continue;
+    const currentValue = values[field];
+    let matches = false;
+
+    if ("equals" in (condition.if ?? {})) {
+      matches = schemaValuesEqual(currentValue, condition.if?.equals);
+    } else if ("notEquals" in (condition.if ?? {})) {
+      matches = !schemaValuesEqual(currentValue, condition.if?.notEquals);
+    } else if (Array.isArray(condition.if?.in)) {
+      matches = condition.if.in.some((candidate) => schemaValuesEqual(currentValue, candidate));
+    }
+
+    if (!matches) continue;
+
+    if (condition.then?.set && typeof condition.then.set === "object") {
+      Object.assign(setValues, condition.then.set);
+    }
+    if (Array.isArray(condition.then?.disable)) {
+      condition.then.disable
+        .filter(
+          (fieldName): fieldName is string =>
+            typeof fieldName === "string" && fieldName.trim().length > 0
+        )
+        .forEach((fieldName) => disabledFields.add(fieldName));
+    }
+  }
+
+  return { setValues, disabledFields };
 }
 
 function sanitizePayload(values: Record<string, unknown>): Record<string, unknown> {
@@ -327,6 +380,23 @@ export default function ModelSchemaForm() {
     return () => clearTimeout(timeoutId);
   }, [costDriverSnapshot, selectedModel?.id, calculateGenerateCost]);
 
+  const conditionState = useMemo(
+    () => evaluateConditions(functionSchema, form.values as Record<string, unknown>),
+    [functionSchema, form.values]
+  );
+  const conditionSetValuesKey = useMemo(
+    () => JSON.stringify(conditionState.setValues),
+    [conditionState.setValues]
+  );
+
+  useEffect(() => {
+    for (const [field, value] of Object.entries(conditionState.setValues)) {
+      if (!schemaValuesEqual((form.values as Record<string, unknown>)[field], value)) {
+        form.setFieldValue(field, value);
+      }
+    }
+  }, [conditionSetValuesKey, conditionState.setValues, form]);
+
   if (!selectedModel) {
     return <Skeleton height={100} />;
   }
@@ -404,6 +474,9 @@ export default function ModelSchemaForm() {
                 );
                 const description = undefined;
                 const err = form.errors[key];
+                const hasSingleEnumValue = prop.enum?.length === 1;
+                const isConditionDisabled = conditionState.disabledFields.has(key);
+                const isFieldReadOnly = prop.readOnly || isConditionDisabled;
 
                 if (isMediaFieldName(key)) {
                   const mediaSettings = resolveMediaPickerSettings(key, prop);
@@ -413,6 +486,7 @@ export default function ModelSchemaForm() {
                       fieldName={key}
                       fieldSchema={{
                         ...prop,
+                        readOnly: isFieldReadOnly,
                         title: prop.title || label,
                         "x-ui-component": {
                           type: "MediaFilePicker",
@@ -426,7 +500,7 @@ export default function ModelSchemaForm() {
                   );
                 }
 
-                if (normalizedFieldName(key) === "size") {
+                if (normalizedFieldName(key) === "size" && !prop.enum) {
                   return (
                     <SizePicker
                       key={key}
@@ -437,8 +511,10 @@ export default function ModelSchemaForm() {
                       isRequired={isRequired}
                       min={typeof prop.minimum === "number" ? prop.minimum : 1440}
                       max={typeof prop.maximum === "number" ? prop.maximum : 8192}
-                      readOnly={prop.readOnly}
+                      readOnly={isFieldReadOnly}
                       defaultValue={prop.default}
+                      separator={(prop as unknown as { separator?: string }).separator as string}
+                      step={typeof prop.step === "number" ? prop.step : undefined}
                     />
                   );
                 }
@@ -459,7 +535,7 @@ export default function ModelSchemaForm() {
                           error={err}
                           isRequired={isRequired}
                           options={options}
-                          readOnly={prop.readOnly}
+                          readOnly={isFieldReadOnly || options.length === 1}
                           defaultValue={prop.default}
                         />
                       );
@@ -473,7 +549,7 @@ export default function ModelSchemaForm() {
                         error={err}
                         isRequired={isRequired}
                         options={options}
-                        readOnly={prop.readOnly}
+                        readOnly={isFieldReadOnly || options.length === 1}
                         defaultValue={prop.default}
                       />
                     );
@@ -496,7 +572,7 @@ export default function ModelSchemaForm() {
                       min={prop.minimum}
                       max={prop.maximum}
                       step={typeof prop.step === "number" && prop.step > 0 ? prop.step : 1}
-                      readOnly={prop.readOnly}
+                      readOnly={isFieldReadOnly || hasSingleEnumValue}
                       defaultValue={prop.default}
                     />
                   );
@@ -510,6 +586,7 @@ export default function ModelSchemaForm() {
                       description={description}
                       checked={Boolean(form.values[key])}
                       onChange={(e) => form.setFieldValue(key, e.currentTarget.checked)}
+                      disabled={isFieldReadOnly || hasSingleEnumValue}
                       error={err}
                       required={isRequired}
                     />
@@ -522,6 +599,7 @@ export default function ModelSchemaForm() {
                     return { value: str, label: str };
                   });
                   const enumValue = form.values[key];
+                  const hasSingleOption = data.length === 1;
                   return (
                     <Select
                       key={key}
@@ -530,8 +608,9 @@ export default function ModelSchemaForm() {
                       placeholder={prop["x-placeholder"] ?? "Select…"}
                       data={data}
                       searchable
-                      clearable={!isRequired}
+                      clearable={!isRequired && !hasSingleOption}
                       required={isRequired}
+                      disabled={isFieldReadOnly || hasSingleOption}
                       error={err}
                       value={
                         enumValue === undefined || enumValue === null ? null : String(enumValue)
@@ -561,6 +640,7 @@ export default function ModelSchemaForm() {
                       }}
                       minRows={2}
                       required={isRequired}
+                      disabled={isFieldReadOnly}
                       error={err}
                     />
                   );
@@ -587,6 +667,7 @@ export default function ModelSchemaForm() {
                             : undefined
                       }
                       required={isRequired}
+                      disabled={isFieldReadOnly}
                       error={err}
                     />
                   );
@@ -619,7 +700,7 @@ export default function ModelSchemaForm() {
 
                   return (
                     <Stack key={key} gap="sm">
-                      {key === "prompt" && !prop.readOnly && (
+                      {key === "prompt" && !isFieldReadOnly && (
                         <Group align="center" justify="space-between">
                           {buildLabelWithDescription(
                             label,
@@ -651,7 +732,7 @@ export default function ModelSchemaForm() {
                         minRows={key === "prompt" ? 4 : 2}
                         autosize
                         resize="vertical"
-                        readOnly={prop.readOnly}
+                        readOnly={isFieldReadOnly}
                         required={isRequired}
                         maxLength={maxLength}
                         error={
@@ -662,7 +743,7 @@ export default function ModelSchemaForm() {
                         value={currentValue}
                         onChange={handlePromptLikeChange}
                         styles={
-                          prop.readOnly
+                          isFieldReadOnly
                             ? {
                                 input: {
                                   backgroundColor: "#f8f9fa",
@@ -673,7 +754,7 @@ export default function ModelSchemaForm() {
                             : undefined
                         }
                       />
-                      {typeof maxLength === "number" && !prop.readOnly && (
+                      {typeof maxLength === "number" && !isFieldReadOnly && (
                         <Text
                           size="xs"
                           c={isMaxReached ? "red" : "dimmed"}
@@ -697,6 +778,7 @@ export default function ModelSchemaForm() {
                     error={err}
                     value={typeof form.values[key] === "string" ? (form.values[key] as string) : ""}
                     onChange={(e) => form.setFieldValue(key, e.currentTarget.value)}
+                    disabled={isFieldReadOnly}
                   />
                 );
               })}

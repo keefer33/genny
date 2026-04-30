@@ -17,12 +17,12 @@ export default function ModelDescription({ modelName, description }: ModelDescri
     <Popover width={320} position="bottom-end" withArrow shadow="md">
       <Popover.Target>
         <ActionIcon
-          variant="light"
+          variant="transparent"
           size="lg"
           aria-label={title ? `About ${title}` : "Model description"}
           style={{ flexShrink: 0 }}
         >
-          <RiInformationLine size={24} />
+          <RiInformationLine size={26} />
         </ActionIcon>
       </Popover.Target>
       <Popover.Dropdown>

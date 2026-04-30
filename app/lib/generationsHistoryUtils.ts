@@ -1,6 +1,6 @@
 import type { GenerationsHistoryItem } from "~/types/generations";
 
-export const GENERATIONS_HISTORY_THUMB_H = 140;
+export const GENERATIONS_HISTORY_THUMB_H = 400;
 
 /** `gen_models.brand_name` is a string on catalog rows; run-history embeds `brands` as `{ name, logo }`. */
 function brandLabelFromGenModel(m: { brand_name?: unknown }): string {

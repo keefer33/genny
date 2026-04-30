@@ -13,6 +13,7 @@ import {
   Loader,
   ThemeIcon,
   Avatar,
+  ActionIcon,
 } from "@mantine/core";
 import { Carousel } from "@mantine/carousel";
 import { useDisclosure } from "@mantine/hooks";
@@ -21,7 +22,6 @@ import dayjs from "dayjs";
 import { useEffect, useMemo, useState } from "react";
 import { useGenerationsRunsRealtime } from "~/lib/hooks/useUserRealtimeChannels";
 import useAppStore from "~/lib/stores/appStore";
-import useTagStore from "~/lib/stores/tagStore";
 import { isGenerationsHistoryInFlight } from "~/lib/generationsHistoryUtils";
 import { showNotification } from "~/lib/notificationUtils";
 import FileDetailModal from "~/shared/FileDetailModal";
@@ -31,7 +31,6 @@ import { CostBadge } from "~/shared/CostBadge";
 import { HistoryPreviewWithBadge } from "./HistoryPreviewWithBadge";
 import { HistoryRunDurationLabel } from "./HistoryDurationLabel";
 import { HistoryRunLoadingThumb } from "./HistoryLoadingThumb";
-import { GENERATIONS_HISTORY_THUMB_H } from "~/lib/generationsHistoryUtils";
 import useGenerationsStore from "~/lib/stores/generateStore";
 
 export default function GenerationsHistory({
@@ -45,7 +44,6 @@ export default function GenerationsHistory({
   const { colorScheme } = themeSettings;
   const user = getUser();
   const userId = user?.user?.id;
-  const { loadTags } = useTagStore();
   const [selectedRunIds, setSelectedRunIds] = useState<Set<string>>(new Set());
   const [deleteModalOpened, { open: openDeleteModal, close: closeDeleteModal }] =
     useDisclosure(false);
@@ -66,10 +64,7 @@ export default function GenerationsHistory({
     generationsHistoryBrandFilters,
     generationsHistoryModelProductFilters,
     generationsHistoryModelTypeFilters,
-    generationsHistoryFileTypeFilter,
-    generationsHistoryTagIds,
     fetchGenerationsHistory,
-    fetchGenerationsHistoryFilterModels,
     deleteGenerate,
   } = useGenerationsStore();
 
@@ -78,18 +73,10 @@ export default function GenerationsHistory({
     Math.ceil(generationsHistoryTotal / Math.max(1, generationsHistoryLimit))
   );
 
-  const tagIdsKey = generationsHistoryTagIds.join(",");
   const brandFiltersKey = generationsHistoryBrandFilters.join(",");
   const productFiltersKey = generationsHistoryModelProductFilters.join(",");
   const modelTypeFiltersKey = generationsHistoryModelTypeFilters.join(",");
   useGenerationsRunsRealtime(userId);
-
-  useEffect(() => {
-    if (userId) {
-      void loadTags(userId);
-      void fetchGenerationsHistoryFilterModels();
-    }
-  }, [userId, loadTags, fetchGenerationsHistoryFilterModels]);
 
   useEffect(() => {
     void fetchGenerationsHistory({ page: 1 });
@@ -98,8 +85,6 @@ export default function GenerationsHistory({
     brandFiltersKey,
     productFiltersKey,
     modelTypeFiltersKey,
-    generationsHistoryFileTypeFilter,
-    tagIdsKey,
     fetchGenerationsHistory,
   ]);
 
@@ -183,7 +168,9 @@ export default function GenerationsHistory({
           return next;
         });
         closeDeleteConfirmModal();
-        void fetchGenerationsHistory({ page: generationsHistoryPage });
+        const newTotal = Math.max(0, generationsHistoryTotal - deleted);
+        const maxPage = Math.max(1, Math.ceil(newTotal / generationsHistoryLimit));
+        await fetchGenerationsHistory({ page: Math.min(generationsHistoryPage, maxPage) });
       }
     } catch (e) {
       showNotification({
@@ -197,29 +184,29 @@ export default function GenerationsHistory({
 
   return (
     <Stack gap="xs" h="100%" px="md" pt="sm" pb="xs" style={{ minHeight: 0 }}>
-      <Group gap="sm">
+      <Group gap="sm" justify="space-between" align="center">
         {showFiltersModal ? <PlayGroundRunHistoryFiltersModal /> : null}
         {showBulkActions ? (
-          <>
+          <Group gap="0">
             <Checkbox
               disabled={selectableRunsOnPage.length === 0}
               checked={isAllSelected}
               indeterminate={isIndeterminate}
               onChange={(event) => handleSelectAll(event.currentTarget.checked)}
-              label={`${selectedRunIds.size} selected`}
+              label={`${selectedRunIds.size}`}
             />
             {selectedRunIds.size > 0 ? (
-              <Button
-                variant="light"
+              <ActionIcon
+                variant="transparent"
                 color="red"
-                size="xs"
+                size="md"
                 onClick={openBulkDeleteModal}
                 loading={bulkLoading}
               >
-                Delete
-              </Button>
+                <RiDeleteBinLine size={16} />
+              </ActionIcon>
             ) : null}
-          </>
+          </Group>
         ) : null}
       </Group>
 
@@ -279,8 +266,9 @@ export default function GenerationsHistory({
                       />
                     ) : null}
                     <Box
-                      h={GENERATIONS_HISTORY_THUMB_H}
+                      w="100%"
                       style={{
+                        aspectRatio: "1 / 1",
                         overflow: "hidden",
                         borderTopLeftRadius: "var(--mantine-radius-md)",
                         borderTopRightRadius: "var(--mantine-radius-md)",
@@ -289,7 +277,7 @@ export default function GenerationsHistory({
                       {showLoadingThumb ? (
                         <HistoryRunLoadingThumb status={row.status} created_at={row.created_at} />
                       ) : row.user_files.length === 0 ? (
-                        <Center h={GENERATIONS_HISTORY_THUMB_H}>
+                        <Center h="100%">
                           <ThemeIcon variant="light" size="xl" radius="md" color="gray">
                             <RiImageLine size={28} />
                           </ThemeIcon>
@@ -298,6 +286,8 @@ export default function GenerationsHistory({
                         <Box
                           role="button"
                           tabIndex={0}
+                          h="100%"
+                          w="100%"
                           onClick={() => openFileDetails(row.user_files)}
                           onKeyDown={(event) => {
                             if (event.key === "Enter" || event.key === " ") {
@@ -309,12 +299,16 @@ export default function GenerationsHistory({
                         >
                           {row.user_files.length > 1 ? (
                             <Carousel
-                              height={GENERATIONS_HISTORY_THUMB_H}
+                              height="100%"
                               withControls
                               withIndicators
                               slideSize="100%"
                               emblaOptions={{ loop: true }}
                               styles={{
+                                root: { height: "100%" },
+                                viewport: { height: "100%" },
+                                container: { height: "100%" },
+                                slide: { height: "100%" },
                                 controls: { top: "50%", transform: "translateY(-50%)" },
                                 indicator: { width: 6, height: 6 },
                               }}
@@ -322,16 +316,18 @@ export default function GenerationsHistory({
                               {row.user_files.map((file, i) => (
                                 <Carousel.Slide key={`${file.id}-${i}`}>
                                   <HistoryPreviewWithBadge
-                                    url={file.thumbnail_url ?? file.file_path}
-                                    file_type={file.file_type}
+                                    url={file.thumbnail_url ?? file.file_path ?? ""}
+                                    file_type={file.file_type ?? ""}
                                   />
                                 </Carousel.Slide>
                               ))}
                             </Carousel>
                           ) : (
                             <HistoryPreviewWithBadge
-                              url={row.user_files[0].thumbnail_url ?? row.user_files[0].file_path}
-                              file_type={row.user_files[0].file_type}
+                              url={
+                                row.user_files[0].thumbnail_url ?? row.user_files[0].file_path ?? ""
+                              }
+                              file_type={row.user_files[0].file_type ?? ""}
                             />
                           )}
                         </Box>
@@ -397,19 +393,19 @@ export default function GenerationsHistory({
                           {pollingError || "Generation failed, please try again."}
                         </Text>
                       ) : null}
-                      <Group gap="xs" justify="space-between">
-                        <Button
-                          variant="subtle"
-                          color="red"
-                          size="compact-xs"
-                          leftSection={<RiDeleteBinLine size={14} />}
-                          onClick={() => openDeleteRunModal(row.id)}
-                        >
-                          Delete run
-                        </Button>
 
-                        {detailFid && !inFlight ? (
-                          <Group>
+                      {!inFlight ? (
+                        <Group gap="xs" justify="space-between">
+                          <Button
+                            variant="subtle"
+                            color="red"
+                            size="compact-xs"
+                            leftSection={<RiDeleteBinLine size={14} />}
+                            onClick={() => openDeleteRunModal(row.id)}
+                          >
+                            Delete run
+                          </Button>
+                          {detailFid ? (
                             <Button
                               variant="subtle"
                               size="compact-xs"
@@ -417,9 +413,9 @@ export default function GenerationsHistory({
                             >
                               View details
                             </Button>
-                          </Group>
-                        ) : null}
-                      </Group>
+                          ) : null}
+                        </Group>
+                      ) : null}
                     </Stack>
                   </Card>
                 );
