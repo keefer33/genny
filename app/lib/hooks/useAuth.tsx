@@ -18,7 +18,6 @@ export function useAuth() {
 
       if (session?.user) {
         await userProfile(session);
-        await loadAgentModels();
         setAppLoading(false);
       } else {
         setUser(null);

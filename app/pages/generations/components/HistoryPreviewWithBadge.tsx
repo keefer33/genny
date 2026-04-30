@@ -1,31 +1,14 @@
-import { Box, Image } from "@mantine/core";
-import { GENERATIONS_HISTORY_THUMB_H } from "~/lib/generationsHistoryUtils";
+import { Box } from "@mantine/core";
 import { MediaTypeBadge } from "~/shared/MediaTypeBadge";
 
 export function HistoryPreviewWithBadge({ url, file_type }: { url: string; file_type: string }) {
-  const isVideo = file_type.startsWith("video/");
   const isAudio = file_type.startsWith("audio/");
 
   return (
-    <Box pos="relative" w="100%" h={GENERATIONS_HISTORY_THUMB_H}>
-      {isVideo ? (
-        <video
-          src={url}
-          muted
-          playsInline
-          preload="metadata"
-          aria-hidden
-          style={{
-            display: "block",
-            width: "100%",
-            height: GENERATIONS_HISTORY_THUMB_H,
-            objectFit: "cover",
-            verticalAlign: "top",
-          }}
-        />
-      ) : isAudio ? (
+    <Box pos="relative" w="100%" h="100%">
+      {isAudio ? (
         <Box
-          h={GENERATIONS_HISTORY_THUMB_H}
+          h="100%"
           w="100%"
           style={{
             display: "flex",
@@ -49,7 +32,16 @@ export function HistoryPreviewWithBadge({ url, file_type }: { url: string; file_
           />
         </Box>
       ) : (
-        <Image src={url} alt="" h={GENERATIONS_HISTORY_THUMB_H} w="100%" fit="cover" />
+        <img
+          src={url}
+          alt=""
+          style={{
+            display: "block",
+            width: "100%",
+            height: "100%",
+            objectFit: "contain",
+          }}
+        />
       )}
       <MediaTypeBadge
         size="sm"

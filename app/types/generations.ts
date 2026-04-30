@@ -52,11 +52,6 @@ export type GenModelsSearchResponse = {
   total: number;
 };
 
-export type GenModelsRecentModelsResponse = {
-  items: GenModelsItem[];
-  total?: number;
-};
-
 export type GenerateResponse = unknown;
 export type GenerateCostResponse = { cost?: number };
 
@@ -96,6 +91,7 @@ export type GenerationsHistoryItem = {
   user_files?: Array<{
     id: string;
     file_path?: string | null;
+    file_size?: number | null;
     file_type?: string | null;
     file_name?: string | null;
     thumbnail_url?: string | null;
@@ -124,11 +120,6 @@ export type GenerationsHistoryModelsCatalogItem = {
   model_variant?: string | null;
 };
 
-export type GenerationsHistoryModelsResponse = {
-  items: GenerationsHistoryModelsCatalogItem[];
-  total?: number;
-};
-
 export type PlaygroundRunHistoryFilterModelOption = { id: string; name: string };
 
 export interface GenerationsStoreState {
@@ -154,8 +145,6 @@ export interface GenerationsStoreState {
   generationsHistoryBrandFilters: string[];
   generationsHistoryModelProductFilters: string[];
   generationsHistoryModelTypeFilters: string[];
-  generationsHistoryFileTypeFilter: "all" | "images" | "videos" | "audio";
-  generationsHistoryTagIds: string[];
   generationsHistoryFilterModels: PlaygroundRunHistoryFilterModelOption[];
   /** Recent playground models for this user (distinct gen_model_id by latest run). */
   recentGenModels: GenModelsItem[];
@@ -177,11 +166,7 @@ export interface GenerationsStoreState {
   setGenerationsHistoryBrandFilters: (values: string[]) => void;
   setGenerationsHistoryModelProductFilters: (values: string[]) => void;
   setGenerationsHistoryModelTypeFilters: (values: string[]) => void;
-  setGenerationsHistoryFileTypeFilter: (v: "all" | "images" | "videos" | "audio") => void;
-  setGenerationsHistoryTagIds: (ids: string[]) => void;
   clearGenerationsHistoryFilters: () => void;
-  fetchGenerationsHistoryFilterModels: () => Promise<void>;
-  fetchRecentGenModels: () => Promise<void>;
   selectedModel: GenModelsItem | null;
   setLoading: (loading: boolean) => void;
   searchGenModels: (
@@ -196,8 +181,6 @@ export interface GenerationsStoreState {
     brands?: string[];
     model_product?: string[];
     model_type?: string[];
-    file_type_filter?: "all" | "images" | "videos" | "audio";
-    tag_ids?: string[];
   }) => Promise<void>;
   deleteGenerate: (runId: string) => Promise<void>;
   generateFromGenModel: (input: {
@@ -286,6 +269,10 @@ export type SizePickerProps = {
   readOnly?: boolean;
   /** JSON Schema `default`, e.g. `"1024*768"`. */
   defaultValue?: unknown;
+  /** Separator used in the stored size string, e.g. `"1024*768"` or `"1024x768"`. */
+  separator?: string;
+  /** Increment for custom width/height sliders and inputs. */
+  step?: number;
 };
 
 /** `x-ui-component` type `BoxPicker` — enum string choices rendered as selectable boxes. */
@@ -342,4 +329,16 @@ export type FunctionSchema = {
   properties?: Record<string, JsonSchemaProperty>;
   required?: string[];
   "x-order-properties"?: string[];
+  "x-conditions"?: Array<{
+    if?: {
+      field?: string;
+      equals?: unknown;
+      notEquals?: unknown;
+      in?: unknown[];
+    };
+    then?: {
+      set?: Record<string, unknown>;
+      disable?: string[];
+    };
+  }>;
 };

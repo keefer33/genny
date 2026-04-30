@@ -1,10 +1,9 @@
-import { Badge, Button, Group, Modal, Stack } from "@mantine/core";
+import { ActionIcon, Badge, Button, Group, Modal, Stack } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { RiFilter3Line } from "@remixicon/react";
+import { RiCloseLine, RiFilter3Line } from "@remixicon/react";
 import { useMemo } from "react";
 import { formatGenModelDisplayName } from "~/lib/generationsHistoryUtils";
 import { RunHistoryFilters } from "~/pages/generations/components/GenerationsHistoryFilters";
-import { FileFilters } from "~/pages/files/components/FileFilters";
 import { GenerationsHistoryClearFiltersButton } from "~/shared/GenerationsHistoryClearFiltersButton";
 import useAppStore from "~/lib/stores/appStore";
 import useGenerationsStore from "~/lib/stores/generateStore";
@@ -19,14 +18,10 @@ export function PlayGroundRunHistoryFiltersModal() {
     generationsHistoryBrandFilters,
     generationsHistoryModelProductFilters,
     generationsHistoryModelTypeFilters,
-    generationsHistoryFileTypeFilter,
-    generationsHistoryTagIds,
     setGenerationsHistoryGenModelFilter,
     setGenerationsHistoryBrandFilters,
     setGenerationsHistoryModelProductFilters,
     setGenerationsHistoryModelTypeFilters,
-    setGenerationsHistoryFileTypeFilter,
-    setGenerationsHistoryTagIds,
     clearGenerationsHistoryFilters,
   } = useGenerationsStore();
 
@@ -60,35 +55,37 @@ export function PlayGroundRunHistoryFiltersModal() {
     setGenerationsHistoryModelTypeFilters(values);
   };
 
-  const handleFileTypeChange = (value: "all" | "images" | "videos" | "audio") => {
-    clearGenerationsHistoryFilters();
-    setGenerationsHistoryFileTypeFilter(value);
-  };
-
-  const handleTagFiltersChange = (values: string[]) => {
-    clearGenerationsHistoryFilters();
-    setGenerationsHistoryTagIds(values);
-  };
-
   const selectedFiltersCount =
     (generationsHistoryGenModelFilter ? 1 : 0) +
     generationsHistoryBrandFilters.length +
     generationsHistoryModelProductFilters.length +
-    generationsHistoryModelTypeFilters.length +
-    (generationsHistoryFileTypeFilter !== "all" ? 1 : 0) +
-    generationsHistoryTagIds.length;
+    generationsHistoryModelTypeFilters.length;
 
   return (
     <>
-      <Group align="center" gap="xs">
-        <Button variant="light" size="sm" leftSection={<RiFilter3Line size={16} />} onClick={open}>
+      <Group align="center" gap="0">
+        <Button
+          variant="filled"
+          size="compact-md"
+          leftSection={<RiFilter3Line size={16} />}
+          onClick={open}
+        >
           <Group gap={6} align="center">
-            Filters
-            <Badge variant="filled" size="xs">
+            <Badge variant="light" size="xs">
               {selectedFiltersCount}
             </Badge>
           </Group>
         </Button>
+        {selectedFiltersCount > 0 ? (
+          <ActionIcon
+            variant="transparent"
+            color="red"
+            size="md"
+            onClick={clearGenerationsHistoryFilters}
+          >
+            <RiCloseLine size={26} />
+          </ActionIcon>
+        ) : null}
       </Group>
 
       <Modal
@@ -113,17 +110,6 @@ export function PlayGroundRunHistoryFiltersModal() {
             onProductFiltersChange={handleProductFiltersChange}
             modelTypeFilters={generationsHistoryModelTypeFilters}
             onModelTypeFiltersChange={handleModelTypeFiltersChange}
-          />
-          <FileFilters
-            showTagManager
-            showFileTypeFilter
-            showClearButtons={false}
-            controlled={{
-              fileType: generationsHistoryFileTypeFilter,
-              onFileTypeChange: handleFileTypeChange,
-              selectedTags: generationsHistoryTagIds,
-              onSelectedTagsChange: handleTagFiltersChange,
-            }}
           />
           <Group justify="flex-end">
             <GenerationsHistoryClearFiltersButton />

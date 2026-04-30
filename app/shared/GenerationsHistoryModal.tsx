@@ -1,5 +1,5 @@
 import { Box, Modal } from "@mantine/core";
-import PlayGroundRunHistory from "~/pages/generations/components/GenerationsHistory";
+import GenerationsHistory from "~/pages/generations/components/GenerationsHistory";
 
 export type GenerationsHistoryModalProps = {
   title: string;
@@ -32,7 +32,7 @@ export function GenerationsHistoryModal({ title, opened, onClose }: GenerationsH
   return (
     <Modal opened={opened} onClose={onClose} title={title} fullScreen styles={modalStyles}>
       <Box style={bodyBoxStyle}>
-        <PlayGroundRunHistory showFiltersModal={false} showBulkActions={false} />
+        <GenerationsHistory />
       </Box>
     </Modal>
   );

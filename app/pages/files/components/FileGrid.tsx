@@ -156,13 +156,7 @@ export function FileGrid({
                 {file.file_name}
               </Text>
               <Group justify="space-between" align="center">
-                <MediaTypeBadge
-                  type={file.file_type}
-                  size="xs"
-                  variant="light"
-                  unknownColor={getFileTypeColor(file.file_type)}
-                  unknownLabel={file.file_type.split("/")[0]}
-                />
+                <MediaTypeBadge type={file.file_type} size="xs" />
                 <Text size="xs" c="dimmed">
                   {formatFileSize(file.file_size)}
                 </Text>

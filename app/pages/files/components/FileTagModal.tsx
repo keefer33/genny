@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import useTagStore from "~/lib/stores/tagStore";
 import useAppStore from "~/lib/stores/appStore";
 import TagManagerModal from "../../../shared/TagManagerModal";
+import { RiAddLine } from "@remixicon/react";
 
 interface FileTagModalProps {
   fileId: string;
@@ -89,15 +90,15 @@ export default function FileTagModal({ fileId, fileTags, onTagsUpdated }: FileTa
 
   return (
     <>
-      <Badge
-        component="button"
+      <Button
         onClick={open}
         color={themeColor}
-        variant={currentFileTags.length > 0 ? "filled" : "default"}
-        size="sm"
+        variant="default"
+        size="xs"
+        leftSection={<RiAddLine size={24} />}
       >
         {currentFileTags.length > 0 ? `${currentFileTags.length} tags` : "Add tags"}
-      </Badge>
+      </Button>
 
       <Modal opened={opened} onClose={handleClose} title="Edit File Tags" size="md" centered>
         <Stack gap="md">

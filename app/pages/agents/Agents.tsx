@@ -10,8 +10,13 @@ const LS_SELECTED_MODEL = "genny:selectedModelName";
 
 export default function Agents() {
   const { isMobile } = useAppStore();
-  const { agentModels, selectedModelName, setSelectedModelName, hydrateSelectedChatFromStorage } =
-    useChatsStore();
+  const {
+    agentModels,
+    loadAgentModels,
+    selectedModelName,
+    setSelectedModelName,
+    hydrateSelectedChatFromStorage,
+  } = useChatsStore();
 
   const applyModelSelection = async (modelName: string | null) => {
     if (!modelName) {
@@ -23,6 +28,7 @@ export default function Agents() {
   };
 
   useEffect(() => {
+    loadAgentModels();
     const savedModelName = window.localStorage.getItem(LS_SELECTED_MODEL);
     if (savedModelName) {
       applyModelSelection(savedModelName);

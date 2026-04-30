@@ -12,7 +12,7 @@ import {
   Text,
 } from "@mantine/core";
 import { RiArrowDownSLine, RiCheckLine } from "@remixicon/react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import useGenerationsStore from "~/lib/stores/generateStore";
 import type { GenModelsItem } from "~/types/generations";
 import useAppStore from "~/lib/stores/appStore";
@@ -87,15 +87,11 @@ function syncRunHistoryFiltersFromModel(model: GenModelsItem | null) {
     setGenerationsHistoryGenModelFilter,
     setGenerationsHistoryBrandFilters,
     setGenerationsHistoryModelProductFilters,
-    setGenerationsHistoryFileTypeFilter,
-    setGenerationsHistoryTagIds,
   } = useGenerationsStore.getState();
   if (!model) {
     setGenerationsHistoryGenModelFilter(null);
     setGenerationsHistoryBrandFilters([]);
     setGenerationsHistoryModelProductFilters([]);
-    setGenerationsHistoryFileTypeFilter("all");
-    setGenerationsHistoryTagIds([]);
     return;
   }
   const brandSlug = (model.brand_name?.slug ?? "").trim();
@@ -103,16 +99,12 @@ function syncRunHistoryFiltersFromModel(model: GenModelsItem | null) {
   setGenerationsHistoryGenModelFilter(model.id);
   setGenerationsHistoryBrandFilters(brandSlug ? [brandSlug] : []);
   setGenerationsHistoryModelProductFilters(product ? [product] : []);
-  setGenerationsHistoryFileTypeFilter("all");
-  setGenerationsHistoryTagIds([]);
 }
 
 export default function ModelProductPicker({ generationType }: ModelProductPickerProps) {
   const { themeSettings, user, authApiKey, updateUserProfile, isMobile } = useAppStore();
-  const { allGenModels, loading, error, searchGenModels, setSelectedModel, selectedModel } =
-    useGenerationsStore();
+  const { allGenModels, loading, error, setSelectedModel, selectedModel } = useGenerationsStore();
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
-  const lastGenerationTypeRef = useRef<string | null>(null);
   let catalog = allGenModels.filter((it) => it.generation_type === generationType);
 
   useEffect(() => {

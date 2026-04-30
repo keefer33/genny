@@ -20,7 +20,7 @@ export function FilePickerContent({
   onUploadComplete,
 }: FilePickerContentProps) {
   const { getUser } = useAppStore();
-  const { paginationData, loading, loadUserFiles } = useFilesFoldersStore();
+  const { paginationData, gridLoading, loadUserFiles } = useFilesFoldersStore();
   const [currentPage, setCurrentPage] = useState(1);
 
   const user = getUser();
@@ -72,7 +72,7 @@ export function FilePickerContent({
       )}
 
       {/* Files Grid */}
-      {loading ? (
+      {gridLoading ? (
         <Box ta="center" py="xl">
           <Loader size="lg" />
           <Text mt="md">Loading files...</Text>

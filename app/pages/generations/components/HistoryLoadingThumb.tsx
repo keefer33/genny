@@ -2,7 +2,6 @@ import { Progress, Stack, Text } from "@mantine/core";
 import dayjs from "dayjs";
 import { useEffect, useState } from "react";
 import { formatDuration, isGenerationsHistoryInFlight } from "~/lib/generationsHistoryUtils";
-import { GENERATIONS_HISTORY_THUMB_H } from "~/lib/generationsHistoryUtils";
 
 export function HistoryRunLoadingThumb({ status, created_at }) {
   const inFlight = isGenerationsHistoryInFlight(status);
@@ -25,7 +24,7 @@ export function HistoryRunLoadingThumb({ status, created_at }) {
       justify="center"
       px="md"
       py="sm"
-      h={GENERATIONS_HISTORY_THUMB_H}
+      h="100%"
       style={{ boxSizing: "border-box" }}
     >
       <Text

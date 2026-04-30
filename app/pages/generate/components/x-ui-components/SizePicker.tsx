@@ -28,9 +28,11 @@ function coerceDimension(v: string | number): number | null {
   return null;
 }
 
-function parseWxH(value: unknown): { w: number; h: number } | null {
-  if (typeof value !== "string" || !value.includes("*")) return null;
-  const parts = value.split("*").map((p) => p.trim());
+function parseWxH(value: unknown, separator: string): { w: number; h: number } | null {
+  if (typeof value !== "string") return null;
+  const splitSeparator = value.includes(separator) ? separator : value.includes("*") ? "*" : null;
+  if (!splitSeparator) return null;
+  const parts = value.split(splitSeparator).map((p) => p.trim());
   if (parts.length !== 2) return null;
   const w = Number(parts[0]);
   const h = Number(parts[1]);
@@ -48,16 +50,19 @@ export function SizePicker({
   max,
   readOnly,
   defaultValue,
+  separator = "*",
+  step = 1,
 }: SizePickerProps) {
   const form = useFormContext();
   let hi = max;
   if (hi <= min) {
     hi = min + 1;
   }
+  const dimensionStep = Number.isFinite(step) && step > 0 ? step : 1;
 
   const raw = form.values[fieldName];
-  const fromForm = parseWxH(raw);
-  const fromDefault = parseWxH(defaultValue);
+  const fromForm = parseWxH(raw, separator);
+  const fromDefault = parseWxH(defaultValue, separator);
   const w0 = fromForm?.w ?? fromDefault?.w ?? min;
   const h0 = fromForm?.h ?? fromDefault?.h ?? min;
   const width = clamp(Math.round(w0), min, hi);
@@ -66,12 +71,12 @@ export function SizePicker({
   const setPair = (w: number, h: number) => {
     const cw = clamp(Math.round(w), min, hi);
     const ch = clamp(Math.round(h), min, hi);
-    form.setFieldValue(fieldName, `${cw}*${ch}`);
+    form.setFieldValue(fieldName, `${cw}${separator}${ch}`);
   };
 
   const { data: presetSelectData, validValues: presetValuesInRange } = useMemo(
-    () => buildSizePresetSelectData(min, max),
-    [min, max]
+    () => buildSizePresetSelectData(min, max, separator),
+    [min, max, separator]
   );
 
   const presetSelectValue =
@@ -128,7 +133,7 @@ export function SizePicker({
               onChange={(e) => setCustomize(e.currentTarget.checked)}
             />
           )}
-          <Collapse in={showCustomControls}>
+          <Collapse expanded={showCustomControls}>
             <Stack gap="md" pt={hasPresets ? "xs" : 0}>
               <div>
                 <Text size="sm" mb={4}>
@@ -137,7 +142,7 @@ export function SizePicker({
                 <Slider
                   min={min}
                   max={hi}
-                  step={1}
+                  step={dimensionStep}
                   value={width}
                   onChange={(v) => setPair(v, height)}
                   disabled={readOnly}
@@ -152,7 +157,7 @@ export function SizePicker({
                 <Slider
                   min={min}
                   max={hi}
-                  step={1}
+                  step={dimensionStep}
                   value={height}
                   onChange={(v) => setPair(width, v)}
                   disabled={readOnly}
@@ -165,7 +170,7 @@ export function SizePicker({
                   aria-label="Width"
                   min={min}
                   max={hi}
-                  step={1}
+                  step={dimensionStep}
                   clampBehavior="blur"
                   value={width}
                   onChange={(v) => {
@@ -176,13 +181,13 @@ export function SizePicker({
                   style={{ flex: 1, minWidth: 0 }}
                 />
                 <Text size="sm" c="dimmed" fw={600} pb={6} style={{ flexShrink: 0 }}>
-                  *
+                  {separator}
                 </Text>
                 <NumberInput
                   aria-label="Height"
                   min={min}
                   max={hi}
-                  step={1}
+                  step={dimensionStep}
                   clampBehavior="blur"
                   value={height}
                   onChange={(v) => {

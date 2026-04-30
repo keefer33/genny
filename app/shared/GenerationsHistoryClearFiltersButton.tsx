@@ -7,8 +7,6 @@ export function GenerationsHistoryClearFiltersButton() {
     generationsHistoryBrandFilters,
     generationsHistoryModelProductFilters,
     generationsHistoryModelTypeFilters,
-    generationsHistoryFileTypeFilter,
-    generationsHistoryTagIds,
     clearGenerationsHistoryFilters,
   } = useGenerationsStore();
 
@@ -16,9 +14,7 @@ export function GenerationsHistoryClearFiltersButton() {
     Boolean(generationsHistoryGenModelFilter) ||
     generationsHistoryBrandFilters.length > 0 ||
     generationsHistoryModelProductFilters.length > 0 ||
-    generationsHistoryModelTypeFilters.length > 0 ||
-    generationsHistoryFileTypeFilter !== "all" ||
-    generationsHistoryTagIds.length > 0;
+    generationsHistoryModelTypeFilters.length > 0;
 
   if (!hasAnyFilter) return null;
 

@@ -4,14 +4,16 @@ import type { AspectRatioPickerProps } from "~/types/generations";
 
 type ParsedRatio = {
   label: string;
-  width: number;
-  height: number;
+  width?: number;
+  height?: number;
+  isAuto?: boolean;
 };
 
 const PREVIEW_SIDE_PX = 22;
 
 function parseAspectRatio(option: string): ParsedRatio | null {
   const raw = option.trim();
+  if (raw.toLowerCase() === "auto") return { label: raw, isAuto: true };
   if (!raw.includes(":")) return null;
   const [lhs, rhs] = raw.split(":");
   const w = Number(lhs);
@@ -71,23 +73,25 @@ export function AspectRatioPicker({
               size="xs"
             >
               <Group gap={6} wrap="nowrap">
-                <div
-                  style={{
-                    width: PREVIEW_SIDE_PX,
-                    height: PREVIEW_SIDE_PX,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
+                {ratio.isAuto ? null : (
                   <div
                     style={{
-                      width: ratio.width,
-                      height: ratio.height,
-                      border: "2px solid currentColor",
+                      width: PREVIEW_SIDE_PX,
+                      height: PREVIEW_SIDE_PX,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
                     }}
-                  />
-                </div>
+                  >
+                    <div
+                      style={{
+                        width: ratio.width,
+                        height: ratio.height,
+                        border: "2px solid currentColor",
+                      }}
+                    />
+                  </div>
+                )}
                 <Text size="xs" fw={600}>
                   {ratio.label}
                 </Text>

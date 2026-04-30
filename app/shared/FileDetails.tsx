@@ -7,13 +7,12 @@ import {
   Badge,
   Anchor,
   Table,
-  Button,
   ActionIcon,
   Center,
-  Container,
+  Flex,
+  Card,
 } from "@mantine/core";
 import {
-  RiEyeLine,
   RiDownloadLine,
   RiExternalLinkLine,
   RiFileCopyLine,
@@ -31,12 +30,24 @@ import FileTagModal from "~/pages/files/components/FileTagModal";
 import { MediaTypeBadge } from "./MediaTypeBadge";
 import { notifications } from "@mantine/notifications";
 import { useState } from "react";
+import useAppStore from "~/lib/stores/appStore";
 
 function resolveFileShareType(fileType: string): "image" | "video" | "audio" | "other" {
   if (fileType.startsWith("image/")) return "image";
   if (fileType.startsWith("video/")) return "video";
   if (fileType.startsWith("audio/")) return "audio";
   return "other";
+}
+
+function formatPayloadValue(value: unknown): string {
+  if (value == null) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
 }
 
 export function FileDetails({
@@ -47,6 +58,7 @@ export function FileDetails({
   onTagsUpdated: (fileId: string, updatedTags: any) => void;
 }) {
   const [fileDetail, setFileDetail] = useState(file);
+  const { isMobile } = useAppStore();
   const getFileIcon = (size: number = 24) => {
     if (file.file_type.startsWith("image/")) {
       return <RiImageLine size={size} />;
@@ -119,82 +131,91 @@ export function FileDetails({
     onTagsUpdated(fileDetail.id, updatedTags);
   };
 
+  const payload =
+    fileDetail.generated_info?.payload && typeof fileDetail.generated_info.payload === "object"
+      ? (fileDetail.generated_info.payload as Record<string, unknown>)
+      : null;
+  const payloadDetails = payload
+    ? Object.entries(payload).filter(
+        ([key, value]) => key !== "prompt" && value != null && value !== ""
+      )
+    : [];
+
   return (
-    <Stack gap="lg" p="md">
+    <Flex direction={isMobile ? "column" : "row"} gap="xs" p="xs" align="stretch" w="100%">
       {/* File Preview Section */}
-      <Box pos="relative">
-        {fileDetail.file_type.startsWith("image/") ? (
-          <Image
-            src={fileDetail.file_path}
-            alt={fileDetail.file_name}
-            style={{ maxHeight: "60vh", width: "100%", objectFit: "contain" }}
-            radius="md"
-          />
-        ) : fileDetail.file_type.startsWith("video/") ? (
-          <video
-            src={fileDetail.file_path}
-            style={{
-              width: "100%",
-              maxHeight: "60vh",
-              objectFit: "contain",
-              borderRadius: "8px",
-            }}
-            controls
-            preload="metadata"
-          >
-            Your browser does not support the video tag.
-          </video>
-        ) : fileDetail.file_type.startsWith("audio/") ? (
-          <audio
-            src={fileDetail.file_path}
-            style={{
-              width: "100%",
-              maxHeight: "60vh",
-              borderRadius: "8px",
-            }}
-            controls
-            preload="metadata"
-          >
-            Your browser does not support the audio element.
-          </audio>
-        ) : (
-          <Center
-            h={400}
-            style={{ backgroundColor: "var(--mantine-color-gray-0)", borderRadius: "8px" }}
-          >
-            <Stack align="center" gap="md">
-              <Box>{getFileIcon(120)}</Box>
-              <Text size="lg" fw={500}>
-                {fileDetail.file_name}
-              </Text>
-            </Stack>
-          </Center>
-        )}
-        <ActionIcon
-          component="a"
-          href={fileDetail.file_path}
-          target="_blank"
-          rel="noopener noreferrer"
-          pos="absolute"
-          bottom={8}
-          right={8}
-          style={{ zIndex: 2 }}
-          variant="filled"
-          color="dark"
-          radius="md"
-          size="md"
-          aria-label="View file in new tab"
-          title="View file in new tab"
-        >
-          <RiEyeLine size={18} />
-        </ActionIcon>
+      <Box
+        pos="relative"
+        style={{
+          flex: isMobile ? "0 0 auto" : "1 1 calc(80% - var(--mantine-spacing-lg))",
+          minWidth: 0,
+          overflow: "hidden",
+        }}
+      >
+        <Center>
+          {fileDetail.file_type.startsWith("image/") ? (
+            <Image
+              src={fileDetail.file_path}
+              alt={fileDetail.file_name}
+              style={{ maxWidth: "100%", width: "auto", height: "auto", objectFit: "contain" }}
+              radius="md"
+            />
+          ) : fileDetail.file_type.startsWith("video/") ? (
+            <video
+              src={fileDetail.file_path}
+              style={{
+                maxWidth: "100%",
+                width: "auto",
+                height: "auto",
+                //maxHeight: "60vh",
+                objectFit: "contain",
+                borderRadius: "8px",
+              }}
+              controls
+              preload="metadata"
+            >
+              Your browser does not support the video tag.
+            </video>
+          ) : fileDetail.file_type.startsWith("audio/") ? (
+            <audio
+              src={fileDetail.file_path}
+              style={{
+                width: "100%",
+                maxHeight: "60vh",
+                borderRadius: "8px",
+              }}
+              controls
+              preload="metadata"
+            >
+              Your browser does not support the audio element.
+            </audio>
+          ) : (
+            <Center
+              h={400}
+              style={{ backgroundColor: "var(--mantine-color-gray-0)", borderRadius: "8px" }}
+            >
+              <Stack align="center" gap="md">
+                <Box>{getFileIcon(120)}</Box>
+                <Text size="lg" fw={500}>
+                  {fileDetail.file_name}
+                </Text>
+              </Stack>
+            </Center>
+          )}
+        </Center>
       </Box>
 
       {/* File Information */}
-      <Container>
+      <Card
+        style={{
+          flex: isMobile ? "0 0 auto" : "0 1 310px",
+          minWidth: 300,
+          overflow: "hidden",
+        }}
+      >
         <Stack gap="xs">
-          <Group justify="space-between" align="flex-start">
-            <Text size="xl" fw={600}>
+          <Group justify="space-between" align="flex-start" wrap="nowrap">
+            <Text size="xl" fw={600} style={{ minWidth: 0, overflowWrap: "anywhere" }}>
               {fileDetail.file_name}
             </Text>
 
@@ -240,7 +261,7 @@ export function FileDetails({
             <Group gap="xs">
               {fileDetail.user_file_tags && fileDetail.user_file_tags.length > 0 ? (
                 fileDetail.user_file_tags.map((fileTag) => (
-                  <Badge key={fileTag.tag_id} color="blue" variant="light" size="sm">
+                  <Badge key={fileTag.tag_id} size="sm">
                     {fileTag.user_tags.tag_name}
                   </Badge>
                 ))
@@ -251,25 +272,19 @@ export function FileDetails({
               )}
             </Group>
           </Box>
+          <Anchor href={fileDetail.file_path} target="_blank" style={{ overflowWrap: "anywhere" }}>
+            <Group gap="xs" style={{ minWidth: 0 }}>
+              {fileDetail.file_path}
 
+              <RiExternalLinkLine />
+            </Group>
+          </Anchor>
           {/* File Details Table */}
-          <Table variant="vertical" layout="fixed" withTableBorder={true}>
+          <Table variant="vertical" layout="fixed" withTableBorder={true} style={{ width: "100%" }}>
             <Table.Tbody>
               <Table.Tr>
                 <Table.Th w={120}>File Name</Table.Th>
-                <Table.Td>{fileDetail.file_name}</Table.Td>
-              </Table.Tr>
-              <Table.Tr>
-                <Table.Th>File Path</Table.Th>
-                <Table.Td>
-                  <Anchor href={fileDetail.file_path} target="_blank">
-                    <Group gap="xs">
-                      {fileDetail.file_path}
-
-                      <RiExternalLinkLine />
-                    </Group>
-                  </Anchor>
-                </Table.Td>
+                <Table.Td style={{ overflowWrap: "anywhere" }}>{fileDetail.file_name}</Table.Td>
               </Table.Tr>
               <Table.Tr>
                 <Table.Th>Date Created</Table.Th>
@@ -281,26 +296,31 @@ export function FileDetails({
               </Table.Tr>
               <Table.Tr>
                 <Table.Th>File Type</Table.Th>
-                <Table.Td>{fileDetail.file_type.toUpperCase()}</Table.Td>
+                <Table.Td style={{ overflowWrap: "anywhere" }}>
+                  {fileDetail.file_type.toUpperCase()}
+                </Table.Td>
               </Table.Tr>
             </Table.Tbody>
           </Table>
 
           {/* Prompt Section */}
-          {fileDetail.generated_info?.payload?.prompt && (
+          {payload?.prompt && (
             <Box>
               <Group gap="xs" justify="space-between" align="center" mb="xs">
                 <Text size="sm" fw={500}>
                   Prompt
                 </Text>
-                <Button
-                  size="xs"
-                  variant="light"
-                  leftSection={<RiFileCopyLine size={14} />}
+                <ActionIcon
+                  size="sm"
+                  variant="transparent"
+                  aria-label="Copy prompt"
+                  title="Copy prompt"
                   onClick={async () => {
                     try {
                       await navigator.clipboard.writeText(
-                        fileDetail.generated_info?.payload?.prompt || ""
+                        typeof payload.prompt === "string"
+                          ? payload.prompt
+                          : formatPayloadValue(payload.prompt)
                       );
                       notifications.show({
                         title: "Copied",
@@ -316,16 +336,30 @@ export function FileDetails({
                     }
                   }}
                 >
-                  Copy
-                </Button>
+                  <RiFileCopyLine size={16} />
+                </ActionIcon>
               </Group>
-              <Text size="sm" style={{ wordBreak: "break-word" }}>
-                {fileDetail.generated_info.payload.prompt}
+              <Text size="xs" style={{ wordBreak: "break-word" }}>
+                {formatPayloadValue(payload.prompt)}
               </Text>
+              {payloadDetails.length > 0 ? (
+                <Stack gap={4} mt="sm">
+                  {payloadDetails.map(([key, value]) => (
+                    <Group key={key} gap={6} align="flex-start" wrap="nowrap">
+                      <Text size="xs" fw={600} style={{ flex: "0 0 auto" }}>
+                        {key}:
+                      </Text>
+                      <Text size="xs" c="dimmed" style={{ minWidth: 0, overflowWrap: "anywhere" }}>
+                        {formatPayloadValue(value)}
+                      </Text>
+                    </Group>
+                  ))}
+                </Stack>
+              ) : null}
             </Box>
           )}
         </Stack>
-      </Container>
-    </Stack>
+      </Card>
+    </Flex>
   );
 }

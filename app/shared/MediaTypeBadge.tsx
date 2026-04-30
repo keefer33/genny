@@ -36,7 +36,7 @@ export function MediaTypeBadge({
   file_name,
   type,
   size = "sm",
-  variant = "light",
+  variant = "filled",
   unknownColor = "gray",
   showUnknown = true,
   unknownLabel,
