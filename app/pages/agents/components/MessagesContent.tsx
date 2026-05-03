@@ -3,11 +3,19 @@ import { useEffect, useMemo } from "react";
 import { useChatScroll } from "~/lib/hooks/useChatScroll";
 import MessageBubble from "~/pages/agents/components/MessageBubble";
 import { useChatsStore } from "~/lib/stores/chatsStore";
+import { buildChatInteractions } from "./chatInteractions";
 
-export default function MessagesContent() {
+export default function MessagesContent({
+  showAllMessages = false,
+  shouldScrollToBottom = true,
+}: {
+  showAllMessages?: boolean;
+  shouldScrollToBottom?: boolean;
+}) {
   const { viewportRef, scrollToBottom } = useChatScroll();
   const {
     messages,
+    selectedInteractionIndex,
     runChatLoading,
     streamingContent,
     streamingReasoning,
@@ -17,7 +25,9 @@ export default function MessagesContent() {
 
   // Streaming / content height changes: stick to bottom only if user stayed near bottom.
   useEffect(() => {
-    scrollToBottom();
+    if (shouldScrollToBottom && streamStatus !== null) {
+      scrollToBottom();
+    }
   }, [
     messages,
     runChatLoading,
@@ -27,35 +37,35 @@ export default function MessagesContent() {
     scrollToBottom,
   ]);
 
+  const interactions = useMemo(() => buildChatInteractions(messages), [messages]);
+  const selectedInteraction =
+    interactions[Math.min(selectedInteractionIndex, Math.max(0, interactions.length - 1))];
+  const shouldShowStreamingAssistant =
+    runChatLoading &&
+    (showAllMessages || selectedInteractionIndex >= Math.max(0, interactions.length - 1));
+
   const visibleMessages = useMemo(() => {
-    if (!runChatLoading) return messages;
-    for (let i = messages.length - 1; i >= 0; i -= 1) {
-      if (messages[i]?.role === "user") {
-        return [messages[i]];
-      }
-    }
-    return [];
-  }, [messages, runChatLoading]);
+    if (showAllMessages) return messages;
+    return selectedInteraction
+      ? [selectedInteraction.user, selectedInteraction.assistant].filter(Boolean)
+      : [];
+  }, [messages, selectedInteraction, showAllMessages]);
 
   const renderedMessages = useMemo(
-    () =>
-      messages.map((msg) => {
-        console.log("msg");
-        return <MessageBubble key={msg.id} message={msg} />;
-      }),
-    [messages]
+    () => visibleMessages.map((msg) => <MessageBubble key={msg.id} message={msg} />),
+    [visibleMessages]
   );
 
   return (
-    <ScrollArea viewportRef={viewportRef} style={{ flex: 1, minHeight: 0 }}>
+    <ScrollArea viewportRef={viewportRef} style={{ flex: 1, minHeight: 0 }} py="xs">
       <Stack gap="md" p="md" pb="xl">
-        {visibleMessages.length === 0 && !runChatLoading && (
+        {visibleMessages.length === 0 && !shouldShowStreamingAssistant && (
           <Text size="sm" c="dimmed">
             Send a message to start. Pick a model and optionally add a system prompt.
           </Text>
         )}
         {renderedMessages}
-        {runChatLoading && (
+        {shouldShowStreamingAssistant && (
           <MessageBubble
             message={{
               id: "streaming",

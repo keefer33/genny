@@ -1,11 +1,13 @@
 import { Group, SegmentedControl } from "@mantine/core";
 import {
+  RiChatAi2Line,
   RiDashboardLine,
   RiHistoryLine,
   RiHomeLine,
   RiImageAiLine,
   RiLoginBoxLine,
   RiVideoAiLine,
+  RiVoiceAiLine,
 } from "@remixicon/react";
 import { useLocation, useNavigate } from "react-router";
 import type { ComponentType } from "react";
@@ -20,7 +22,8 @@ type GlobalNavItem = {
     | "generations"
     | "dashboard"
     | "image-generator"
-    | "video-generator";
+    | "video-generator"
+    | "audio-generator";
   label: string;
   icon: ComponentType<{ size?: string | number }>;
   to: string;
@@ -37,10 +40,17 @@ export function MobileFooterGlobalNav() {
   const items: GlobalNavItem[] = [
     {
       key: "dashboard",
-      label: isLoggedIn ? "Dashboard" : "Home",
+      label: isLoggedIn ? "Dash" : "Home",
       icon: isLoggedIn ? RiDashboardLine : RiHomeLine,
       to: isLoggedIn ? "/dashboard" : "/",
       isActive: isLoggedIn ? location.pathname === "/dashboard" : location.pathname === "/",
+    },
+    {
+      key: "agents",
+      label: "Agents",
+      icon: RiChatAi2Line,
+      to: "/agents",
+      isActive: location.pathname.startsWith("/agents"),
     },
     {
       key: "image-generator",
@@ -57,8 +67,15 @@ export function MobileFooterGlobalNav() {
       isActive: location.pathname.startsWith("/generate/video"),
     },
     {
+      key: "audio-generator",
+      label: "Audio",
+      icon: RiVoiceAiLine,
+      to: "/generate/audio",
+      isActive: location.pathname.startsWith("/generate/audio"),
+    },
+    {
       key: "generations",
-      label: isLoggedIn ? "Generations" : "Login",
+      label: isLoggedIn ? "History" : "Login",
       icon: isLoggedIn ? RiHistoryLine : RiLoginBoxLine,
       to: isLoggedIn ? "/generations" : "/login",
       isActive: isLoggedIn
@@ -98,7 +115,7 @@ export function MobileFooterGlobalNav() {
         return {
           value: item.key,
           label: (
-            <Group gap={6} align="center" justify="center" wrap="nowrap">
+            <Group gap={2} align="center" justify="center" wrap="nowrap">
               <Icon />
               {isActive && item.label}
             </Group>

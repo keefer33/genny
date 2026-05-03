@@ -20,6 +20,8 @@ import {
   RiImageAiLine,
   RiVideoAiLine,
   RiVoiceAiLine,
+  RiToolsLine,
+  RiChatAi2Line,
 } from "@remixicon/react";
 import { NavLink, useLocation } from "react-router";
 import useAppStore from "~/lib/stores/appStore";
@@ -73,6 +75,18 @@ export function Navbar({ toggleMobile, collapsed }: NavbarProps) {
       icon: RiHistoryLine,
       label: "Generations",
       description: "Generation History",
+    },
+    {
+      to: "/agents",
+      icon: RiChatAi2Line,
+      label: "Agents",
+      description: "Agents",
+    },
+    {
+      to: "/tools",
+      icon: RiToolsLine,
+      label: "Tools",
+      description: "Toolkits",
     },
     // Add login item if not logged in
     ...(!isLoggedIn

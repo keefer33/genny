@@ -3,16 +3,29 @@ import { useDisclosure } from "@mantine/hooks";
 import { RiHistoryLine } from "@remixicon/react";
 import { GenerationsHistoryModal } from "~/shared/GenerationsHistoryModal";
 
-export default function PlayGroundRunHistoryModalAction({ title }: { title: string }) {
+export default function PlayGroundRunHistoryModalAction({
+  title,
+  disabled = false,
+  onOpen,
+}: {
+  title: string;
+  disabled?: boolean;
+  onOpen?: () => void;
+}) {
   const [opened, { open, close }] = useDisclosure(false);
+  const handleOpen = () => {
+    onOpen?.();
+    open();
+  };
 
   return (
     <>
       <ActionIcon
-        variant="filled"
-        size="lg"
+        variant="transparent"
+        size="md"
         aria-label={`Open run history: ${title}`}
-        onClick={open}
+        onClick={handleOpen}
+        disabled={disabled}
       >
         <RiHistoryLine size={26} />
       </ActionIcon>

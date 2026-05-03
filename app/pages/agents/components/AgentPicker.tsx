@@ -27,7 +27,7 @@ export default function AgentPicker() {
 
   return (
     <>
-      <Group align="center" wrap="nowrap" gap="xs" w="100%" pb="md">
+      <Group align="center" wrap="nowrap" gap="xs" w="100%" pb="xs">
         <Card
           padding=""
           radius="md"

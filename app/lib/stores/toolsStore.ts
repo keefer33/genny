@@ -297,14 +297,12 @@ export const useToolsStore = create<ToolsState>((set, get) => ({
         set({ toolkitDetailError: "Sign in to view toolkit", toolkitDetailLoading: false });
         return;
       }
-      const res = await authFetch(`${endpoint}/tools/toolkits/${encoded}`);
-      set({ toolkitDetailStatus: res.status });
-      await assertAuthFetchOk(
-        res,
-        res.status === 404 ? "Toolkit not found" : "Failed to load toolkit"
+      const res = await authFetchJson<ToolkitDetail>(
+        `${endpoint}/tools/toolkits/${encoded}`,
+        undefined,
+        { errorMessage: "Failed to load toolkit" }
       );
-      const json: ToolkitDetail = await res.json();
-      set({ toolkitDetail: json, toolkitDetailLoading: false });
+      set({ toolkitDetail: res, toolkitDetailLoading: false });
     } catch (err) {
       set({
         toolkitDetailError: err instanceof Error ? err.message : "Failed to load toolkit",
@@ -388,18 +386,32 @@ export const useToolsStore = create<ToolsState>((set, get) => ({
   loadConnectedAccounts: async () => {
     const apiKey = useAppStore.getState().getAuthApiKey();
     if (!apiKey) {
-      set({ connectedAccounts: [], connectedAccountsError: null });
+      set({
+        connectedAccounts: [],
+        connectedAccountsError: null,
+        connectedAccountsLoading: false,
+      });
       return;
     }
     set({ connectedAccountsLoading: true, connectedAccountsError: null });
     try {
       const res = await authFetch(`${endpoint}/tools/connected-accounts`);
       if (res.status === 401) {
-        set({ connectedAccounts: [], connectedAccountsError: null });
+        set({
+          connectedAccounts: [],
+          connectedAccountsError: null,
+          connectedAccountsLoading: false,
+        });
         return;
       }
       await assertAuthFetchOk(res, "Failed to load connections");
-      const json: ConnectedAccountsListResponse = await res.json();
+      const payload: unknown = await res.json().catch(() => ({}));
+      const json =
+        payload &&
+        typeof payload === "object" &&
+        (payload as { success?: unknown }).success === true
+          ? ((payload as { data?: ConnectedAccountsListResponse }).data ?? { items: [] })
+          : (payload as ConnectedAccountsListResponse);
       set({ connectedAccounts: json.items ?? [], connectedAccountsLoading: false });
     } catch (err) {
       set({

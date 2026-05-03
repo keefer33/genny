@@ -25,12 +25,37 @@ export interface AgentModel {
 }
 
 /** Chat row from GET /chats (user_models_chats). */
+export interface ChatGenerationMetadata {
+  generation_id: string;
+  tool_call?: {
+    tool_slug?: string;
+    arguments?: Record<string, unknown>;
+  };
+  tool_result?: {
+    status?: string;
+    cost?: number;
+    markdown?: string;
+    files?: Array<{
+      url?: string;
+      thumbnail_url?: string;
+      file_name?: string;
+      file_type?: string;
+    }>;
+  };
+}
+
+export interface ChatMetadata {
+  generations?: ChatGenerationMetadata[];
+  [key: string]: unknown;
+}
+
 export interface ChatRow {
   id: string;
   created_at: string;
   updated_at: string;
   user_id: string;
   chat_name: string | null;
+  metadata?: ChatMetadata | null;
 }
 
 /** Message row from GET /chats/:id/messages (user_models_chats_messages). */
@@ -189,8 +214,14 @@ interface ChatsState {
 
   chats: ChatRow[];
   getChats: () => ChatRow[];
+  getSelectedChatRow: () => ChatRow | null;
   chatsLoading: boolean;
   messages: ChatUIMessage[];
+  selectedInteractionIndex: number;
+  setSelectedInteractionIndex: (index: number) => void;
+  goToPreviousInteraction: () => void;
+  goToNextInteraction: () => void;
+  goToLatestInteraction: () => void;
   streamingContent: string;
   streamingReasoning: string;
   /** File URLs received during current stream (so streaming bubble can show images). Cleared when stream ends. */
@@ -257,6 +288,13 @@ interface ChatsState {
 
 const userChoseNewChatRef = { current: false };
 
+function latestInteractionIndex(messages: ChatUIMessage[]): number {
+  const interactionCount = messages.reduce((count, message) => {
+    return message.role === "user" ? count + 1 : count;
+  }, 0);
+  return Math.max(0, interactionCount - 1);
+}
+
 export const useChatsStore = create<ChatsState>((set, get) => ({
   agentModels: [],
   setAgentModels: (agentModels) => set({ agentModels }),
@@ -275,10 +313,35 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
   },
   chats: [],
   getChats: () => get().chats,
+  getSelectedChatRow: () => {
+    const selectedChat = get().selectedChat;
+    return selectedChat ? (get().chats.find((chat) => chat.id === selectedChat) ?? null) : null;
+  },
   chatsLoading: false,
   agents: [],
   agentsLoading: false,
   messages: [],
+  selectedInteractionIndex: 0,
+  setSelectedInteractionIndex: (index) =>
+    set((state) => ({
+      selectedInteractionIndex: Math.max(
+        0,
+        Math.min(index, latestInteractionIndex(state.messages))
+      ),
+    })),
+  goToPreviousInteraction: () =>
+    set((state) => ({
+      selectedInteractionIndex: Math.max(0, state.selectedInteractionIndex - 1),
+    })),
+  goToNextInteraction: () =>
+    set((state) => ({
+      selectedInteractionIndex: Math.min(
+        latestInteractionIndex(state.messages),
+        state.selectedInteractionIndex + 1
+      ),
+    })),
+  goToLatestInteraction: () =>
+    set((state) => ({ selectedInteractionIndex: latestInteractionIndex(state.messages) })),
   streamingContent: "",
   streamingReasoning: "",
   streamedFileUrls: [],
@@ -321,7 +384,12 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
     set({ editingChatId: null });
   },
   clearSelectedChat: () => {
-    set({ selectedChat: null, messages: [], chatsListModalOpen: false });
+    set({
+      selectedChat: null,
+      messages: [],
+      selectedInteractionIndex: 0,
+      chatsListModalOpen: false,
+    });
     if (typeof window !== "undefined") {
       window.localStorage.removeItem(LS_SELECTED_CHAT_ID);
     }
@@ -355,13 +423,15 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
     set({ selectedChat: savedChatId });
   },
 
-  setMessages: (messages: ChatUIMessage[]) => set({ messages }),
+  setMessages: (messages: ChatUIMessage[]) =>
+    set({ messages, selectedInteractionIndex: latestInteractionIndex(messages) }),
 
   clearChats: () =>
     set({
       chats: [],
       selectedChat: null,
       messages: [],
+      selectedInteractionIndex: 0,
       selectedModelName: null,
       streamingContent: "",
       streamingReasoning: "",
@@ -423,7 +493,13 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
         }>),
       ],
     };
-    set((s) => ({ messages: [...s.messages, userMessage] }));
+    set((s) => {
+      const nextMessages = [...s.messages, userMessage];
+      return {
+        messages: nextMessages,
+        selectedInteractionIndex: latestInteractionIndex(nextMessages),
+      };
+    });
 
     type StreamEvent = {
       type: string;
@@ -585,12 +661,16 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
       };
       set((s) => ({
         messages: [...s.messages, assistantMessage],
+        selectedInteractionIndex: latestInteractionIndex([...s.messages, assistantMessage]),
         streamingContent: "",
         streamingReasoning: "",
         streamedFileUrls: [],
         streamStatus: null,
         runChatLoading: false,
       }));
+      if (chatId) {
+        void get().listChats();
+      }
     } catch (err) {
       clearStreamingState();
       notifications.show({
@@ -692,11 +772,13 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
         undefined,
         { errorMessage: "Failed to load messages" }
       );
+      const messages = (Array.isArray(rows) ? rows : []).map(chatMessageRowToUIMessage);
       set({
-        messages: (Array.isArray(rows) ? rows : []).map(chatMessageRowToUIMessage),
+        messages,
+        selectedInteractionIndex: latestInteractionIndex(messages),
       });
     } catch {
-      set({ messages: [] });
+      set({ messages: [], selectedInteractionIndex: 0 });
     }
   },
 

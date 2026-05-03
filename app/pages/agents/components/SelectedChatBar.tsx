@@ -1,20 +1,16 @@
-import { ActionIcon, Box, Group, Menu, Modal, Text, TextInput } from "@mantine/core";
+import { ActionIcon, Group, Menu, Text, TextInput } from "@mantine/core";
 import {
   RiAddLine,
   RiCheckLine,
   RiCloseLine,
   RiDeleteBinLine,
-  RiFullscreenLine,
   RiMoreLine,
   RiPencilLine,
 } from "@remixicon/react";
-import { useState } from "react";
 import { useChatsStore } from "~/lib/stores/chatsStore";
-import MessagesContent from "./MessagesContent";
 import { MobileChatsListModal, MobileChatsListModalTrigger } from "./MobileChatsListModal";
 
 export default function SelectedChatBar() {
-  const [messagesModalOpen, setMessagesModalOpen] = useState(false);
   const {
     chats,
     selectedChat,
@@ -34,7 +30,7 @@ export default function SelectedChatBar() {
   const displayTitle = chat?.chat_name || "New chat";
 
   return (
-    <Group gap="xs" wrap="nowrap" align="center" style={{ minWidth: 0 }} py="xs">
+    <Group gap="xs" wrap="nowrap" align="center" style={{ minWidth: 0 }}>
       {editingChatId === chat?.id ? (
         <>
           <TextInput
@@ -93,12 +89,6 @@ export default function SelectedChatBar() {
                     Edit
                   </Menu.Item>
                   <Menu.Item
-                    leftSection={<RiFullscreenLine size={16} />}
-                    onClick={() => setMessagesModalOpen(true)}
-                  >
-                    View messages
-                  </Menu.Item>
-                  <Menu.Item
                     color="red"
                     leftSection={<RiDeleteBinLine size={16} />}
                     onClick={() => void deleteChatFromList(chat.id)}
@@ -109,8 +99,8 @@ export default function SelectedChatBar() {
               </Menu>
             </>
           ) : null}
-
           <MobileChatsListModalTrigger />
+          <MobileChatsListModal />
           <ActionIcon
             size="md"
             variant="transparent"
@@ -121,21 +111,6 @@ export default function SelectedChatBar() {
           </ActionIcon>
         </>
       )}
-      <MobileChatsListModal />
-      <Modal
-        opened={messagesModalOpen}
-        onClose={() => setMessagesModalOpen(false)}
-        title={displayTitle}
-        fullScreen
-        styles={{
-          content: { display: "flex", flexDirection: "column" },
-          body: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column", padding: 0 },
-        }}
-      >
-        <Box style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
-          <MessagesContent />
-        </Box>
-      </Modal>
     </Group>
   );
 }
