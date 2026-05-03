@@ -58,6 +58,7 @@ const useGenerationsStoreBase = create<GenerationsStoreState>((set, get) => ({
   generationsHistoryBrandFilters: [],
   generationsHistoryModelProductFilters: [],
   generationsHistoryModelTypeFilters: [],
+  generationsHistoryGenerationIdsFilter: [],
   generationsHistoryFilterModels: [],
   recentGenModels: [],
   recentGenModelsLoading: false,
@@ -82,12 +83,15 @@ const useGenerationsStoreBase = create<GenerationsStoreState>((set, get) => ({
     set({ generationsHistoryModelProductFilters: values }),
   setGenerationsHistoryModelTypeFilters: (values) =>
     set({ generationsHistoryModelTypeFilters: values }),
+  setGenerationsHistoryGenerationIdsFilter: (values) =>
+    set({ generationsHistoryGenerationIdsFilter: values }),
   clearGenerationsHistoryFilters: () =>
     set({
       generationsHistoryGenModelFilter: null,
       generationsHistoryBrandFilters: [],
       generationsHistoryModelProductFilters: [],
       generationsHistoryModelTypeFilters: [],
+      generationsHistoryGenerationIdsFilter: [],
     }),
   fetchGenerationsHistory: async (opts = {}) => {
     const {
@@ -97,12 +101,35 @@ const useGenerationsStoreBase = create<GenerationsStoreState>((set, get) => ({
       generationsHistoryBrandFilters,
       generationsHistoryModelProductFilters,
       generationsHistoryModelTypeFilters,
+      generationsHistoryGenerationIdsFilter,
     } = get();
+    const hasGenerationIdsOverride = Object.prototype.hasOwnProperty.call(opts, "generation_ids");
+    const generationIds = (
+      hasGenerationIdsOverride ? (opts.generation_ids ?? []) : generationsHistoryGenerationIdsFilter
+    )
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (hasGenerationIdsOverride) {
+      set({ generationsHistoryGenerationIdsFilter: generationIds });
+      if (generationIds.length === 0) {
+        set({
+          generationsHistory: [],
+          generationsHistoryTotal: 0,
+          generationsHistoryPage: 1,
+          generationsHistoryLoading: false,
+          generationsHistoryError: null,
+        });
+        return;
+      }
+    }
     const page = Math.max(1, opts.page ?? currentPage);
     const limit = Math.min(100, Math.max(1, opts.limit ?? currentLimit));
     const params = new URLSearchParams();
     params.set("page", String(page));
     params.set("limit", String(limit));
+    if (generationIds.length > 0) {
+      params.set("generation_ids", generationIds.join(","));
+    }
     const genModelId = opts.gen_model_id?.trim() ?? generationsHistoryGenModelFilter?.trim();
     if (genModelId) {
       params.set("gen_model_id", genModelId);
@@ -314,6 +341,7 @@ const useGenerationsStoreBase = create<GenerationsStoreState>((set, get) => ({
       generationsHistoryBrandFilters: [],
       generationsHistoryModelProductFilters: [],
       generationsHistoryModelTypeFilters: [],
+      generationsHistoryGenerationIdsFilter: [],
       generationsHistoryFilterModels: [],
       recentGenModels: [],
       recentGenModelsLoading: false,

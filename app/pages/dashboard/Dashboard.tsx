@@ -16,7 +16,7 @@ import { useChatsStore } from "~/lib/stores/chatsStore";
 import useGenerationsStore from "~/lib/stores/generateStore";
 import useFilesFoldersStore from "~/lib/stores/filesFoldersStore";
 import useSupportStore from "~/lib/stores/supportStore";
-import useUsageLogStore, { type UsageLogEntry } from "~/lib/stores/usageLogStore";
+import useUsageLogStore from "~/lib/stores/usageLogStore";
 import GenModelsProductScroller from "~/shared/GenModelsProductScroller";
 
 function formatMoney(value: number) {
@@ -36,7 +36,7 @@ export function meta() {
 }
 
 export default function Dashboard() {
-  const { getUser, isMobile, getCurrentUserUsageBalance } = useAppStore();
+  const { getUser, getCurrentUserUsageBalance } = useAppStore();
   const user = getUser();
   const userId = user?.user?.id;
 
@@ -90,28 +90,6 @@ export default function Dashboard() {
   const welcomeName =
     user?.profile?.first_name ?? user?.profile?.username ?? user?.user?.email ?? "there";
 
-  const getLogType = (entry: UsageLogEntry): string => {
-    if (entry.usage_log_types?.log_type) {
-      const logType = entry.usage_log_types.log_type;
-      return logType.charAt(0).toUpperCase() + logType.slice(1);
-    }
-    return entry.usage_amount > 0 ? "Credit" : "Debit";
-  };
-
-  const getLogTypeColor = (entry: UsageLogEntry): string => {
-    const t = entry.usage_log_types?.log_type;
-    if (t === "credit") return "green";
-    if (t === "debit") return "red";
-    return entry.usage_amount > 0 ? "green" : "red";
-  };
-
-  const getLogDisplayAmount = (entry: UsageLogEntry): number => {
-    const t = entry.usage_log_types?.log_type;
-    if (t === "credit") return Math.abs(entry.usage_amount);
-    if (t === "debit") return -Math.abs(entry.usage_amount);
-    return entry.usage_amount;
-  };
-
   const hasGenerations = stats.generationTotal > 0;
   const hasFiles = stats.filesTotal > 0;
   const openTicketsCount = tickets.filter(
@@ -119,27 +97,6 @@ export default function Dashboard() {
   ).length;
   const isLoading =
     generationsHistoryLoading || filesLoading || logsLoading || chatsLoading || ticketsLoading;
-
-  const quickButtons = [
-    {
-      to: "/files",
-      icon: RiFileListLine,
-      label: "Files",
-      description: hasFiles ? "Upload / manage files" : "Upload your first file",
-    },
-    {
-      to: "/generations",
-      icon: RiHistoryLine,
-      label: "History",
-      description: hasGenerations ? "View your generation results" : "See everything you generate",
-    },
-    {
-      to: "/tools",
-      icon: RiToolsLine,
-      label: "Tools",
-      description: "Connect toolkits (optional)",
-    },
-  ];
 
   return (
     <Mounted size="xl" pt="md">

@@ -13,7 +13,7 @@ import {
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
-import { RiToolsLine, RiDeleteBinLine, RiLinkM } from "@remixicon/react";
+import { RiToolsLine, RiDeleteBinLine, RiLinkM, RiLinkUnlinkM } from "@remixicon/react";
 import { useEffect, useState, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import Mounted from "~/shared/Mounted";
@@ -146,7 +146,7 @@ export default function Tools() {
   const items: ToolkitItem[] = toolkitsData?.items ?? [];
   const nextCursor = toolkitsData?.next_cursor;
   const totalItems = toolkitsData?.total_items ?? 0;
-  const hasMore = !!nextCursor && items.length < totalItems;
+  const hasMore = !!nextCursor;
 
   useEffect(() => {
     if (!hasMore || toolkitsLoading) return;
@@ -314,85 +314,86 @@ export default function Tools() {
                   ? connectedAccounts.map((acc) => {
                       const slug = acc.toolkit?.slug ?? "unknown";
                       const isActive = acc.status === "ACTIVE";
+                      const createdAt = acc.created_at ? new Date(acc.created_at) : null;
                       const toolkitInfo = items.find((tk) => tk.slug === slug);
                       const displayName = toolkitInfo?.name ?? slug;
-                      const description = toolkitInfo?.meta?.description;
-                      const toolsCount = toolkitInfo?.meta?.tools_count ?? 0;
                       const noAuth = toolkitInfo?.no_auth;
                       return (
                         <Card key={acc.id} padding="md" radius="sm" shadow="sm">
-                          <Stack gap="xs">
+                          <Stack gap="md">
                             <Box
                               component={Link}
                               to={`/tools/${encodeURIComponent(slug)}`}
                               style={{ cursor: "pointer", textDecoration: "none" }}
                             >
-                              <Group gap="xs" wrap="nowrap">
-                                {toolkitInfo?.meta?.logo ? (
-                                  <img
-                                    src={toolkitInfo.meta.logo}
-                                    alt=""
-                                    width={24}
-                                    height={24}
-                                    style={{ borderRadius: 4 }}
-                                  />
-                                ) : (
-                                  <RiToolsLine size={24} color="var(--mantine-color-blue-6)" />
-                                )}
-                                <Text
-                                  c="var(--mantine-color-text)"
-                                  size="sm"
-                                  fw={600}
-                                  lineClamp={1}
-                                  style={{ flex: 1 }}
-                                >
-                                  {displayName}
-                                </Text>
-                              </Group>
-                              {description && (
-                                <Text size="xs" c="dimmed" lineClamp={2} mt={4}>
-                                  {description}
-                                </Text>
-                              )}
+                              <Stack gap="md">
+                                <Group gap="xs" wrap="nowrap">
+                                  {toolkitInfo?.meta?.logo ? (
+                                    <img
+                                      src={toolkitInfo.meta.logo}
+                                      alt=""
+                                      width={24}
+                                      height={24}
+                                      style={{ borderRadius: 4 }}
+                                    />
+                                  ) : (
+                                    <RiToolsLine size={24} color="var(--mantine-color-blue-6)" />
+                                  )}
+                                  <Text
+                                    c="var(--mantine-color-text)"
+                                    size="sm"
+                                    fw={600}
+                                    lineClamp={1}
+                                    style={{ flex: 1 }}
+                                  >
+                                    {displayName}
+                                  </Text>
+                                </Group>
+                                <Group gap="xs" justify="space-between" wrap="nowrap">
+                                  {createdAt && (
+                                    <Text size="xs" c="dimmed">
+                                      Connected {createdAt.toLocaleDateString()}
+                                    </Text>
+                                  )}
+                                  <Group gap="xs" justify="space-between" wrap="nowrap">
+                                    {noAuth && (
+                                      <Badge size="xs" color="blue" variant="light">
+                                        No auth required
+                                      </Badge>
+                                    )}
+                                    <Badge
+                                      size="xs"
+                                      color={isActive ? "green" : "yellow"}
+                                      variant="light"
+                                    >
+                                      {isActive ? "Active" : (acc.status ?? "Pending")}
+                                    </Badge>
+                                  </Group>
+                                </Group>
+                              </Stack>
                             </Box>
-                            <Group gap="xs" justify="space-between" wrap="nowrap">
-                              <Group gap={4}>
-                                <Text size="xs" c="dimmed" component="span">
-                                  {toolsCount} tools
-                                </Text>
-                                <Anchor
-                                  component={Link}
-                                  to={`/tools/${encodeURIComponent(slug)}`}
-                                  size="xs"
-                                >
-                                  View details
-                                </Anchor>
-                              </Group>
-                              {noAuth && (
-                                <Badge size="xs" color="blue" variant="light">
-                                  No auth required
-                                </Badge>
-                              )}
-                              <Badge
+                            <Group justify="space-between">
+                              <Button
+                                color="red"
+                                variant="transparent"
                                 size="xs"
-                                color={isActive ? "green" : "yellow"}
-                                variant="light"
+                                leftSection={<RiDeleteBinLine size={14} />}
+                                onClick={() => {
+                                  setAccountToDelete(acc);
+                                  openDeleteModal();
+                                }}
                               >
-                                {isActive ? "Active" : (acc.status ?? "Pending")}
-                              </Badge>
+                                Disconnect
+                              </Button>
+                              <Button
+                                component={Link}
+                                to={`/tools/${encodeURIComponent(slug)}`}
+                                size="xs"
+                                variant="transparent"
+                              >
+                                View details
+                              </Button>
                             </Group>
-                            <Button
-                              variant="light"
-                              color="red"
-                              size="xs"
-                              leftSection={<RiDeleteBinLine size={14} />}
-                              onClick={() => {
-                                setAccountToDelete(acc);
-                                openDeleteModal();
-                              }}
-                            >
-                              Disconnect
-                            </Button>
                           </Stack>
                         </Card>
                       );
@@ -454,32 +455,34 @@ export default function Tools() {
                                   No auth required
                                 </Badge>
                               )}
-                              {connection && (
-                                <Badge
-                                  size="xs"
-                                  color={isConnected ? "green" : "yellow"}
-                                  variant="light"
-                                >
-                                  {isConnected ? "Active" : (connection.status ?? "Pending")}
-                                </Badge>
-                              )}
                             </Group>
                             {connection ? (
-                              <Button
-                                variant="light"
-                                color="red"
-                                size="xs"
-                                leftSection={<RiDeleteBinLine size={14} />}
-                                onClick={() => {
-                                  setAccountToDelete(connection);
-                                  openDeleteModal();
-                                }}
-                              >
-                                Disconnect
-                              </Button>
+                              <Group gap="xs" justify="space-between">
+                                {connection && (
+                                  <Badge
+                                    size="xs"
+                                    color={isConnected ? "green" : "yellow"}
+                                    variant="light"
+                                  >
+                                    {isConnected ? "Active" : (connection.status ?? "Pending")}
+                                  </Badge>
+                                )}
+                                <Button
+                                  variant="transparent"
+                                  color="red"
+                                  size="xs"
+                                  leftSection={<RiLinkUnlinkM size={14} />}
+                                  onClick={() => {
+                                    setAccountToDelete(connection);
+                                    openDeleteModal();
+                                  }}
+                                >
+                                  Disconnect
+                                </Button>
+                              </Group>
                             ) : (
                               <Button
-                                variant="light"
+                                variant="transparent"
                                 size="xs"
                                 leftSection={<RiLinkM size={14} />}
                                 loading={connectingSlug === tk.slug}

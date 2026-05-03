@@ -8,7 +8,6 @@ export default [
     route("/privacy", "pages/root/PrivacyPolicy.tsx"),
     route("/terms", "pages/root/TermsOfService.tsx"),
     route("/contact", "pages/root/Contact.tsx"),
-    route("/generate", "pages/generate/Generate.tsx"),
   ]),
   layout("shared/AuthedLayout.tsx", [
     route("/dashboard", "pages/dashboard/Dashboard.tsx"),
@@ -22,6 +21,7 @@ export default [
     route("/agents", "pages/agents/Agents.tsx"),
     route("/files", "pages/files/MemberFiles.tsx"),
     route("/generations", "pages/generations/Generations.tsx"),
+    route("/generate", "pages/generate/Generate.tsx"),
     layout("pages/generate/GenerateModelLayout.tsx", [
       route("/generate/:generation_type/*", "pages/generate/GenerateModel.tsx"),
     ]),

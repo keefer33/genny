@@ -27,7 +27,7 @@ export function useChatScroll() {
   }, []);
 
   const scrollToBottom = useCallback(
-    (behavior: ScrollBehavior = "smooth", delay = 0) => {
+    (behavior: ScrollBehavior = "smooth", delay = 5) => {
       if (delay > 0) {
         window.setTimeout(() => performScrollToBottom(behavior), delay);
       } else {

@@ -9,7 +9,7 @@ const DESKTOP_FORM_WIDTH = 360;
 const LS_SELECTED_MODEL = "genny:selectedModelName";
 
 export default function Agents() {
-  const { isMobile } = useAppStore();
+  const { isMobile, themeSettings } = useAppStore();
   const {
     agentModels,
     loadAgentModels,

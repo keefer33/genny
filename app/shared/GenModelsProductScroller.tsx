@@ -4,13 +4,14 @@ import {
   RiVideoLine,
   RiArrowRightWideFill,
   RiArrowLeftWideFill,
+  RiMusic2Line,
 } from "@remixicon/react";
 import { Link } from "react-router";
 import useGenerationsStore from "~/lib/stores/generateStore";
 
 type GenModelsProductScrollerProps = {
   title: string;
-  generationType: "video" | "image";
+  generationType: "video" | "image" | "audio";
 };
 
 export default function GenModelsProductScroller({
@@ -32,20 +33,36 @@ export default function GenModelsProductScroller({
   });
 
   if (!products.length) return null;
-  const TitleIcon = generationType === "video" ? RiVideoLine : RiImageLine;
+  const TitleIcon =
+    generationType === "video"
+      ? RiVideoLine
+      : generationType === "image"
+        ? RiImageLine
+        : generationType === "audio"
+          ? RiMusic2Line
+          : null;
 
   return (
     <Stack gap="lg">
-      <Group gap="xs" align="center">
-        <TitleIcon size={24} />
-        <Title order={3}>{title}</Title>
+      <Group gap="xs" align="center" pl="xs">
+        <TitleIcon size={30} />
+        <Title order={3} c="dimmed">
+          {title}
+        </Title>
       </Group>
       <Scroller
         draggable
-        startControlIcon={<RiArrowLeftWideFill size={24} />}
-        endControlIcon={<RiArrowRightWideFill size={24} />}
+        controlSize={30}
+        startControlIcon={<RiArrowLeftWideFill size={30} />}
+        endControlIcon={<RiArrowRightWideFill size={30} />}
+        styles={{
+          control: {
+            background: "var(--mantine-color-default)",
+            justifyContent: "center",
+          },
+        }}
       >
-        <Group wrap="nowrap" gap="sm" pb={4}>
+        <Group wrap="nowrap" gap="md" pb={4}>
           {products.map((item) => {
             const brand = item.brand_name;
             const brandLabel = (brand?.name ?? "").trim() || (brand?.slug ?? "").trim() || "—";

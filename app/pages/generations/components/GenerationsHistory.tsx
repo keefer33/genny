@@ -36,9 +36,11 @@ import useGenerationsStore from "~/lib/stores/generateStore";
 export default function GenerationsHistory({
   showFiltersModal = true,
   showBulkActions = true,
+  showPagination = true,
 }: {
   showFiltersModal?: boolean;
   showBulkActions?: boolean;
+  showPagination?: boolean;
 }) {
   const { isMobile, getUser, themeSettings } = useAppStore();
   const { colorScheme } = themeSettings;
@@ -64,6 +66,7 @@ export default function GenerationsHistory({
     generationsHistoryBrandFilters,
     generationsHistoryModelProductFilters,
     generationsHistoryModelTypeFilters,
+    generationsHistoryGenerationIdsFilter,
     fetchGenerationsHistory,
     deleteGenerate,
   } = useGenerationsStore();
@@ -76,11 +79,21 @@ export default function GenerationsHistory({
   const brandFiltersKey = generationsHistoryBrandFilters.join(",");
   const productFiltersKey = generationsHistoryModelProductFilters.join(",");
   const modelTypeFiltersKey = generationsHistoryModelTypeFilters.join(",");
+  const generationIdsFilterKey = generationsHistoryGenerationIdsFilter.join(",");
+  const isGenerationIdsScoped = generationsHistoryGenerationIdsFilter.length > 0;
+  const shouldShowFiltersModal = showFiltersModal && !isGenerationIdsScoped;
+  const shouldShowBulkActions = showBulkActions && !isGenerationIdsScoped;
+  const shouldShowPagination = showPagination && !isGenerationIdsScoped;
   useGenerationsRunsRealtime(userId);
 
   useEffect(() => {
-    void fetchGenerationsHistory({ page: 1 });
+    void fetchGenerationsHistory({
+      page: 1,
+      limit: isGenerationIdsScoped ? generationsHistoryGenerationIdsFilter.length : undefined,
+    });
   }, [
+    isGenerationIdsScoped,
+    generationIdsFilterKey,
     generationsHistoryGenModelFilter,
     brandFiltersKey,
     productFiltersKey,
@@ -183,10 +196,10 @@ export default function GenerationsHistory({
   };
 
   return (
-    <Stack gap="xs" h="100%" px="md" pt="sm" pb="xs" style={{ minHeight: 0 }}>
+    <Stack gap="xs" h="100%" style={{ minHeight: 0 }}>
       <Group gap="sm" justify="space-between" align="center">
-        {showFiltersModal ? <PlayGroundRunHistoryFiltersModal /> : null}
-        {showBulkActions ? (
+        {shouldShowFiltersModal ? <PlayGroundRunHistoryFiltersModal /> : null}
+        {shouldShowBulkActions ? (
           <Group gap="0">
             <Checkbox
               disabled={selectableRunsOnPage.length === 0}
@@ -252,7 +265,7 @@ export default function GenerationsHistory({
                     bg={colorScheme === "dark" ? "gray.9" : "gray.1"}
                     pos="relative"
                   >
-                    {showBulkActions && !inFlight ? (
+                    {shouldShowBulkActions && !inFlight ? (
                       <Checkbox
                         checked={selectedRunIds.has(row.id)}
                         onChange={(event) => handleRunSelect(row.id, event.currentTarget.checked)}
@@ -425,7 +438,7 @@ export default function GenerationsHistory({
         </ScrollArea>
       </Box>
 
-      {generationsHistoryTotalPages > 1 && (
+      {shouldShowPagination && generationsHistoryTotalPages > 1 && (
         <Group justify="center" py="xs">
           <AppPagination
             mobileVisibleItems={isMobile ? 4 : 7}

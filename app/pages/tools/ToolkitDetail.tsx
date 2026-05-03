@@ -199,9 +199,21 @@ export default function ToolkitDetail() {
               <Text size="xl" fw={700}>
                 {toolkit.name}
               </Text>
-              <Text size="xs" c="dimmed">
-                {toolkit.slug}
-              </Text>
+              {toolkit.meta?.app_url ? (
+                <Anchor
+                  href={toolkit.meta.app_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  size="sm"
+                  c="dimmed"
+                >
+                  {toolkit.slug}
+                </Anchor>
+              ) : (
+                <Text size="sm" c="dimmed">
+                  {toolkit.slug}
+                </Text>
+              )}
             </Stack>
           </Group>
           {toolkit.meta?.description && <Text size="sm">{toolkit.meta.description}</Text>}

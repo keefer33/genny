@@ -145,6 +145,7 @@ export interface GenerationsStoreState {
   generationsHistoryBrandFilters: string[];
   generationsHistoryModelProductFilters: string[];
   generationsHistoryModelTypeFilters: string[];
+  generationsHistoryGenerationIdsFilter: string[];
   generationsHistoryFilterModels: PlaygroundRunHistoryFilterModelOption[];
   /** Recent playground models for this user (distinct gen_model_id by latest run). */
   recentGenModels: GenModelsItem[];
@@ -166,6 +167,7 @@ export interface GenerationsStoreState {
   setGenerationsHistoryBrandFilters: (values: string[]) => void;
   setGenerationsHistoryModelProductFilters: (values: string[]) => void;
   setGenerationsHistoryModelTypeFilters: (values: string[]) => void;
+  setGenerationsHistoryGenerationIdsFilter: (values: string[]) => void;
   clearGenerationsHistoryFilters: () => void;
   selectedModel: GenModelsItem | null;
   setLoading: (loading: boolean) => void;
@@ -181,6 +183,7 @@ export interface GenerationsStoreState {
     brands?: string[];
     model_product?: string[];
     model_type?: string[];
+    generation_ids?: string[];
   }) => Promise<void>;
   deleteGenerate: (runId: string) => Promise<void>;
   generateFromGenModel: (input: {
