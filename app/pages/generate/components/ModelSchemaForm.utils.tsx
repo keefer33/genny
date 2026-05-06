@@ -205,6 +205,48 @@ export function resolveXUiComponent(prop: JsonSchemaProperty): ValidXUiComponent
   return X_UI_COMPONENT_ALIASES[rawType.trim().toLowerCase()] ?? null;
 }
 
+function getXUiSettings(prop: JsonSchemaProperty): Record<string, unknown> {
+  const xUi = prop["x-ui-component"];
+  if (!xUi || typeof xUi !== "object" || Array.isArray(xUi)) return {};
+  const settings = (xUi as Record<string, unknown>).settings;
+  return settings && typeof settings === "object" && !Array.isArray(settings)
+    ? (settings as Record<string, unknown>)
+    : {};
+}
+
+function resolveExplicitAllowedFileTypes(
+  prop: JsonSchemaProperty
+): Array<"image" | "video" | "audio"> | null {
+  const settings = getXUiSettings(prop);
+  const raw = settings.allowed_file_types ?? settings.allowedTypes ?? settings.allowed_types;
+  const values =
+    typeof raw === "string" && raw.trim()
+      ? [raw]
+      : Array.isArray(raw) && raw.length > 0
+        ? raw.map((value) => String(value))
+        : [];
+  const allowed = new Set<"image" | "video" | "audio">();
+  for (const value of values) {
+    const tokens = value
+      .toLowerCase()
+      .split(/\band\b|[\s,|/+]+/g)
+      .map((token) => token.trim())
+      .filter(Boolean);
+    if (tokens.includes("all") || tokens.includes("*")) return ["image", "video", "audio"];
+    if (tokens.some((token) => token === "image" || token === "images")) allowed.add("image");
+    if (tokens.some((token) => token === "video" || token === "videos")) allowed.add("video");
+    if (
+      tokens.some(
+        (token) =>
+          token === "audio" || token === "audios" || token === "sound" || token === "sounds"
+      )
+    ) {
+      allowed.add("audio");
+    }
+  }
+  return allowed.size > 0 ? Array.from(allowed) : null;
+}
+
 /** Fields excluded from cost debounce so typing the prompt does not hit `/playground/cost`. */
 export function isCostIgnoredFieldKey(name: string): boolean {
   const n = normalizedFieldName(name);
@@ -250,8 +292,10 @@ export function resolveMediaPickerSettings(
   prop: JsonSchemaProperty
 ): { min: number; max: number; allowed_file_types: Array<"image" | "video" | "audio"> } {
   const normalized = normalizedFieldName(key);
+  const settings = getXUiSettings(prop);
   const allowed_file_types: Array<"image" | "video" | "audio"> =
-    normalized === "image" ||
+    resolveExplicitAllowedFileTypes(prop) ??
+    (normalized === "image" ||
     normalized === "images" ||
     normalized === "last_image" ||
     normalized === "first_frame" ||
@@ -263,20 +307,24 @@ export function resolveMediaPickerSettings(
           normalized === "audio_url" ||
           normalized === "reference_audios"
         ? ["audio"]
-        : ["video"];
+        : ["video"]);
 
   const minCandidate =
-    typeof prop.minItems === "number"
-      ? prop.minItems
-      : typeof prop.minimum === "number"
-        ? prop.minimum
-        : null;
+    typeof settings.min === "number"
+      ? settings.min
+      : typeof prop.minItems === "number"
+        ? prop.minItems
+        : typeof prop.minimum === "number"
+          ? prop.minimum
+          : null;
   const maxCandidate =
-    typeof prop.maxItems === "number"
-      ? prop.maxItems
-      : typeof prop.maximum === "number"
-        ? prop.maximum
-        : null;
+    typeof settings.max === "number"
+      ? settings.max
+      : typeof prop.maxItems === "number"
+        ? prop.maxItems
+        : typeof prop.maximum === "number"
+          ? prop.maximum
+          : null;
 
   const min =
     Number.isFinite(minCandidate) && (minCandidate as number) > 0
