@@ -1,9 +1,7 @@
 import {
-  ActionIcon,
   Button,
   Input,
   NumberInput,
-  Popover,
   ScrollArea,
   Select,
   Stack,
@@ -16,7 +14,6 @@ import {
   Group,
   Skeleton,
 } from "@mantine/core";
-import { RiInformationLine } from "@remixicon/react";
 import { useEffect, useMemo } from "react";
 import { FormProvider, useForm } from "~/lib/ContextForm";
 import { showNotification } from "~/lib/notificationUtils";
@@ -29,262 +26,26 @@ import { SizePicker } from "./x-ui-components/SizePicker";
 import { BoxPicker } from "./x-ui-components/BoxPicker";
 import { AspectRatioPicker } from "./x-ui-components/AspectRatioPicker";
 import { CostBadge } from "~/shared/CostBadge";
-import type { FunctionSchema, JsonSchemaProperty } from "~/types/generations";
 import { GenerationsHistoryModal } from "~/shared/GenerationsHistoryModal";
 import useAppStore from "~/lib/stores/appStore";
 import { useDisclosure } from "@mantine/hooks";
-
-function parseFunctionSchema(raw: unknown): FunctionSchema | null {
-  if (raw == null) return null;
-  if (typeof raw === "string") {
-    try {
-      return JSON.parse(raw) as FunctionSchema;
-    } catch {
-      return null;
-    }
-  }
-  if (typeof raw === "object") {
-    return raw as FunctionSchema;
-  }
-  return null;
-}
-
-function orderedPropertyKeys(schema: FunctionSchema): string[] {
-  const props = schema.properties ?? {};
-  const order = schema["x-order-properties"] ?? [];
-  const ordered = order.filter((k) => k in props);
-  const rest = Object.keys(props).filter((k) => !ordered.includes(k));
-  return [...ordered, ...rest];
-}
-
-function getInitialValue(prop: JsonSchemaProperty): unknown {
-  if (prop.default !== undefined) return prop.default;
-  if (prop.enum?.length === 1) return prop.enum[0];
-  switch (prop.type) {
-    case "boolean":
-      return false;
-    case "array":
-      return [];
-    case "number":
-    case "integer":
-      return null;
-    default:
-      return "";
-  }
-}
-
-function buildInitialValues(schema: FunctionSchema): Record<string, unknown> {
-  const out: Record<string, unknown> = {};
-  for (const key of orderedPropertyKeys(schema)) {
-    const prop = schema.properties![key];
-    if (!prop) continue;
-    out[key] = getInitialValue(prop);
-  }
-  return out;
-}
-
-function fieldLabel(key: string): string {
-  return key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-const DESCRIPTION_HELPER_DISABLED_FIELDS = new Set([
-  "aspect_ratio",
-  "prompt",
-  "image",
-  "images",
-  "video",
-  "videos",
-  "output_format",
-  "duration",
-  "resolution",
-]);
-
-function buildLabelWithDescription(label: string, description?: string, required?: boolean) {
-  return (
-    <Group gap={6} wrap="wrap" align="center">
-      <Text size="sm" fw={500} component="span">
-        {label}
-        {required ? <span style={{ color: "red" }}> *</span> : null}
-      </Text>
-      {description ? (
-        <Popover width={280} position="bottom-start" withArrow shadow="md">
-          <Popover.Target>
-            <ActionIcon
-              variant="subtle"
-              size="sm"
-              color="gray"
-              aria-label={`${label} description`}
-              style={{ pointerEvents: "auto" }}
-            >
-              <RiInformationLine size={14} />
-            </ActionIcon>
-          </Popover.Target>
-          <Popover.Dropdown>
-            <Text size="sm">{description}</Text>
-          </Popover.Dropdown>
-        </Popover>
-      ) : null}
-    </Group>
-  );
-}
-
-function parseEnumValue(raw: string | null, prop: JsonSchemaProperty): unknown {
-  if (raw === null) return null;
-  if (prop.type === "number" || prop.type === "integer") {
-    const n = Number(raw);
-    return Number.isNaN(n) ? raw : n;
-  }
-  if (prop.type === "boolean") {
-    if (raw === "true") return true;
-    if (raw === "false") return false;
-  }
-  return raw;
-}
-
-function schemaValuesEqual(left: unknown, right: unknown): boolean {
-  if (Object.is(left, right)) return true;
-  if (
-    (typeof left === "string" || typeof left === "number" || typeof left === "boolean") &&
-    (typeof right === "string" || typeof right === "number" || typeof right === "boolean")
-  ) {
-    return String(left) === String(right);
-  }
-  return false;
-}
-
-function evaluateConditions(
-  schema: FunctionSchema | null,
-  values: Record<string, unknown>
-): { setValues: Record<string, unknown>; disabledFields: Set<string> } {
-  const setValues: Record<string, unknown> = {};
-  const disabledFields = new Set<string>();
-  const conditions = schema?.["x-conditions"];
-  if (!Array.isArray(conditions)) return { setValues, disabledFields };
-
-  for (const condition of conditions) {
-    const field = typeof condition?.if?.field === "string" ? condition.if.field : "";
-    if (!field) continue;
-    const currentValue = values[field];
-    let matches = false;
-
-    if ("equals" in (condition.if ?? {})) {
-      matches = schemaValuesEqual(currentValue, condition.if?.equals);
-    } else if ("notEquals" in (condition.if ?? {})) {
-      matches = !schemaValuesEqual(currentValue, condition.if?.notEquals);
-    } else if (Array.isArray(condition.if?.in)) {
-      matches = condition.if.in.some((candidate) => schemaValuesEqual(currentValue, candidate));
-    }
-
-    if (!matches) continue;
-
-    if (condition.then?.set && typeof condition.then.set === "object") {
-      Object.assign(setValues, condition.then.set);
-    }
-    if (Array.isArray(condition.then?.disable)) {
-      condition.then.disable
-        .filter(
-          (fieldName): fieldName is string =>
-            typeof fieldName === "string" && fieldName.trim().length > 0
-        )
-        .forEach((fieldName) => disabledFields.add(fieldName));
-    }
-  }
-
-  return { setValues, disabledFields };
-}
-
-function sanitizePayload(values: Record<string, unknown>): Record<string, unknown> {
-  const out: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(values)) {
-    if (value == null) continue;
-    if (typeof value === "string" && value.trim() === "") continue;
-    if (Array.isArray(value) && value.length === 0) continue;
-    out[key] = value;
-  }
-  return out;
-}
-
-function normalizedFieldName(name: string): string {
-  return name.trim().toLowerCase();
-}
-
-/** Fields excluded from cost debounce so typing the prompt does not hit `/playground/cost`. */
-function isCostIgnoredFieldKey(name: string): boolean {
-  const n = normalizedFieldName(name);
-  return n === "prompt" || n === "negative_prompt";
-}
-
-function isMediaFieldName(
-  name: string
-): name is
-  | "image"
-  | "images"
-  | "video"
-  | "videos"
-  | "last_image"
-  | "reference_images"
-  | "reference_videos"
-  | "audio"
-  | "reference_audios" {
-  const normalized = normalizedFieldName(name);
-  return (
-    normalized === "image" ||
-    normalized === "images" ||
-    normalized === "video" ||
-    normalized === "videos" ||
-    normalized === "last_image" ||
-    normalized === "reference_images" ||
-    normalized === "reference_videos" ||
-    normalized === "audio" ||
-    normalized === "reference_audios"
-  );
-}
-
-function resolveMediaPickerSettings(
-  key: string,
-  prop: JsonSchemaProperty
-): { min: number; max: number; allowed_file_types: Array<"image" | "video" | "audio"> } {
-  const normalized = normalizedFieldName(key);
-  const allowed_file_types: Array<"image" | "video" | "audio"> =
-    normalized === "image" ||
-    normalized === "images" ||
-    normalized === "last_image" ||
-    normalized === "reference_images"
-      ? ["image"]
-      : normalized === "audio" || normalized === "reference_audios"
-        ? ["audio"]
-        : ["video"];
-
-  const minCandidate =
-    typeof prop.minItems === "number"
-      ? prop.minItems
-      : typeof prop.minimum === "number"
-        ? prop.minimum
-        : null;
-  const maxCandidate =
-    typeof prop.maxItems === "number"
-      ? prop.maxItems
-      : typeof prop.maximum === "number"
-        ? prop.maximum
-        : null;
-
-  const min =
-    Number.isFinite(minCandidate) && (minCandidate as number) > 0
-      ? Math.floor(minCandidate as number)
-      : 1;
-  let max =
-    Number.isFinite(maxCandidate) && (maxCandidate as number) > 0
-      ? Math.floor(maxCandidate as number)
-      : 1;
-  if (maxCandidate == null && minCandidate != null) {
-    max = Math.max(min, max);
-  }
-  if (min > max) {
-    max = min;
-  }
-
-  return { min, max, allowed_file_types };
-}
+import {
+  buildInitialValues,
+  buildLabelWithDescription,
+  DESCRIPTION_HELPER_DISABLED_FIELDS,
+  evaluateConditions,
+  fieldLabel,
+  isCostIgnoredFieldKey,
+  isMediaFieldName,
+  normalizedFieldName,
+  orderedPropertyKeys,
+  parseEnumValue,
+  parseFunctionSchema,
+  resolveMediaPickerSettings,
+  resolveXUiComponent,
+  sanitizePayload,
+  schemaValuesEqual,
+} from "./ModelSchemaForm.utils";
 
 export default function ModelSchemaForm() {
   const {
@@ -477,8 +238,14 @@ export default function ModelSchemaForm() {
                 const hasSingleEnumValue = prop.enum?.length === 1;
                 const isConditionDisabled = conditionState.disabledFields.has(key);
                 const isFieldReadOnly = prop.readOnly || isConditionDisabled;
+                const xUiComponent = resolveXUiComponent(prop);
+                const hasUnsupportedXUiComponent =
+                  prop["x-ui-component"] !== undefined && !xUiComponent;
 
-                if (isMediaFieldName(key)) {
+                if (
+                  !hasUnsupportedXUiComponent &&
+                  (xUiComponent === "MediaFilePicker" || (!xUiComponent && isMediaFieldName(key)))
+                ) {
                   const mediaSettings = resolveMediaPickerSettings(key, prop);
                   return (
                     <MediaFilePicker
@@ -500,7 +267,12 @@ export default function ModelSchemaForm() {
                   );
                 }
 
-                if (normalizedFieldName(key) === "size" && !prop.enum) {
+                if (
+                  !hasUnsupportedXUiComponent &&
+                  !prop.enum &&
+                  (xUiComponent === "SizePicker" ||
+                    (!xUiComponent && normalizedFieldName(key) === "size"))
+                ) {
                   return (
                     <SizePicker
                       key={key}
@@ -525,7 +297,11 @@ export default function ModelSchemaForm() {
                     .map((value) => value.trim())
                     .filter(Boolean);
                   if (options.length > 0) {
-                    if (normalizedFieldName(key) === "aspect_ratio") {
+                    if (
+                      !hasUnsupportedXUiComponent &&
+                      (xUiComponent === "AspectRatioPicker" ||
+                        (!xUiComponent && normalizedFieldName(key) === "aspect_ratio"))
+                    ) {
                       return (
                         <AspectRatioPicker
                           key={key}
@@ -540,23 +316,30 @@ export default function ModelSchemaForm() {
                         />
                       );
                     }
-                    return (
-                      <BoxPicker
-                        key={key}
-                        fieldName={key}
-                        label={labelWithHelp}
-                        description={description}
-                        error={err}
-                        isRequired={isRequired}
-                        options={options}
-                        readOnly={isFieldReadOnly || options.length === 1}
-                        defaultValue={prop.default}
-                      />
-                    );
+                    if (
+                      !hasUnsupportedXUiComponent &&
+                      (!xUiComponent || xUiComponent === "BoxPicker")
+                    ) {
+                      return (
+                        <BoxPicker
+                          key={key}
+                          fieldName={key}
+                          label={labelWithHelp}
+                          description={description}
+                          error={err}
+                          isRequired={isRequired}
+                          options={options}
+                          readOnly={isFieldReadOnly || options.length === 1}
+                          defaultValue={prop.default}
+                        />
+                      );
+                    }
                   }
                 }
 
                 if (
+                  !hasUnsupportedXUiComponent &&
+                  (!xUiComponent || xUiComponent === "NumberSlider") &&
                   (prop.type === "number" || prop.type === "integer") &&
                   typeof prop.minimum === "number" &&
                   typeof prop.maximum === "number"

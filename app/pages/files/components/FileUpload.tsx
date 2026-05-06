@@ -1,12 +1,21 @@
 import { Alert, Box, Text, Button } from "@mantine/core";
 import { RiUploadLine } from "@remixicon/react";
 import { useRef, useState } from "react";
-import useFilesFoldersStore from "~/lib/stores/filesFoldersStore";
+import useFilesFoldersStore, { type FileTypeFilter } from "~/lib/stores/filesFoldersStore";
 import useAppStore from "~/lib/stores/appStore";
 
 interface FileUploadProps {
   onUploadComplete?: () => void;
-  allowedTypes?: "images" | "videos" | "audio" | "all";
+  allowedTypes?: FileTypeFilter;
+}
+
+function acceptForAllowedTypes(allowedTypes: FileTypeFilter): string {
+  const accepts = [
+    allowedTypes.includes("images") ? "image/*" : null,
+    allowedTypes.includes("videos") ? "video/*" : null,
+    allowedTypes.includes("audio") ? "audio/*" : null,
+  ].filter((accept): accept is string => Boolean(accept));
+  return accepts.length > 0 ? accepts.join(",") : "image/*,video/*,audio/*";
 }
 
 export default function FileUpload({ onUploadComplete, allowedTypes = "all" }: FileUploadProps) {
@@ -61,15 +70,7 @@ export default function FileUpload({ onUploadComplete, allowedTypes = "all" }: F
         multiple
         style={{ display: "none" }}
         onChange={(e) => handleFileSelect(e.target.files)}
-        accept={
-          allowedTypes === "images"
-            ? "image/*"
-            : allowedTypes === "videos"
-              ? "video/*"
-              : allowedTypes === "audio"
-                ? "audio/*"
-                : "image/*,video/*,audio/*"
-        }
+        accept={acceptForAllowedTypes(allowedTypes)}
       />
 
       {isMobile ? (

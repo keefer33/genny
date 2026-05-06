@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type React from "react";
 import { RiCloseLine } from "@remixicon/react";
 import { extensionMediaKind } from "~/lib/utils";
+import type { FileTypeFilter } from "~/lib/stores/filesFoldersStore";
 import FileDetailModal from "~/shared/FileDetailModal";
 import { FilePickerModal } from "~/shared/FilePickerModal";
 import { buildMinimalFile, fetchUserFileByPath } from "./mediaFilePickerByPath";
@@ -17,7 +18,7 @@ export function PickerMediaRow({
   allowChange,
 }: {
   fileUrl: string;
-  allowedTypes: "images" | "videos" | "audio" | "all";
+  allowedTypes: FileTypeFilter;
   modalTitle: string;
   onReplace: (path: string, file?: any) => void;
   onRemove: () => void;
