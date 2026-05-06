@@ -33,6 +33,15 @@ interface FileData {
   user_file_tags?: UserFileTag[];
 }
 
+export type FileTypeFilter =
+  | "images"
+  | "videos"
+  | "audio"
+  | "all"
+  | "images_videos"
+  | "images_audio"
+  | "videos_audio";
+
 interface PaginationData {
   data: FileData[];
   total: number;
@@ -40,6 +49,17 @@ interface PaginationData {
   currentPage: number;
   hasNextPage: boolean;
   hasPrevPage: boolean;
+}
+
+function fileTypePrefixes(
+  filter: FileTypeFilter | null | undefined
+): Array<"image" | "video" | "audio"> {
+  if (!filter || filter === "all") return [];
+  return [
+    filter.includes("images") ? "image" : null,
+    filter.includes("videos") ? "video" : null,
+    filter.includes("audio") ? "audio" : null,
+  ].filter((prefix): prefix is "image" | "video" | "audio" => Boolean(prefix));
 }
 
 interface FilesFoldersState {
@@ -52,7 +72,7 @@ interface FilesFoldersState {
   error: string | null;
   selectedTags: string[];
   selectedUploadType: string | null;
-  fileTypeFilter: "images" | "videos" | "audio" | "all";
+  fileTypeFilter: FileTypeFilter;
   filesPageSize: number;
 
   // Actions
@@ -64,7 +84,7 @@ interface FilesFoldersState {
   setError: (error: string | null) => void;
   setSelectedTags: (tags: string[]) => void;
   setSelectedUploadType: (uploadType: string | null) => void;
-  setFileTypeFilter: (filter: "images" | "videos" | "audio" | "all") => void;
+  setFileTypeFilter: (filter: FileTypeFilter) => void;
   setFilesPageSize: (pageSize: number) => void;
   resetFilters: () => void;
 
@@ -77,7 +97,7 @@ interface FilesFoldersState {
   getError: () => string | null;
   getSelectedTags: () => string[];
   getSelectedUploadType: () => string | null;
-  getFileTypeFilter: () => "images" | "videos" | "audio" | "all";
+  getFileTypeFilter: () => FileTypeFilter;
   getFilesPageSize: () => number;
   getFilteredFiles: (files?: FileData[]) => FileData[];
   // File operations
@@ -95,7 +115,7 @@ interface FilesFoldersState {
     userId?: string,
     selectedTags?: string[],
     uploadType?: string | null,
-    fileTypeFilter?: "images" | "videos" | "audio" | "all" | null,
+    fileTypeFilter?: FileTypeFilter | null,
     _isPageChange?: boolean
   ) => Promise<void>;
   handleFilesPageChange: (page: number) => void;
@@ -158,8 +178,10 @@ const useFilesFoldersStoreBase = create<FilesFoldersState>((set, get) => ({
     const filesToFilter = files || get().paginationData.data;
     const fileTypeFilter = get().fileTypeFilter;
 
+    const prefixes = fileTypePrefixes(fileTypeFilter);
+
     // If no filter or filter is "all", return all files
-    if (!fileTypeFilter || fileTypeFilter === "all") {
+    if (prefixes.length === 0) {
       return filesToFilter;
     }
 
@@ -172,19 +194,7 @@ const useFilesFoldersStoreBase = create<FilesFoldersState>((set, get) => ({
 
       const normalizedFileType = file.file_type.toLowerCase().trim();
 
-      if (fileTypeFilter === "images") {
-        return normalizedFileType.startsWith("image/");
-      }
-
-      if (fileTypeFilter === "videos") {
-        return normalizedFileType.startsWith("video/");
-      }
-
-      if (fileTypeFilter === "audio") {
-        return normalizedFileType.startsWith("audio/");
-      }
-
-      return true;
+      return prefixes.some((prefix) => normalizedFileType.startsWith(`${prefix}/`));
     });
   },
 
@@ -362,7 +372,7 @@ const useFilesFoldersStoreBase = create<FilesFoldersState>((set, get) => ({
     userId?: string,
     selectedTags?: string[],
     uploadType?: string | null,
-    fileTypeFilter?: "images" | "videos" | "audio" | "all" | null,
+    fileTypeFilter?: FileTypeFilter | null,
     _isPageChange?: boolean
   ) => {
     const finalLimit = get().filesPageSize;

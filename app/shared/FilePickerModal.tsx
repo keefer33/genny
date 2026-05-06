@@ -1,14 +1,14 @@
 import { Modal } from "@mantine/core";
 import useAppStore from "~/lib/stores/appStore";
 import { FilePickerContent } from "../pages/files/components/FilePickerContent";
-import type { FileData } from "~/lib/stores/filesFoldersStore";
+import type { FileData, FileTypeFilter } from "~/lib/stores/filesFoldersStore";
 
 interface FilePickerModalProps {
   opened: boolean;
   onClose: () => void;
   onSelect: (fileUrl: string, file?: FileData) => void;
   title?: string;
-  allowedTypes?: "images" | "videos" | "audio" | "all"; // Filter by file type, default is "all"
+  allowedTypes?: FileTypeFilter; // Filter by file type, default is "all"
 }
 
 export function FilePickerModal({

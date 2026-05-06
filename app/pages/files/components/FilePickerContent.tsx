@@ -1,16 +1,27 @@
 import { Box, Group, Text, Stack, Loader, Alert, Divider } from "@mantine/core";
 import { useState, useEffect } from "react";
 import useAppStore from "~/lib/stores/appStore";
-import useFilesFoldersStore, { type FileData } from "~/lib/stores/filesFoldersStore";
+import useFilesFoldersStore, { type FileData, type FileTypeFilter } from "~/lib/stores/filesFoldersStore";
 import { AppPagination } from "~/shared/AppPagination";
 import { FileGrid } from "./FileGrid";
 import FileUpload from "./FileUpload";
 
 interface FilePickerContentProps {
   onFileSelect?: (file: FileData) => void;
-  allowedTypes?: "images" | "videos" | "audio" | "all";
+  allowedTypes?: FileTypeFilter;
   showUpload?: boolean;
   onUploadComplete?: () => void;
+}
+
+function uploadDescription(allowedTypes: FileTypeFilter): string {
+  const labels = [
+    allowedTypes.includes("images") ? "images" : null,
+    allowedTypes.includes("videos") ? "videos" : null,
+    allowedTypes.includes("audio") ? "audio files" : null,
+  ].filter((label): label is string => Boolean(label));
+  if (labels.length === 0) return "Upload images, video, or audio to add them to your collection";
+  if (labels.length === 1) return `Upload ${labels[0]} to add them to your collection`;
+  return `Upload ${labels.slice(0, -1).join(", ")} or ${labels.at(-1)} to add them to your collection`;
 }
 
 export function FilePickerContent({
@@ -58,13 +69,7 @@ export function FilePickerContent({
             </Group>
             <FileUpload onUploadComplete={onUploadComplete} allowedTypes={allowedTypes} />
             <Text size="xs" c="dimmed" mt="xs">
-              {allowedTypes === "images"
-                ? "Upload images to add them to your collection"
-                : allowedTypes === "videos"
-                  ? "Upload videos to add them to your collection"
-                  : allowedTypes === "audio"
-                    ? "Upload audio files to add them to your collection"
-                    : "Upload images, video, or audio to add them to your collection"}
+              {uploadDescription(allowedTypes)}
             </Text>
           </Box>
           <Divider />

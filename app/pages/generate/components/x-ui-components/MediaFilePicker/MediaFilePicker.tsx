@@ -2,6 +2,7 @@ import { ActionIcon, Box, Group, Input, Stack, Text, TextInput } from "@mantine/
 import { useEffect, useState } from "react";
 import { RiCloseLine } from "@remixicon/react";
 import { useFormContext } from "~/lib/ContextForm";
+import type { FileTypeFilter } from "~/lib/stores/filesFoldersStore";
 import type { PlaygroundMediaFilePickerInputProps } from "~/types/generations";
 import { AddMediaZone } from "./AddMediaZone";
 import { ManualUrlRow } from "./ManualUrlRow";
@@ -22,20 +23,31 @@ function getAllowedTypesFromXUi(xUi: unknown): unknown {
   return s.allowed_types ?? s.allowedTypes ?? s.allowed_file_types;
 }
 
-function allowedFileTypesToPickerTypes(raw: unknown): "images" | "videos" | "audio" | "all" {
-  const tokens =
+function allowedFileTypesToPickerTypes(raw: unknown): FileTypeFilter {
+  const values =
     typeof raw === "string" && raw.trim()
-      ? [raw.trim()]
+      ? [raw]
       : Array.isArray(raw) && raw.length > 0
         ? raw.map((x) => String(x))
-        : null;
-  if (!tokens) return "all";
-  const lower = tokens.map((x) => x.toLowerCase().trim());
-  const hasImage = lower.some((x) => x === "image" || x === "images");
-  const hasVideo = lower.some((x) => x === "video" || x === "videos");
-  const hasAudio = lower.some((x) => x === "audio" || x === "sound" || x === "sounds");
-  const typeCount = [hasImage, hasVideo, hasAudio].filter(Boolean).length;
-  if (typeCount > 1) return "all";
+        : [];
+  if (values.length === 0) return "all";
+
+  const tokens = values
+    .flatMap((value) => value.toLowerCase().split(/\band\b|[\s,|/+]+/g))
+    .map((x) => x.trim())
+    .filter(Boolean);
+
+  if (tokens.includes("all") || tokens.includes("*")) return "all";
+
+  const hasImage = tokens.some((x) => x === "image" || x === "images");
+  const hasVideo = tokens.some((x) => x === "video" || x === "videos");
+  const hasAudio = tokens.some(
+    (x) => x === "audio" || x === "audios" || x === "sound" || x === "sounds"
+  );
+  if (hasImage && hasVideo && hasAudio) return "all";
+  if (hasImage && hasVideo) return "images_videos";
+  if (hasImage && hasAudio) return "images_audio";
+  if (hasVideo && hasAudio) return "videos_audio";
   if (hasImage) return "images";
   if (hasVideo) return "videos";
   if (hasAudio) return "audio";

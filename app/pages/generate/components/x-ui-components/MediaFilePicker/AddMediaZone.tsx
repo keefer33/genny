@@ -1,6 +1,7 @@
 import { Button, Group, Stack, TextInput } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useState } from "react";
+import type { FileTypeFilter } from "~/lib/stores/filesFoldersStore";
 import { FilePickerModal } from "~/shared/FilePickerModal";
 
 export function AddMediaZone({
@@ -12,7 +13,7 @@ export function AddMediaZone({
 }: {
   selectLabel: string;
   modalTitle: string;
-  allowedTypes: "images" | "videos" | "audio" | "all";
+  allowedTypes: FileTypeFilter;
   onPickPath: (path: string) => void;
   onAddUrl: (url: string) => void;
 }) {
