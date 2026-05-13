@@ -1,6 +1,7 @@
 import { Group, Input, NumberInput, Slider } from "@mantine/core";
 import { useFormContext } from "~/lib/ContextForm";
 import type { NumberSliderProps } from "~/types/generations";
+import { getFormValueAtPath } from "../ModelSchemaForm.utils";
 
 export function NumberSlider({
   fieldName,
@@ -13,6 +14,7 @@ export function NumberSlider({
   step,
   readOnly,
   defaultValue,
+  withAsterisk,
 }: NumberSliderProps) {
   const form = useFormContext();
   let hi = max;
@@ -20,7 +22,7 @@ export function NumberSlider({
     hi = min + (step > 0 ? step : 1);
   }
 
-  const raw = form.values[fieldName];
+  const raw = getFormValueAtPath(form.values, fieldName);
   const fromForm = typeof raw === "number" && !Number.isNaN(raw) ? raw : null;
   const fallback =
     typeof defaultValue === "number" && !Number.isNaN(defaultValue) ? defaultValue : min;
@@ -33,6 +35,7 @@ export function NumberSlider({
       description={description}
       error={error}
       required={isRequired}
+      withAsterisk={withAsterisk}
     >
       <Group align="center" gap="sm" wrap="wrap">
         <Slider

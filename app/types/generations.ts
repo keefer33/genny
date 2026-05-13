@@ -213,7 +213,11 @@ export type JsonSchemaProperty = {
   description?: string;
   enum?: Array<string | number | boolean>;
   default?: unknown;
-  items?: { type?: string };
+  /** Array element schema, or nested object `properties` when `type` is `"object"`. */
+  items?: JsonSchemaProperty;
+  properties?: Record<string, JsonSchemaProperty>;
+  required?: string[];
+  "x-order-properties"?: string[];
   minItems?: number;
   maxItems?: number;
   max?: number;
@@ -244,6 +248,8 @@ export type PlaygroundMediaFilePickerInputProps = {
   description?: ReactNode;
   error?: ReactNode;
   isRequired?: boolean;
+  /** When false, hides Mantine’s label asterisk (use if the label node already shows required). */
+  withAsterisk?: boolean;
 };
 
 export type NumberSliderProps = {
@@ -258,6 +264,8 @@ export type NumberSliderProps = {
   readOnly?: boolean;
   /** JSON Schema `default` for initial display when value is unset. */
   defaultValue?: unknown;
+  /** When false, hides Mantine’s label asterisk (use if the label node already shows required). */
+  withAsterisk?: boolean;
 };
 
 /** `x-ui-component` type `SizePicker` — form value is `"width*height"` (string). */
@@ -276,6 +284,8 @@ export type SizePickerProps = {
   separator?: string;
   /** Increment for custom width/height sliders and inputs. */
   step?: number;
+  /** When false, hides Mantine’s label asterisk (use if the label node already shows required). */
+  withAsterisk?: boolean;
 };
 
 /** `x-ui-component` type `BoxPicker` — enum string choices rendered as selectable boxes. */
@@ -288,6 +298,8 @@ export type BoxPickerProps = {
   options: string[];
   readOnly?: boolean;
   defaultValue?: unknown;
+  /** When false, hides Mantine’s label asterisk (use if the label node already shows required). */
+  withAsterisk?: boolean;
 };
 
 /** `x-ui-component` type `AspectRatioPicker` — enum ratio choices rendered as ratio-shaped boxes. */
@@ -300,6 +312,8 @@ export type AspectRatioPickerProps = {
   options: string[];
   readOnly?: boolean;
   defaultValue?: unknown;
+  /** When false, hides Mantine’s label asterisk (use if the label node already shows required). */
+  withAsterisk?: boolean;
 };
 
 export type PlayGroundModelBrowserProps = {

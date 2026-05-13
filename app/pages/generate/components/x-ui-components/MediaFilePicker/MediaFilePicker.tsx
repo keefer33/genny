@@ -1,6 +1,7 @@
 import { ActionIcon, Box, Group, Input, Stack, Text, TextInput } from "@mantine/core";
 import { useEffect, useState } from "react";
 import { RiCloseLine } from "@remixicon/react";
+import { getFormValueAtPath } from "../../ModelSchemaForm.utils";
 import { useFormContext } from "~/lib/ContextForm";
 import type { FileTypeFilter } from "~/lib/stores/filesFoldersStore";
 import type { PlaygroundMediaFilePickerInputProps } from "~/types/generations";
@@ -103,7 +104,7 @@ export function MediaFilePicker({
   }, [fieldName, form, isMulti, fieldSchema["x-ui-component"].settings.min, rawValue]);
 
   const readUrlsMulti = (): string[] => {
-    const v = form.values[fieldName];
+    const v = getFormValueAtPath(form.values, fieldName);
     return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
   };
 

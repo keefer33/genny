@@ -1,6 +1,7 @@
 import { Button, Group, Input, Text } from "@mantine/core";
 import { useFormContext } from "~/lib/ContextForm";
 import type { AspectRatioPickerProps } from "~/types/generations";
+import { getFormValueAtPath } from "../ModelSchemaForm.utils";
 
 type ParsedRatio = {
   label: string;
@@ -36,9 +37,10 @@ export function AspectRatioPicker({
   options,
   readOnly,
   defaultValue,
+  withAsterisk,
 }: AspectRatioPickerProps) {
   const form = useFormContext();
-  const formValue = form.values[fieldName];
+  const formValue = getFormValueAtPath(form.values, fieldName);
   const selected =
     typeof formValue === "string" && formValue.trim()
       ? formValue.trim()
@@ -57,6 +59,7 @@ export function AspectRatioPicker({
       description={description}
       error={error}
       required={isRequired}
+      withAsterisk={withAsterisk}
     >
       <Group gap="xs" wrap="wrap">
         {parsed.map((ratio) => {

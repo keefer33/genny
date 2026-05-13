@@ -1,6 +1,7 @@
 import { Button, Group, Input } from "@mantine/core";
 import { useFormContext } from "~/lib/ContextForm";
 import type { BoxPickerProps } from "~/types/generations";
+import { getFormValueAtPath } from "../ModelSchemaForm.utils";
 
 export function BoxPicker({
   fieldName,
@@ -11,9 +12,10 @@ export function BoxPicker({
   options,
   readOnly,
   defaultValue,
+  withAsterisk,
 }: BoxPickerProps) {
   const form = useFormContext();
-  const formValue = form.values[fieldName];
+  const formValue = getFormValueAtPath(form.values, fieldName);
   const selected =
     typeof formValue === "string" && formValue.trim()
       ? formValue
@@ -28,6 +30,7 @@ export function BoxPicker({
       description={description}
       error={error}
       required={isRequired}
+      withAsterisk={withAsterisk}
     >
       <Group gap="xs" wrap="wrap">
         {options.map((option) => {

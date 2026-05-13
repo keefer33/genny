@@ -1,7 +1,21 @@
-import { Box, Group, Text, Stack, Loader, Alert, Divider } from "@mantine/core";
+import {
+  Box,
+  Button,
+  Flex,
+  Group,
+  Text,
+  Stack,
+  Loader,
+  Alert,
+  Divider,
+  TextInput,
+} from "@mantine/core";
 import { useState, useEffect } from "react";
 import useAppStore from "~/lib/stores/appStore";
-import useFilesFoldersStore, { type FileData, type FileTypeFilter } from "~/lib/stores/filesFoldersStore";
+import useFilesFoldersStore, {
+  type FileData,
+  type FileTypeFilter,
+} from "~/lib/stores/filesFoldersStore";
 import { AppPagination } from "~/shared/AppPagination";
 import { FileGrid } from "./FileGrid";
 import FileUpload from "./FileUpload";
@@ -11,6 +25,8 @@ interface FilePickerContentProps {
   allowedTypes?: FileTypeFilter;
   showUpload?: boolean;
   onUploadComplete?: () => void;
+  /** Shown beside upload (desktop) / below (mobile); submit calls this with trimmed URL. */
+  onPasteUrl?: (url: string) => void;
 }
 
 function uploadDescription(allowedTypes: FileTypeFilter): string {
@@ -29,10 +45,19 @@ export function FilePickerContent({
   allowedTypes = "all",
   showUpload = true,
   onUploadComplete,
+  onPasteUrl,
 }: FilePickerContentProps) {
   const { getUser } = useAppStore();
   const { paginationData, gridLoading, loadUserFiles } = useFilesFoldersStore();
   const [currentPage, setCurrentPage] = useState(1);
+  const [pendingUrl, setPendingUrl] = useState("");
+
+  const flushUrl = () => {
+    const t = pendingUrl.trim();
+    if (!t || !onPasteUrl) return;
+    onPasteUrl(t);
+    setPendingUrl("");
+  };
 
   const user = getUser();
   const userId = user?.user?.id;
@@ -61,17 +86,60 @@ export function FilePickerContent({
       {/* Upload Section */}
       {showUpload && (
         <>
-          <Box>
-            <Group justify="space-between" align="center" mb="sm">
-              <Text size="sm" fw={500}>
-                Upload New File
+          {onPasteUrl ? (
+            <Flex direction={{ base: "column", sm: "row" }} gap="md" align="stretch" wrap="nowrap">
+              <Box style={{ flex: 1, minWidth: 0 }}>
+                <Group justify="space-between" align="center" mb="sm">
+                  <Text size="sm" fw={500}>
+                    Upload New File
+                  </Text>
+                </Group>
+                <FileUpload onUploadComplete={onUploadComplete} allowedTypes={allowedTypes} />
+                <Text size="xs" c="dimmed" mt="xs">
+                  {uploadDescription(allowedTypes)}
+                </Text>
+              </Box>
+              <Box style={{ flex: 1, minWidth: 0 }}>
+                <Text size="sm" fw={500} mb="sm">
+                  Add from URL
+                </Text>
+                <Group align="flex-end" gap="xs" wrap="nowrap">
+                  <TextInput
+                    style={{ flex: 1 }}
+                    size="sm"
+                    placeholder="Paste a media URL, then Enter"
+                    aria-label="Media URL"
+                    value={pendingUrl}
+                    onChange={(e) => setPendingUrl(e.currentTarget.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        flushUrl();
+                      }
+                    }}
+                  />
+                  <Button size="xs" variant="light" type="button" onClick={flushUrl}>
+                    Add URL
+                  </Button>
+                </Group>
+                <Text size="xs" c="dimmed" mt="xs">
+                  Use a direct link to an image, video, or audio file.
+                </Text>
+              </Box>
+            </Flex>
+          ) : (
+            <Box>
+              <Group justify="space-between" align="center" mb="sm">
+                <Text size="sm" fw={500}>
+                  Upload New File
+                </Text>
+              </Group>
+              <FileUpload onUploadComplete={onUploadComplete} allowedTypes={allowedTypes} />
+              <Text size="xs" c="dimmed" mt="xs">
+                {uploadDescription(allowedTypes)}
               </Text>
-            </Group>
-            <FileUpload onUploadComplete={onUploadComplete} allowedTypes={allowedTypes} />
-            <Text size="xs" c="dimmed" mt="xs">
-              {uploadDescription(allowedTypes)}
-            </Text>
-          </Box>
+            </Box>
+          )}
           <Divider />
         </>
       )}
