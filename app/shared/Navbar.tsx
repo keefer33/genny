@@ -22,6 +22,7 @@ import {
   RiVoiceAiLine,
   RiToolsLine,
   RiChatAi2Line,
+  RiUserVoiceLine,
 } from "@remixicon/react";
 import { NavLink, useLocation } from "react-router";
 import useAppStore from "~/lib/stores/appStore";
@@ -113,6 +114,13 @@ export function Navbar({ toggleMobile, collapsed }: NavbarProps) {
       icon: RiFolder2Line,
       label: "Files",
       description: "File Management",
+    },
+    {
+      to: "/characters",
+      icon: RiUserVoiceLine,
+      label: "Characters",
+      description: "Voice characters",
+      matchPrefix: "/characters",
     },
     {
       to: "/account/usage-log",

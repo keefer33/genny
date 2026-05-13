@@ -1,6 +1,5 @@
-import { Button, Group, Stack, TextInput } from "@mantine/core";
+import { Button, Stack } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { useState } from "react";
 import type { FileTypeFilter } from "~/lib/stores/filesFoldersStore";
 import { FilePickerModal } from "~/shared/FilePickerModal";
 
@@ -18,43 +17,17 @@ export function AddMediaZone({
   onAddUrl: (url: string) => void;
 }) {
   const [modalOpen, { open: openModal, close: closeModal }] = useDisclosure(false);
-  const [pendingUrl, setPendingUrl] = useState("");
-
-  const flushUrl = () => {
-    const t = pendingUrl.trim();
-    if (!t) return;
-    onAddUrl(t);
-    setPendingUrl("");
-  };
 
   return (
     <Stack gap="xs" w="100%">
       <Button variant="light" fullWidth onClick={openModal}>
         {selectLabel}
       </Button>
-      <Group align="flex-end" gap="xs" wrap="nowrap">
-        <TextInput
-          style={{ flex: 1 }}
-          size="sm"
-          placeholder="Or paste a media URL, then Enter"
-          aria-label="Media URL"
-          value={pendingUrl}
-          onChange={(e) => setPendingUrl(e.currentTarget.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              flushUrl();
-            }
-          }}
-        />
-        <Button size="xs" variant="light" type="button" onClick={flushUrl}>
-          Add URL
-        </Button>
-      </Group>
       <FilePickerModal
         opened={modalOpen}
         onClose={closeModal}
         onSelect={(path) => onPickPath(path)}
+        onPasteUrl={onAddUrl}
         title={modalTitle}
         allowedTypes={allowedTypes}
       />

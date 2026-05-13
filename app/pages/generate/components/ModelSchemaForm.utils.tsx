@@ -20,14 +20,152 @@ export function parseFunctionSchema(raw: unknown): FunctionSchema | null {
 export function orderedPropertyKeys(schema: FunctionSchema): string[] {
   const props = schema.properties ?? {};
   const order = schema["x-order-properties"] ?? [];
-  const ordered = order.filter((k) => k in props);
-  const rest = Object.keys(props).filter((k) => !ordered.includes(k));
+  const isExt = (k: string) => /^x-/i.test(k);
+  const ordered = order.filter((k) => k in props && !isExt(k));
+  const rest = Object.keys(props).filter((k) => !ordered.includes(k) && !isExt(k));
   return [...ordered, ...rest];
 }
 
-function getInitialValue(prop: JsonSchemaProperty): unknown {
+/** Property order for a nested `type: "object"` schema fragment (e.g. array `items`). */
+export function orderedObjectPropertyKeys(obj: {
+  properties?: Record<string, JsonSchemaProperty>;
+  "x-order-properties"?: string[];
+}): string[] {
+  const props = obj.properties ?? {};
+  const order = obj["x-order-properties"] ?? [];
+  const isExt = (k: string) => /^x-/i.test(k);
+  const ordered = order.filter((k) => k in props && !isExt(k));
+  const rest = Object.keys(props).filter((k) => !ordered.includes(k) && !isExt(k));
+  return [...ordered, ...rest];
+}
+
+/** Dot-path for nested form fields (`""` + `a` → `"a"`, `"a"` + `b` → `"a.b"`). */
+export function joinFieldPath(pathPrefix: string, key: string): string {
+  return pathPrefix ? `${pathPrefix}.${key}` : key;
+}
+
+/** Read nested form values the same way Mantine `setFieldValue` / `getInputProps` resolve paths. */
+export function getFormValueAtPath(values: unknown, path: string): unknown {
+  if (!path) return values;
+  const segments = path.split(".");
+  if (segments.length === 0 || typeof values !== "object" || values === null) return undefined;
+  let cur: unknown = (values as Record<string, unknown>)[segments[0]];
+  for (let i = 1; i < segments.length; i += 1) {
+    if (cur == null || typeof cur !== "object") return undefined;
+    cur = (cur as Record<string, unknown>)[segments[i]];
+  }
+  return cur;
+}
+
+function appendRequiredFieldError(
+  errors: Record<string, string>,
+  fieldPath: string,
+  prop: JsonSchemaProperty,
+  v: unknown
+): void {
+  if (v === undefined || v === null) {
+    errors[fieldPath] = "Required";
+    return;
+  }
+  if (prop.type === "string" && typeof v === "string" && v.trim() === "") {
+    errors[fieldPath] = "Required";
+    return;
+  }
+  if (prop.type === "array" && Array.isArray(v) && v.length === 0) {
+    errors[fieldPath] = "Required";
+    return;
+  }
+  if (prop.type === "number" || prop.type === "integer") {
+    if (typeof v === "number" && Number.isNaN(v)) {
+      errors[fieldPath] = "Required";
+    }
+  }
+}
+
+/** Recursively validate `type: "object"` subtrees and array-of-objects rows (any depth). */
+export function collectDeepFormSchemaErrors(
+  schema: FunctionSchema,
+  values: Record<string, unknown>
+): Record<string, string> {
+  const errors: Record<string, string> = {};
+  if (!schema.properties) return errors;
+  walkObjectSchemaForErrors("", schema.properties, schema.required, values, errors);
+  return errors;
+}
+
+function walkObjectSchemaForErrors(
+  pathPrefix: string,
+  properties: Record<string, JsonSchemaProperty>,
+  requiredList: string[] | undefined,
+  container: Record<string, unknown> | undefined,
+  errors: Record<string, string>
+): void {
+  const required = new Set(requiredList ?? []);
+
+  for (const key of required) {
+    const prop = properties[key];
+    if (!prop) continue;
+    const fp = joinFieldPath(pathPrefix, key);
+    const v = container?.[key];
+    appendRequiredFieldError(errors, fp, prop, v);
+  }
+
+  if (!container) return;
+
+  for (const key of Object.keys(properties)) {
+    const prop = properties[key];
+    if (!prop) continue;
+    const v = container[key];
+    const fp = joinFieldPath(pathPrefix, key);
+
+    if (prop.type === "object" && prop.properties) {
+      if (v === undefined || v === null) continue;
+      const child =
+        v && typeof v === "object" && !Array.isArray(v)
+          ? (v as Record<string, unknown>)
+          : undefined;
+      walkObjectSchemaForErrors(fp, prop.properties, prop.required, child, errors);
+    }
+    if (prop.type === "array" && prop.items?.type === "object" && prop.items.properties) {
+      Object.assign(errors, collectArrayOfObjectsFieldErrors(fp, prop, v));
+    }
+  }
+}
+
+function newRowKey(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `row-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+/** Default field values for one `items` object inside an array-of-objects field. */
+export function buildInitialObjectFromItemSchema(
+  itemSchema: JsonSchemaProperty
+): Record<string, unknown> {
+  const props = itemSchema.properties ?? {};
+  const out: Record<string, unknown> = {};
+  for (const key of orderedObjectPropertyKeys(itemSchema)) {
+    const p = props[key];
+    if (!p) continue;
+    out[key] = getInitialValueForProperty(p);
+  }
+  return out;
+}
+
+export function newArrayObjectRow(itemSchema: JsonSchemaProperty): Record<string, unknown> {
+  return { ...buildInitialObjectFromItemSchema(itemSchema), __rowKey: newRowKey() };
+}
+
+function getInitialValueForProperty(prop: JsonSchemaProperty): unknown {
   if (prop.default !== undefined) return prop.default;
   if (prop.enum?.length === 1) return prop.enum[0];
+  if (prop.type === "object" && prop.properties) {
+    return buildInitialObjectFromItemSchema(prop);
+  }
+  if (prop.type === "array" && prop.items?.type === "object" && prop.items.properties) {
+    return [];
+  }
   switch (prop.type) {
     case "boolean":
       return false;
@@ -46,13 +184,102 @@ export function buildInitialValues(schema: FunctionSchema): Record<string, unkno
   for (const key of orderedPropertyKeys(schema)) {
     const prop = schema.properties![key];
     if (!prop) continue;
-    out[key] = getInitialValue(prop);
+    out[key] = getInitialValueForProperty(prop);
   }
   return out;
 }
 
+export function collectArrayOfObjectsFieldErrors(
+  arrayKey: string,
+  prop: JsonSchemaProperty,
+  value: unknown
+): Record<string, string> {
+  const errors: Record<string, string> = {};
+  if (prop.type !== "array" || prop.items?.type !== "object" || !prop.items.properties)
+    return errors;
+
+  const minItems = typeof prop.minItems === "number" ? prop.minItems : 0;
+  const maxItems = typeof prop.maxItems === "number" ? prop.maxItems : Infinity;
+  const itemSchema = prop.items;
+
+  if (!Array.isArray(value)) {
+    if (minItems > 0) errors[arrayKey] = "Required";
+    return errors;
+  }
+
+  if (value.length < minItems) {
+    errors[arrayKey] = `At least ${minItems} item(s) required`;
+  }
+  if (value.length > maxItems) {
+    errors[arrayKey] = `At most ${maxItems} item(s) allowed`;
+  }
+
+  const path = (index: number, field: string) => `${arrayKey}.${index}.${field}`;
+  const required = itemSchema.required ?? [];
+  const props = itemSchema.properties ?? {};
+
+  for (let i = 0; i < value.length; i++) {
+    const row = value[i];
+    if (!row || typeof row !== "object" || Array.isArray(row)) {
+      const rk0 = required[0] ?? Object.keys(props)[0];
+      if (rk0) errors[path(i, rk0)] = "Invalid entry";
+      continue;
+    }
+    const r = row as Record<string, unknown>;
+    for (const rk of required) {
+      const ip = props[rk];
+      if (!ip) continue;
+      const v = r[rk];
+      if (v === undefined || v === null) {
+        errors[path(i, rk)] = "Required";
+        continue;
+      }
+      if (ip.type === "string" && typeof v === "string" && v.trim() === "") {
+        errors[path(i, rk)] = "Required";
+      }
+      if (ip.type === "array" && Array.isArray(v) && v.length === 0) {
+        errors[path(i, rk)] = "Required";
+      }
+      if (ip.type === "number" || ip.type === "integer") {
+        if (v === undefined || v === null || (typeof v === "number" && Number.isNaN(v))) {
+          errors[path(i, rk)] = "Required";
+        }
+      }
+    }
+
+    for (const nk of orderedObjectPropertyKeys(itemSchema)) {
+      const nip = props[nk];
+      if (!nip) continue;
+      const nv = r[nk];
+      const rowFieldPath = path(i, nk);
+      if (nip.type === "object" && nip.properties) {
+        if (nv === undefined || nv === null) continue;
+        const childObj =
+          nv && typeof nv === "object" && !Array.isArray(nv)
+            ? (nv as Record<string, unknown>)
+            : undefined;
+        walkObjectSchemaForErrors(rowFieldPath, nip.properties, nip.required, childObj, errors);
+      }
+      if (nip.type === "array" && nip.items?.type === "object" && nip.items.properties) {
+        Object.assign(errors, collectArrayOfObjectsFieldErrors(rowFieldPath, nip, nv));
+      }
+    }
+  }
+
+  return errors;
+}
+
 export function fieldLabel(key: string): string {
   return key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/** Human-readable title for a dotted form path (e.g. `input.media` → `"Input Media"`). */
+export function schemaPathDisplayLabel(path: string): string {
+  return path
+    .split(".")
+    .filter(Boolean)
+    .map((segment) => fieldLabel(segment))
+    .join(" ");
 }
 
 export const DESCRIPTION_HELPER_DISABLED_FIELDS = new Set([
@@ -161,13 +388,38 @@ export function evaluateConditions(
   return { setValues, disabledFields };
 }
 
+/** Strip UI-only keys (e.g. `__rowKey`) and empty values at every depth, including nested `SchemaObjectArrayField` rows. */
+function sanitizePayloadEntry(value: unknown): unknown {
+  if (value == null) return undefined;
+  if (typeof value === "string") return value.trim() === "" ? undefined : value;
+  if (typeof value === "number" || typeof value === "boolean") return value;
+  if (Array.isArray(value)) {
+    const items = value.map(sanitizePayloadEntry).filter((v) => v !== undefined) as unknown[];
+    if (items.length === 0) return undefined;
+    return items;
+  }
+  if (typeof value === "object") {
+    const { __rowKey: _rk, ...rest } = value as Record<string, unknown>;
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(rest)) {
+      const s = sanitizePayloadEntry(v);
+      if (s === undefined) continue;
+      if (typeof s === "string" && s.trim() === "") continue;
+      if (Array.isArray(s) && s.length === 0) continue;
+      out[k] = s;
+    }
+    if (Object.keys(out).length === 0) return undefined;
+    return out;
+  }
+  return value;
+}
+
 export function sanitizePayload(values: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(values)) {
-    if (value == null) continue;
-    if (typeof value === "string" && value.trim() === "") continue;
-    if (Array.isArray(value) && value.length === 0) continue;
-    out[key] = value;
+    const sanitized = sanitizePayloadEntry(value);
+    if (sanitized === undefined) continue;
+    out[key] = sanitized;
   }
   return out;
 }
@@ -190,8 +442,15 @@ const X_UI_COMPONENT_ALIASES: Record<string, ValidXUiComponent> = {
   slider: "NumberSlider",
   sizepicker: "SizePicker",
   boxpicker: "BoxPicker",
+  boxes: "BoxPicker",
   aspectratiopicker: "AspectRatioPicker",
 };
+
+/** String `"select"` is valid: maps to Mantine `Select` (not `BoxPicker`). */
+export function isBareStringSelectXUi(prop: JsonSchemaProperty): boolean {
+  const x = prop["x-ui-component"];
+  return typeof x === "string" && x.trim().toLowerCase() === "select";
+}
 
 export function resolveXUiComponent(prop: JsonSchemaProperty): ValidXUiComponent | null {
   const xUi = prop["x-ui-component"];
@@ -203,6 +462,19 @@ export function resolveXUiComponent(prop: JsonSchemaProperty): ValidXUiComponent
         : undefined;
   if (typeof rawType !== "string") return null;
   return X_UI_COMPONENT_ALIASES[rawType.trim().toLowerCase()] ?? null;
+}
+
+export function hasUnsupportedXUiComponent(prop: JsonSchemaProperty): boolean {
+  if (prop["x-ui-component"] === undefined) return false;
+  if (resolveXUiComponent(prop)) return false;
+  if (isBareStringSelectXUi(prop)) return false;
+  const x = prop["x-ui-component"];
+  if (typeof x === "string" && x.trim()) return true;
+  if (x && typeof x === "object" && !Array.isArray(x)) {
+    const t = (x as { type?: unknown }).type;
+    if (typeof t === "string" && t.trim()) return true;
+  }
+  return false;
 }
 
 function getXUiSettings(prop: JsonSchemaProperty): Record<string, unknown> {
@@ -268,11 +540,13 @@ export function isMediaFieldName(
   | "audio"
   | "audio_url"
   | "driving_audio"
-  | "reference_audios" {
+  | "reference_audios"
+  | "image_urls" {
   const normalized = normalizedFieldName(name);
   return (
     normalized === "image" ||
     normalized === "images" ||
+    normalized === "image_urls" ||
     normalized === "video" ||
     normalized === "videos" ||
     normalized === "first_frame" ||
@@ -300,7 +574,8 @@ export function resolveMediaPickerSettings(
     normalized === "last_image" ||
     normalized === "first_frame" ||
     normalized === "last_frame" ||
-    normalized === "reference_images"
+    normalized === "reference_images" ||
+    normalized === "image_urls"
       ? ["image"]
       : normalized === "audio" ||
           normalized === "driving_audio" ||
@@ -342,4 +617,38 @@ export function resolveMediaPickerSettings(
   }
 
   return { min, max, allowed_file_types };
+}
+
+/** Field schema for `MediaFilePicker`: keep structured `x-ui-component` or synthesize from `resolveMediaPickerSettings`. */
+export function buildMediaFieldSchemaForPicker(
+  fieldKey: string,
+  prop: JsonSchemaProperty,
+  readOnly: boolean,
+  label: string
+): JsonSchemaProperty {
+  const xUi = prop["x-ui-component"];
+  if (
+    xUi &&
+    typeof xUi === "object" &&
+    !Array.isArray(xUi) &&
+    String((xUi as { type?: unknown }).type)
+      .trim()
+      .toLowerCase() === "mediafilepicker"
+  ) {
+    return {
+      ...prop,
+      readOnly,
+      title: prop.title || label,
+    };
+  }
+  const mediaSettings = resolveMediaPickerSettings(fieldKey, prop);
+  return {
+    ...prop,
+    readOnly,
+    title: prop.title || label,
+    "x-ui-component": {
+      type: "MediaFilePicker",
+      settings: mediaSettings,
+    },
+  };
 }

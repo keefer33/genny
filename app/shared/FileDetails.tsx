@@ -29,7 +29,7 @@ import FileShare from "./FileShare";
 import FileTagModal from "~/pages/files/components/FileTagModal";
 import { MediaTypeBadge } from "./MediaTypeBadge";
 import { notifications } from "@mantine/notifications";
-import { useState } from "react";
+import { Fragment, useState, type ReactNode } from "react";
 import useAppStore from "~/lib/stores/appStore";
 
 function resolveFileShareType(fileType: string): "image" | "video" | "audio" | "other" {
@@ -48,6 +48,286 @@ function formatPayloadValue(value: unknown): string {
   } catch {
     return String(value);
   }
+}
+
+function isPromptPath(path: string): boolean {
+  return path === "prompt" || path.endsWith(".prompt");
+}
+
+/** Sort object keys so `prompt` appears first, then alphabetically. */
+function sortPayloadObjectKeys(keys: string[]): string[] {
+  return [...keys].sort((a, b) => {
+    const ap = a === "prompt" ? 0 : 1;
+    const bp = b === "prompt" ? 0 : 1;
+    if (ap !== bp) return ap - bp;
+    return a.localeCompare(b);
+  });
+}
+
+/** Turn `input`, `max_size`, `inputMedia` into readable labels (Input, Max size, Input media). */
+function formatPayloadKeyLabel(key: string): string {
+  if (!key) return key;
+  const spaced = key
+    .replace(/_/g, " ")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .trim();
+  return spaced
+    .split(/\s+/)
+    .map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : w))
+    .join(" ");
+}
+
+function isArrayOfPlainObjects(arr: unknown[]): boolean {
+  return (
+    arr.length > 0 &&
+    arr.every((item) => item !== null && typeof item === "object" && !Array.isArray(item))
+  );
+}
+
+async function copyPayloadFieldToClipboard(value: unknown) {
+  const text = typeof value === "string" ? value : formatPayloadValue(value);
+  try {
+    await navigator.clipboard.writeText(text);
+    notifications.show({
+      title: "Copied",
+      message: "Copied to clipboard",
+      color: "green",
+    });
+  } catch {
+    notifications.show({
+      title: "Error",
+      message: "Failed to copy",
+      color: "red",
+    });
+  }
+}
+
+function PayloadEntry({
+  entryKey,
+  value,
+  path,
+}: {
+  entryKey: string;
+  value: unknown;
+  path: string;
+}): ReactNode {
+  if (value == null || value === "") return null;
+
+  const label = formatPayloadKeyLabel(entryKey);
+
+  if (typeof value !== "object") {
+    return (
+      <Group gap="xs" align="flex-start" wrap="nowrap" justify="space-between">
+        <Group gap={6} align="flex-start" style={{ minWidth: 0, flex: 1 }}>
+          <Text size="xs" fw={600} style={{ flexShrink: 0 }}>
+            {label}:
+          </Text>
+          <Text
+            size="xs"
+            c="dimmed"
+            style={{ wordBreak: "break-word", overflowWrap: "anywhere", minWidth: 0 }}
+          >
+            {formatPayloadValue(value)}
+          </Text>
+        </Group>
+        {isPromptPath(path) ? (
+          <ActionIcon
+            size="sm"
+            variant="transparent"
+            aria-label={`Copy ${path}`}
+            title="Copy prompt"
+            style={{ flexShrink: 0 }}
+            onClick={() => void copyPayloadFieldToClipboard(value)}
+          >
+            <RiFileCopyLine size={16} />
+          </ActionIcon>
+        ) : null}
+      </Group>
+    );
+  }
+
+  if (Array.isArray(value)) {
+    if (value.length === 0) {
+      return (
+        <Group gap={6} align="flex-start" wrap="nowrap">
+          <Text size="xs" fw={600} style={{ flexShrink: 0 }}>
+            {label}:
+          </Text>
+          <Text size="xs" c="dimmed">
+            —
+          </Text>
+        </Group>
+      );
+    }
+
+    if (isArrayOfPlainObjects(value)) {
+      return (
+        <Box>
+          <Text size="xs" fw={600} mb={4}>
+            {label}:
+          </Text>
+          <Stack gap="sm" pl="md" style={{ borderLeft: "1px solid var(--mantine-color-gray-3)" }}>
+            {value.map((item, i) => {
+              const rowPath = `${path}.${i}`;
+              const obj = item as Record<string, unknown>;
+              const keys = sortPayloadObjectKeys(Object.keys(obj)).filter((k) => {
+                const v = obj[k];
+                return v != null && v !== "";
+              });
+              return (
+                <Box key={rowPath}>
+                  <Text size="xs" fw={600} c="dimmed" mb={4}>
+                    {i}:
+                  </Text>
+                  <Stack gap={6} pl="md">
+                    {keys.map((k) => (
+                      <PayloadEntry
+                        key={`${rowPath}.${k}`}
+                        entryKey={k}
+                        value={obj[k]}
+                        path={`${rowPath}.${k}`}
+                      />
+                    ))}
+                  </Stack>
+                </Box>
+              );
+            })}
+          </Stack>
+        </Box>
+      );
+    }
+
+    return (
+      <Group gap={6} align="flex-start" wrap="nowrap">
+        <Text size="xs" fw={600} style={{ flexShrink: 0 }}>
+          {label}:
+        </Text>
+        <Text size="xs" c="dimmed" style={{ minWidth: 0, overflowWrap: "anywhere" }}>
+          {formatPayloadValue(value)}
+        </Text>
+      </Group>
+    );
+  }
+
+  const o = value as Record<string, unknown>;
+  const keys = sortPayloadObjectKeys(Object.keys(o)).filter((k) => {
+    const v = o[k];
+    return v != null && v !== "";
+  });
+
+  if (keys.length === 0) {
+    return (
+      <Group gap={6} align="flex-start" wrap="nowrap">
+        <Text size="xs" fw={600} style={{ flexShrink: 0 }}>
+          {label}:
+        </Text>
+        <Text size="xs" c="dimmed">
+          —
+        </Text>
+      </Group>
+    );
+  }
+
+  return (
+    <Box>
+      <Text size="xs" fw={600} mb={4}>
+        {label}:
+      </Text>
+      <Stack gap={6} pl="md" style={{ borderLeft: "1px solid var(--mantine-color-gray-3)" }}>
+        {keys.map((k) => (
+          <PayloadEntry key={`${path}.${k}`} entryKey={k} value={o[k]} path={`${path}.${k}`} />
+        ))}
+      </Stack>
+    </Box>
+  );
+}
+
+function PayloadTreeRoot({ value }: { value: unknown }): ReactNode {
+  if (value == null) {
+    return (
+      <Text size="xs" c="dimmed">
+        —
+      </Text>
+    );
+  }
+
+  if (typeof value !== "object") {
+    return (
+      <Text size="xs" c="dimmed" style={{ overflowWrap: "anywhere" }}>
+        {formatPayloadValue(value)}
+      </Text>
+    );
+  }
+
+  if (Array.isArray(value)) {
+    if (value.length === 0) {
+      return (
+        <Text size="xs" c="dimmed">
+          —
+        </Text>
+      );
+    }
+    if (isArrayOfPlainObjects(value)) {
+      return (
+        <Stack gap="sm">
+          {value.map((item, i) => {
+            const obj = item as Record<string, unknown>;
+            const keys = sortPayloadObjectKeys(Object.keys(obj)).filter((k) => {
+              const v = obj[k];
+              return v != null && v !== "";
+            });
+            return (
+              <Fragment key={String(i)}>
+                <Text size="xs" fw={600} c="dimmed">
+                  {i}:
+                </Text>
+                <Stack
+                  gap={6}
+                  pl="md"
+                  style={{ borderLeft: "1px solid var(--mantine-color-gray-3)" }}
+                >
+                  {keys.map((k) => (
+                    <PayloadEntry
+                      key={`${i}.${k}`}
+                      entryKey={k}
+                      value={obj[k]}
+                      path={`${i}.${k}`}
+                    />
+                  ))}
+                </Stack>
+              </Fragment>
+            );
+          })}
+        </Stack>
+      );
+    }
+    return (
+      <Text size="xs" c="dimmed" style={{ overflowWrap: "anywhere" }}>
+        {formatPayloadValue(value)}
+      </Text>
+    );
+  }
+
+  const o = value as Record<string, unknown>;
+  const keys = sortPayloadObjectKeys(Object.keys(o)).filter((k) => {
+    const v = o[k];
+    return v != null && v !== "";
+  });
+  if (keys.length === 0) {
+    return (
+      <Text size="xs" c="dimmed">
+        —
+      </Text>
+    );
+  }
+
+  return (
+    <Stack gap="sm">
+      {keys.map((k) => (
+        <PayloadEntry key={k} entryKey={k} value={o[k]} path={k} />
+      ))}
+    </Stack>
+  );
 }
 
 export function FileDetails({
@@ -135,11 +415,6 @@ export function FileDetails({
     fileDetail.generated_info?.payload && typeof fileDetail.generated_info.payload === "object"
       ? (fileDetail.generated_info.payload as Record<string, unknown>)
       : null;
-  const payloadDetails = payload
-    ? Object.entries(payload).filter(
-        ([key, value]) => key !== "prompt" && value != null && value !== ""
-      )
-    : [];
 
   return (
     <Flex direction={isMobile ? "column" : "row"} gap="xs" p="xs" align="stretch" w="100%">
@@ -303,61 +578,15 @@ export function FileDetails({
             </Table.Tbody>
           </Table>
 
-          {/* Prompt Section */}
-          {payload?.prompt && (
+          {/* Generation payload: indented outline (no JSON braces); any *prompt field gets copy */}
+          {payload ? (
             <Box>
-              <Group gap="xs" justify="space-between" align="center" mb="xs">
-                <Text size="sm" fw={500}>
-                  Prompt
-                </Text>
-                <ActionIcon
-                  size="sm"
-                  variant="transparent"
-                  aria-label="Copy prompt"
-                  title="Copy prompt"
-                  onClick={async () => {
-                    try {
-                      await navigator.clipboard.writeText(
-                        typeof payload.prompt === "string"
-                          ? payload.prompt
-                          : formatPayloadValue(payload.prompt)
-                      );
-                      notifications.show({
-                        title: "Copied",
-                        message: "Prompt copied to clipboard",
-                        color: "green",
-                      });
-                    } catch {
-                      notifications.show({
-                        title: "Error",
-                        message: "Failed to copy prompt",
-                        color: "red",
-                      });
-                    }
-                  }}
-                >
-                  <RiFileCopyLine size={16} />
-                </ActionIcon>
-              </Group>
-              <Text size="xs" style={{ wordBreak: "break-word" }}>
-                {formatPayloadValue(payload.prompt)}
+              <Text size="sm" fw={500} mb="xs">
+                Payload
               </Text>
-              {payloadDetails.length > 0 ? (
-                <Stack gap={4} mt="sm">
-                  {payloadDetails.map(([key, value]) => (
-                    <Group key={key} gap={6} align="flex-start" wrap="nowrap">
-                      <Text size="xs" fw={600} style={{ flex: "0 0 auto" }}>
-                        {key}:
-                      </Text>
-                      <Text size="xs" c="dimmed" style={{ minWidth: 0, overflowWrap: "anywhere" }}>
-                        {formatPayloadValue(value)}
-                      </Text>
-                    </Group>
-                  ))}
-                </Stack>
-              ) : null}
+              <PayloadTreeRoot value={payload} />
             </Box>
-          )}
+          ) : null}
         </Stack>
       </Card>
     </Flex>

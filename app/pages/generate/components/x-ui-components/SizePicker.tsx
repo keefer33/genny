@@ -13,6 +13,7 @@ import {
 import { useMemo, useState } from "react";
 import { useFormContext } from "~/lib/ContextForm";
 import type { SizePickerProps } from "~/types/generations";
+import { getFormValueAtPath } from "../ModelSchemaForm.utils";
 import { buildSizePresetSelectData } from "./sizePickerPresets";
 
 function clamp(n: number, lo: number, hi: number) {
@@ -52,6 +53,7 @@ export function SizePicker({
   defaultValue,
   separator = "*",
   step = 1,
+  withAsterisk,
 }: SizePickerProps) {
   const form = useFormContext();
   let hi = max;
@@ -60,7 +62,7 @@ export function SizePicker({
   }
   const dimensionStep = Number.isFinite(step) && step > 0 ? step : 1;
 
-  const raw = form.values[fieldName];
+  const raw = getFormValueAtPath(form.values, fieldName);
   const fromForm = parseWxH(raw, separator);
   const fromDefault = parseWxH(defaultValue, separator);
   const w0 = fromForm?.w ?? fromDefault?.w ?? min;
@@ -107,6 +109,7 @@ export function SizePicker({
         description={description}
         error={error}
         required={isRequired}
+        withAsterisk={withAsterisk}
       >
         <Stack gap="md">
           {hasPresets && (

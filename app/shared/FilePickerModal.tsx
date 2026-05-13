@@ -7,6 +7,8 @@ interface FilePickerModalProps {
   opened: boolean;
   onClose: () => void;
   onSelect: (fileUrl: string, file?: FileData) => void;
+  /** When set, shows paste-URL next to upload in the modal and calls this then closes the modal. */
+  onPasteUrl?: (url: string) => void;
   title?: string;
   allowedTypes?: FileTypeFilter; // Filter by file type, default is "all"
 }
@@ -15,6 +17,7 @@ export function FilePickerModal({
   opened,
   onClose,
   onSelect,
+  onPasteUrl,
   title = "Select File",
   allowedTypes = "all",
 }: FilePickerModalProps) {
@@ -27,6 +30,11 @@ export function FilePickerModal({
 
   const handleUploadComplete = async () => {
     // Refresh will be handled by FilePickerContent
+  };
+
+  const handlePasteUrl = (url: string) => {
+    onPasteUrl?.(url);
+    onClose();
   };
 
   return (
@@ -44,6 +52,7 @@ export function FilePickerModal({
         allowedTypes={allowedTypes}
         showUpload={true}
         onUploadComplete={handleUploadComplete}
+        onPasteUrl={onPasteUrl ? handlePasteUrl : undefined}
       />
     </Modal>
   );

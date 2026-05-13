@@ -20,6 +20,8 @@ export default [
     route("/tools/:slug", "pages/tools/ToolkitDetail.tsx"),
     route("/agents", "pages/agents/Agents.tsx"),
     route("/files", "pages/files/MemberFiles.tsx"),
+    route("/characters", "pages/characters/Characters.tsx"),
+    route("/characters/:characterId", "pages/characters/CharacterDetail.tsx"),
     route("/generations", "pages/generations/Generations.tsx"),
     route("/generate", "pages/generate/Generate.tsx"),
     layout("pages/generate/GenerateModelLayout.tsx", [
