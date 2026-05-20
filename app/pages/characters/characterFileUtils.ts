@@ -292,9 +292,10 @@ export function characterAudioFileLabel(file: CharacterAudioFile): string {
   if (info?.dialogue === true && Array.isArray(info.inputs) && info.inputs.length > 0) {
     const first = info.inputs[0];
     if (first && typeof first === "object" && !Array.isArray(first)) {
-      const line = typeof (first as { text?: unknown }).text === "string"
-        ? (first as { text: string }).text.trim()
-        : "";
+      const line =
+        typeof (first as { text?: unknown }).text === "string"
+          ? (first as { text: string }).text.trim()
+          : "";
       if (line) return line.length > 120 ? `${line.slice(0, 117)}…` : line;
     }
   }
