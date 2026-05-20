@@ -5,16 +5,27 @@ import useCharactersStore from "../stores/charactersStore";
 import useGenerationsStore from "../stores/generateStore";
 import { usePrivateRealtimeChannel } from "./usePrivateRealtimeChannel";
 
-/** Parse `update_run` broadcast body — supports `payload.app` or nested `payload.payload.app`. */
-function updateRunBroadcastApp(envelope: unknown): string | undefined {
+function updateRunBroadcastField(
+  envelope: unknown,
+  field: "app" | "character_id"
+): string | undefined {
   if (!envelope || typeof envelope !== "object") return undefined;
   const outer = envelope as Record<string, unknown>;
-  const direct = outer.app;
+  const direct = outer[field];
   if (typeof direct === "string" && direct.trim()) return direct.trim();
   const inner = outer.payload;
   if (!inner || typeof inner !== "object") return undefined;
-  const nested = (inner as Record<string, unknown>).app;
+  const nested = (inner as Record<string, unknown>)[field];
   return typeof nested === "string" && nested.trim() ? nested.trim() : undefined;
+}
+
+/** Parse `update_run` broadcast body — supports `payload.app` or nested `payload.payload.app`. */
+function updateRunBroadcastApp(envelope: unknown): string | undefined {
+  return updateRunBroadcastField(envelope, "app");
+}
+
+function updateRunBroadcastCharacterId(envelope: unknown): string | undefined {
+  return updateRunBroadcastField(envelope, "character_id");
 }
 
 /** `user:{id}:profile` — `usage_balance_changed` for CostBadge; registers channel for sign-out. */
@@ -78,7 +89,7 @@ export function useCharactersRealtime(userId: string | undefined) {
   });
 }
 
-/** Refetch detail view when a character-scoped generation run updates. */
+/** Refetch detail view when any generation run updates (webhook/poll progress). */
 export function useCharacterDetailRealtime(
   userId: string | undefined,
   characterId: string | undefined,
@@ -94,8 +105,15 @@ export function useCharacterDetailRealtime(
       channel
         .on("broadcast", { event: "update_run" }, (envelope) => {
           const app = updateRunBroadcastApp(envelope);
-          if (!app || app.toLowerCase() !== "character") return;
-          cbRef.current();
+          const broadcastCharacterId = updateRunBroadcastCharacterId(envelope);
+          if (characterId && broadcastCharacterId) {
+            if (broadcastCharacterId !== characterId.trim()) return;
+            cbRef.current();
+            return;
+          }
+          if (app?.toLowerCase() === "character") {
+            cbRef.current();
+          }
         })
         .subscribe();
     },

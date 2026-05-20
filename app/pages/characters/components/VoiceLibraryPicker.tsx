@@ -1,13 +1,11 @@
 import {
   ActionIcon,
+  Box,
   Button,
   Card,
-  Container,
   Divider,
-  Box,
   Group,
   Loader,
-  Modal,
   ScrollArea,
   Select,
   SimpleGrid,
@@ -16,9 +14,7 @@ import {
   TextInput,
 } from "@mantine/core";
 import { RiFilterOffLine, RiSearchLine } from "@remixicon/react";
-import { useDisclosure } from "@mantine/hooks";
 import { useEffect, useLayoutEffect, useState } from "react";
-import useAppStore from "~/lib/stores/appStore";
 import useCharactersStore, {
   type SharedVoiceItem,
   type VoiceLibraryFilters,
@@ -98,15 +94,22 @@ function clearVoiceLibraryFormStorage(): void {
 function VoicePickRow({
   voice,
   busy,
-  createLoading,
+  pickDisabled,
+  pickButtonLabel,
+  showPreviewAudio,
   onPick,
 }: {
   voice: SharedVoiceItem;
   busy: boolean;
-  createLoading: boolean;
-  onPick: (voiceId: string) => void;
+  pickDisabled?: boolean;
+  pickButtonLabel: string;
+  showPreviewAudio: boolean;
+  onPick: (voice: SharedVoiceItem) => void;
 }) {
-  const metaBits = [voice.gender, voice.accent, voice.language, voice.category].filter(Boolean);
+  const metaBits = [voice.gender, voice.accent, voice.age, voice.language, voice.category].filter(
+    Boolean
+  );
+  const description = voice.description?.trim() ?? "";
 
   return (
     <Card withBorder radius="sm" padding="sm">
@@ -115,10 +118,15 @@ function VoicePickRow({
           <Text fw={500} size="sm" lineClamp={1}>
             {voice.name ?? voice.voice_id}
           </Text>
-          <Text size="xs" c="dimmed" lineClamp={2}>
+          <Text size="xs" c="dimmed" lineClamp={1}>
             {metaBits.length > 0 ? metaBits.join(" · ") : voice.voice_id}
           </Text>
-          {voice.preview_url ? (
+          {description ? (
+            <Text size="xs" c="dimmed" lineClamp={3}>
+              {description}
+            </Text>
+          ) : null}
+          {showPreviewAudio && voice.preview_url ? (
             <audio
               controls
               src={voice.preview_url}
@@ -126,13 +134,8 @@ function VoicePickRow({
             />
           ) : null}
         </Stack>
-        <Button
-          size="xs"
-          loading={busy}
-          onClick={() => onPick(voice.voice_id)}
-          disabled={createLoading}
-        >
-          Use
+        <Button size="xs" loading={busy} onClick={() => onPick(voice)} disabled={pickDisabled}>
+          {pickButtonLabel}
         </Button>
       </Group>
     </Card>
@@ -251,38 +254,54 @@ const CATEGORY_OPTIONS = [
   { value: "high_quality", label: "high_quality" },
 ];
 
-/** “New character” trigger plus modal to search the shared voice library and create a character. */
-export function CreateCharacterFromLibrary() {
-  const { getUser, isMobile } = useAppStore();
-  const userId = getUser()?.user?.id ?? "";
+export type VoiceLibraryPickerProps = {
+  userId: string;
+  active: boolean;
+  onPick: (voice: SharedVoiceItem) => void;
+  pickDisabled?: boolean;
+  pickButtonLabel?: string;
+  scrollHeight?: number | string;
+  /** When false, hides preview audio on each row. Default true. */
+  showPreviewAudio?: boolean;
+};
 
+export function VoiceLibraryPicker({
+  userId,
+  active,
+  onPick,
+  pickDisabled,
+  pickButtonLabel = "Use",
+  scrollHeight = 320,
+  showPreviewAudio = true,
+}: VoiceLibraryPickerProps) {
   const {
     libraryVoices,
     libraryLoading,
     libraryHasMore,
     libraryTotalCount,
     libraryPage,
-    createLoading,
     error: libraryError,
     loadVoiceLibrary,
-    createCharacterFromVoiceId,
     clearVoiceLibrary,
   } = useCharactersStore();
 
-  const [opened, { open, close }] = useDisclosure(false);
   const [searchInput, setSearchInput] = useState("");
   const [filters, setFilters] = useState<VoiceLibraryFilters>({});
-  const [creatingVoiceId, setCreatingVoiceId] = useState<string | null>(null);
+  const [pickingVoiceId, setPickingVoiceId] = useState<string | null>(null);
 
   useLayoutEffect(() => {
-    if (!opened || !userId) return;
+    if (!active || !userId) return;
     const { filters: f, search: s } = readVoiceLibraryFormFromStorage();
     setFilters(f);
     setSearchInput(s);
-  }, [opened, userId]);
+  }, [active, userId]);
 
   useEffect(() => {
-    if (!opened || !userId) return;
+    if (!active) {
+      clearVoiceLibrary();
+      return;
+    }
+    if (!userId) return;
     const { filters: f, search: s } = readVoiceLibraryFormFromStorage();
     void loadVoiceLibrary({
       userId,
@@ -291,10 +310,10 @@ export function CreateCharacterFromLibrary() {
       page: 0,
       pageSize: VOICE_LIBRARY_PAGE_SIZE_DEFAULT,
     });
-  }, [opened, userId, loadVoiceLibrary]);
+  }, [active, userId, loadVoiceLibrary, clearVoiceLibrary]);
 
   const applyFilterAndFetch = (key: keyof VoiceLibraryFilters, value: string | null) => {
-    if (!userId) return;
+    if (!userId || !active) return;
     const next = buildNextFilters(filters, key, value);
     setFilters(next);
     writeVoiceLibraryFormToStorage(next, searchInput);
@@ -308,7 +327,7 @@ export function CreateCharacterFromLibrary() {
   };
 
   const fetchPage = (page: number) => {
-    if (!userId) return;
+    if (!userId || !active) return;
     void loadVoiceLibrary({
       userId,
       search: searchInput,
@@ -327,7 +346,7 @@ export function CreateCharacterFromLibrary() {
     clearVoiceLibraryFormStorage();
     setSearchInput("");
     setFilters({});
-    if (!userId) return;
+    if (!userId || !active) return;
     void loadVoiceLibrary({
       userId,
       search: "",
@@ -337,193 +356,149 @@ export function CreateCharacterFromLibrary() {
     });
   };
 
-  const handleModalClose = () => {
-    clearVoiceLibrary();
-    setSearchInput("");
-    setFilters({});
-    close();
-  };
-
-  const handlePickVoice = async (voiceId: string) => {
-    if (!userId) return;
-    setCreatingVoiceId(voiceId);
-    const row = await createCharacterFromVoiceId(userId, voiceId);
-    setCreatingVoiceId(null);
-    if (row) {
-      handleModalClose();
+  const handlePick = async (voice: SharedVoiceItem) => {
+    setPickingVoiceId(voice.voice_id);
+    try {
+      await onPick(voice);
+    } finally {
+      setPickingVoiceId(null);
     }
   };
 
   const hasQueried = libraryTotalCount !== null;
 
   return (
-    <>
-      <Button onClick={open}>New character</Button>
+    <Stack gap="md">
+      <SimpleGrid cols={{ base: 2, sm: 4 }} spacing="sm">
+        <Select
+          label="Gender"
+          placeholder="Any"
+          clearable
+          searchable
+          data={GENDER_OPTIONS}
+          value={filters.gender ?? null}
+          onChange={(v) => applyFilterAndFetch("gender", v)}
+        />
+        <Select
+          label="Language"
+          placeholder="Any"
+          clearable
+          searchable
+          data={LANGUAGE_OPTIONS}
+          value={filters.language ?? null}
+          onChange={(v) => applyFilterAndFetch("language", v)}
+        />
+        <Select
+          label="Accent"
+          placeholder="Any"
+          clearable
+          searchable
+          data={ACCENT_OPTIONS}
+          value={filters.accent ?? null}
+          onChange={(v) => applyFilterAndFetch("accent", v)}
+        />
+        <Select
+          label="Category"
+          placeholder="Any"
+          clearable
+          searchable
+          data={CATEGORY_OPTIONS}
+          value={filters.category ?? null}
+          onChange={(v) => applyFilterAndFetch("category", v)}
+        />
+      </SimpleGrid>
 
-      <Modal
-        opened={opened}
-        onClose={handleModalClose}
-        title="Add character from library"
-        fullScreen
-        styles={{
-          content: {
-            height: "100dvh",
-            maxHeight: "100dvh",
-            display: "flex",
-            flexDirection: "column",
-          },
-          header: { flexShrink: 0 },
-          body: {
-            flex: 1,
-            minHeight: 0,
-            display: "flex",
-            flexDirection: "column",
-            padding: 0,
-          },
-        }}
-      >
-        <Container
+      <Group align="flex-end" wrap="nowrap" gap="xs">
+        <TextInput
+          style={{ flex: 1 }}
+          placeholder="keywords"
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.currentTarget.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") handleSearchLibrary();
+          }}
+        />
+        <ActionIcon
           size="lg"
-          p="0"
-          h="100%"
-          style={{ minHeight: 0, display: "flex", flexDirection: "column" }}
+          variant="filled"
+          aria-label="Search voices"
+          onClick={handleSearchLibrary}
+          loading={libraryLoading}
         >
-          <Stack gap="md" h="100%" p="md" style={{ minHeight: 0 }}>
-            <SimpleGrid cols={{ base: 2, sm: 4 }} spacing="sm">
-              <Select
-                label="Gender"
-                placeholder="Any"
-                clearable
-                searchable
-                data={GENDER_OPTIONS}
-                value={filters.gender ?? null}
-                onChange={(v) => applyFilterAndFetch("gender", v)}
-              />
-              <Select
-                label="Language"
-                placeholder="Any"
-                clearable
-                searchable
-                data={LANGUAGE_OPTIONS}
-                value={filters.language ?? null}
-                onChange={(v) => applyFilterAndFetch("language", v)}
-              />
-              <Select
-                label="Accent"
-                placeholder="Any"
-                clearable
-                searchable
-                data={ACCENT_OPTIONS}
-                value={filters.accent ?? null}
-                onChange={(v) => applyFilterAndFetch("accent", v)}
-              />
-              <Select
-                label="Category"
-                placeholder="Any"
-                clearable
-                searchable
-                data={CATEGORY_OPTIONS}
-                value={filters.category ?? null}
-                onChange={(v) => applyFilterAndFetch("category", v)}
-              />
-            </SimpleGrid>
+          <RiSearchLine size={20} />
+        </ActionIcon>
+        <ActionIcon
+          size="lg"
+          variant="light"
+          aria-label="Clear filters"
+          onClick={handleClearFilters}
+          disabled={libraryLoading}
+        >
+          <RiFilterOffLine size={20} />
+        </ActionIcon>
+      </Group>
 
-            <Group align="flex-end" wrap="nowrap" gap="xs">
-              <TextInput
-                style={{ flex: 1 }}
-                placeholder="keywords"
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.currentTarget.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleSearchLibrary();
-                }}
+      <Divider />
+
+      <ScrollArea h={scrollHeight} type="auto" offsetScrollbars>
+        {libraryLoading && libraryVoices.length === 0 ? (
+          <Box
+            h={scrollHeight}
+            style={{ display: "flex", alignItems: "center", justifyContent: "center" }}
+          >
+            <Loader size="sm" />
+          </Box>
+        ) : libraryVoices.length === 0 ? (
+          <Text size="sm" c="dimmed" ta="center" py="md">
+            {libraryError && !hasQueried
+              ? libraryError
+              : hasQueried
+                ? "No voices match these filters."
+                : "No voices returned."}
+          </Text>
+        ) : (
+          <Stack gap="sm">
+            {libraryVoices.map((v) => (
+              <VoicePickRow
+                key={v.voice_id}
+                voice={v}
+                busy={pickingVoiceId === v.voice_id}
+                pickDisabled={pickDisabled}
+                pickButtonLabel={pickButtonLabel}
+                showPreviewAudio={showPreviewAudio}
+                onPick={handlePick}
               />
-              <ActionIcon
-                size="lg"
-                variant="filled"
-                aria-label="Search voices"
-                onClick={handleSearchLibrary}
-                loading={libraryLoading}
-              >
-                <RiSearchLine size={20} />
-              </ActionIcon>
-              <ActionIcon
-                size="lg"
-                variant="light"
-                aria-label="Clear filters"
-                onClick={handleClearFilters}
-                disabled={libraryLoading}
-              >
-                <RiFilterOffLine size={20} />
-              </ActionIcon>
-            </Group>
-
-            <Divider />
-
-            <Box style={{ flex: 1, minHeight: 0, minWidth: 0 }}>
-              <ScrollArea h="100%" type="auto" offsetScrollbars pr={!isMobile ? "xs" : 0}>
-                {libraryLoading && libraryVoices.length === 0 ? (
-                  <Box
-                    h="100%"
-                    style={{ display: "flex", alignItems: "center", justifyContent: "center" }}
-                  >
-                    <Loader size="sm" />
-                  </Box>
-                ) : libraryVoices.length === 0 ? (
-                  <Text size="sm" c="dimmed" ta="center" py="md">
-                    {libraryError && !hasQueried
-                      ? libraryError
-                      : hasQueried
-                        ? "No voices match these filters."
-                        : "No voices returned."}
-                  </Text>
-                ) : (
-                  <Stack gap="sm">
-                    {libraryVoices.map((v) => (
-                      <VoicePickRow
-                        key={v.voice_id}
-                        voice={v}
-                        busy={createLoading && creatingVoiceId === v.voice_id}
-                        createLoading={createLoading}
-                        onPick={handlePickVoice}
-                      />
-                    ))}
-                  </Stack>
-                )}
-              </ScrollArea>
-            </Box>
-
-            {hasQueried ? (
-              <Group justify="space-between" wrap="wrap">
-                <Text size="xs" c="dimmed">
-                  Page {libraryPage + 1}
-                  {libraryTotalCount != null
-                    ? ` · ${libraryTotalCount.toLocaleString()} matching`
-                    : null}
-                </Text>
-                <Group gap="xs">
-                  <Button
-                    variant="default"
-                    size="xs"
-                    disabled={libraryPage <= 0 || libraryLoading}
-                    onClick={() => fetchPage(libraryPage - 1)}
-                  >
-                    Previous
-                  </Button>
-                  <Button
-                    variant="default"
-                    size="xs"
-                    disabled={!libraryHasMore || libraryLoading}
-                    onClick={() => fetchPage(libraryPage + 1)}
-                  >
-                    Next
-                  </Button>
-                </Group>
-              </Group>
-            ) : null}
+            ))}
           </Stack>
-        </Container>
-      </Modal>
-    </>
+        )}
+      </ScrollArea>
+
+      {hasQueried ? (
+        <Group justify="space-between" wrap="wrap">
+          <Text size="xs" c="dimmed">
+            Page {libraryPage + 1}
+            {libraryTotalCount != null ? ` · ${libraryTotalCount.toLocaleString()} matching` : null}
+          </Text>
+          <Group gap="xs">
+            <Button
+              variant="default"
+              size="xs"
+              disabled={libraryPage <= 0 || libraryLoading}
+              onClick={() => fetchPage(libraryPage - 1)}
+            >
+              Previous
+            </Button>
+            <Button
+              variant="default"
+              size="xs"
+              disabled={!libraryHasMore || libraryLoading}
+              onClick={() => fetchPage(libraryPage + 1)}
+            >
+              Next
+            </Button>
+          </Group>
+        </Group>
+      ) : null}
+    </Stack>
   );
 }

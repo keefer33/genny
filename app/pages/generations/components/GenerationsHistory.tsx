@@ -457,6 +457,11 @@ export default function GenerationsHistory({
         opened={fileDetailOpened}
         onClose={closeFileDetailModal}
         file={currentDetailFiles}
+        onFileDeleted={() => {
+          closeFileDetailModal();
+          setCurrentDetailFiles(null);
+          void fetchGenerationsHistory({ page: generationsHistoryPage });
+        }}
       />
 
       <Modal

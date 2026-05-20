@@ -333,7 +333,11 @@ export default function MemberFiles() {
         onClose={close}
         file={currentFile}
         onTagsUpdated={(fileId, updatedTags) => handleTagsUpdated(fileId, updatedTags)}
-        //modelName={modelNameProp ?? currentFile?.model_name ?? undefined}
+        onFileDeleted={() => {
+          close();
+          setCurrentFile(null);
+          void handleFileUpdate();
+        }}
       />
 
       <Modal

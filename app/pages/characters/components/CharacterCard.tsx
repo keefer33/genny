@@ -18,11 +18,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router";
 import useAppStore from "~/lib/stores/appStore";
 import useCharactersStore, { type UserCharacter } from "~/lib/stores/charactersStore";
-import {
-  firstGeneration,
-  firstGenerationThumbUrl,
-  voicePreviewUrl,
-} from "~/pages/characters/characterFileUtils";
+import { firstGeneration, firstGenerationThumbUrl } from "~/pages/characters/characterFileUtils";
 
 export function CharacterCard({ character }: { character: UserCharacter }) {
   const navigate = useNavigate();
@@ -30,12 +26,14 @@ export function CharacterCard({ character }: { character: UserCharacter }) {
   const deleteCharacter = useCharactersStore((s) => s.deleteCharacter);
   const [deleteOpened, { open: openDelete, close: closeDelete }] = useDisclosure(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
-  const url = voicePreviewUrl(character.files);
-  const generation = firstGeneration(character.files);
+  const characterStatus = (character.status ?? "").toLowerCase();
+  const generation = firstGeneration(character.metadata);
   const generationStatus = (generation?.status ?? "").toLowerCase();
-  const thumbUrl = firstGenerationThumbUrl(character.files);
-  const showGenerationLoader = generationStatus === "pending" || generationStatus === "processing";
-  const showGenerationError = generationStatus === "error";
+  const thumbUrl = firstGenerationThumbUrl(character.metadata);
+  const showCharacterPending = characterStatus === "pending";
+  const showGenerationLoader =
+    showCharacterPending || generationStatus === "pending" || generationStatus === "processing";
+  const showGenerationError = characterStatus === "failed" || generationStatus === "error";
 
   const handleConfirmDelete = async () => {
     if (!userId) return;
@@ -91,9 +89,21 @@ export function CharacterCard({ character }: { character: UserCharacter }) {
             role="link"
             aria-label={`Open ${character.name ?? "character"}`}
           >
-            <Text fw={600} lineClamp={2}>
-              {character.name ?? "Unnamed character"}
-            </Text>
+            <Group gap="xs" wrap="wrap">
+              <Text fw={600} lineClamp={2}>
+                {character.name ?? "Unnamed character"}
+              </Text>
+              {showCharacterPending ? (
+                <Badge size="xs" variant="light" color="yellow">
+                  Creating…
+                </Badge>
+              ) : null}
+              {characterStatus === "failed" ? (
+                <Badge size="xs" variant="light" color="red">
+                  Failed
+                </Badge>
+              ) : null}
+            </Group>
             <Group gap="xs" wrap="nowrap">
               <Box>
                 {showGenerationLoader ? (
@@ -169,12 +179,6 @@ export function CharacterCard({ character }: { character: UserCharacter }) {
             ) : null}
           </Group>
         </Group>
-
-        {url ? (
-          <Box mt="xs" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
-            <audio controls src={url} style={{ width: "100%", maxHeight: 40 }} />
-          </Box>
-        ) : null}
       </Stack>
     </Card>
   );

@@ -103,6 +103,8 @@ interface FilesFoldersState {
   // File operations
   uploadFile: (file: File, userId: string) => Promise<boolean>;
   deleteFile: (fileName: string, fileId: string, userId: string) => Promise<boolean>;
+  /** DELETE `/user/files/:id` only — no files list refresh (for detail modal / other pages). */
+  deleteUserFileRecord: (fileName: string, fileId: string) => Promise<boolean>;
   updateFileName: (
     fileId: string,
     newFileName: string,
@@ -116,7 +118,8 @@ interface FilesFoldersState {
     selectedTags?: string[],
     uploadType?: string | null,
     fileTypeFilter?: FileTypeFilter | null,
-    _isPageChange?: boolean
+    _isPageChange?: boolean,
+    characterId?: string | null
   ) => Promise<void>;
   handleFilesPageChange: (page: number) => void;
   handleFileUpdate: () => Promise<void>;
@@ -291,22 +294,46 @@ const useFilesFoldersStoreBase = create<FilesFoldersState>((set, get) => ({
     }
   },
 
-  deleteFile: async (fileName: string, fileId: string, userId: string) => {
-    set({ loading: true, error: null, gridLoading: false });
+  deleteUserFileRecord: async (fileName: string, fileId: string) => {
+    const name = fileName.trim();
+    const id = fileId.trim();
+    if (!name || !id) {
+      showNotification({
+        title: "Cannot delete file",
+        message: "File id and name are required.",
+        type: "error",
+      });
+      return false;
+    }
     try {
-      const deleteRes = await authFetch(`${endpoint}/user/files/${encodeURIComponent(fileId)}`, {
+      const deleteRes = await authFetch(`${endpoint}/user/files/${encodeURIComponent(id)}`, {
         method: "DELETE",
-        body: JSON.stringify({ idOrName: fileName }),
+        body: JSON.stringify({ idOrName: name }),
       });
       await assertAuthFetchOk(deleteRes, "Failed to delete file");
-
       showNotification({
         title: "Success",
         message: "File deleted successfully",
         type: "success",
       });
+      return true;
+    } catch (error: unknown) {
+      console.error("Delete error:", error);
+      showNotification({
+        title: "Error",
+        message: error instanceof Error ? error.message : "An unexpected error occurred",
+        type: "error",
+      });
+      return false;
+    }
+  },
 
-      // Refresh the files list
+  deleteFile: async (fileName: string, fileId: string, userId: string) => {
+    set({ loading: true, error: null, gridLoading: false });
+    try {
+      const ok = await get().deleteUserFileRecord(fileName, fileId);
+      if (!ok) return false;
+
       await get().loadUserFiles(
         get().paginationData.currentPage,
         userId,
@@ -316,14 +343,6 @@ const useFilesFoldersStoreBase = create<FilesFoldersState>((set, get) => ({
       );
 
       return true;
-    } catch (error: any) {
-      console.error("Delete error:", error);
-      showNotification({
-        title: "Error",
-        message: error.message || "An unexpected error occurred",
-        type: "error",
-      });
-      return false;
     } finally {
       set({ loading: false });
     }
@@ -373,7 +392,8 @@ const useFilesFoldersStoreBase = create<FilesFoldersState>((set, get) => ({
     selectedTags?: string[],
     uploadType?: string | null,
     fileTypeFilter?: FileTypeFilter | null,
-    _isPageChange?: boolean
+    _isPageChange?: boolean,
+    characterId?: string | null
   ) => {
     const finalLimit = get().filesPageSize;
     // Auto-get userId from appStore if not provided
@@ -412,6 +432,9 @@ const useFilesFoldersStoreBase = create<FilesFoldersState>((set, get) => ({
       }
       if (finalFileTypeFilter && finalFileTypeFilter !== "all") {
         params.set("fileTypeFilter", finalFileTypeFilter);
+      }
+      if (characterId?.trim()) {
+        params.set("characterId", characterId.trim());
       }
       const json = await authFetchJson<{
         files: FileData[];

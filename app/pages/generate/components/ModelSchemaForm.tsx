@@ -19,7 +19,20 @@ import {
 } from "./ModelSchemaForm.utils";
 import { SchemaNestedFields } from "./SchemaNestedFields";
 
-export default function ModelSchemaForm() {
+export type ModelSchemaFormProps = {
+  /** Merged on top of schema defaults when the model loads (e.g. character edit prefill). */
+  initialValuesOverride?: Record<string, unknown>;
+  /** When set, runs are tagged `app: character` and linked to this character. */
+  characterId?: string;
+  /** Called after a run is successfully started (receives API run row). */
+  onSubmitSuccess?: (run: unknown) => void;
+};
+
+export default function ModelSchemaForm({
+  initialValuesOverride,
+  characterId,
+  onSubmitSuccess,
+}: ModelSchemaFormProps = {}) {
   const {
     selectedModel,
     generateFromGenModel,
@@ -38,8 +51,23 @@ export default function ModelSchemaForm() {
     [selectedModel?.gen_models_apis?.function_schema]
   );
 
+  const initialValuesOverrideKey = useMemo(
+    () => (initialValuesOverride ? JSON.stringify(initialValuesOverride) : ""),
+    [initialValuesOverride]
+  );
+
+  const resolvedInitialValues = useMemo(() => {
+    const fs = parseFunctionSchema(selectedModel?.gen_models_apis?.function_schema);
+    const baseValues = fs?.properties ? buildInitialValues(fs) : {};
+    return initialValuesOverride ? { ...baseValues, ...initialValuesOverride } : baseValues;
+  }, [
+    selectedModel?.id,
+    selectedModel?.gen_models_apis?.function_schema,
+    initialValuesOverrideKey,
+  ]);
+
   const form = useForm({
-    initialValues: {} as Record<string, unknown>,
+    initialValues: resolvedInitialValues as Record<string, unknown>,
     validate: (values) => {
       const fs = parseFunctionSchema(selectedModel?.gen_models_apis?.function_schema);
       if (!fs?.properties) return {};
@@ -60,24 +88,19 @@ export default function ModelSchemaForm() {
   }, [form.values, functionSchema]);
 
   useEffect(() => {
-    const fs = parseFunctionSchema(selectedModel?.gen_models_apis?.function_schema);
-    const nextValues = fs?.properties ? buildInitialValues(fs) : {};
-
-    // `setValues` merges keys; use reset after replacing initial values
-    // so stale fields from the previous model are fully cleared.
-    form.setInitialValues(nextValues);
+    if (!selectedModel?.id) return;
+    // Apply schema defaults + override whenever the model or prefill changes.
+    form.setInitialValues(resolvedInitialValues);
     form.reset();
     form.clearErrors();
-
-    if (!fs?.properties) {
-      return;
-    }
   }, [
     selectedModel?.id,
+    selectedModel?.gen_models_apis?.function_schema,
     selectedModel?.model_variant,
     selectedModel?.model_product,
     selectedModel?.brand_name?.slug,
-    selectedModel?.gen_models_apis?.function_schema,
+    initialValuesOverrideKey,
+    resolvedInitialValues,
   ]);
 
   useEffect(() => {
@@ -137,16 +160,18 @@ export default function ModelSchemaForm() {
       return;
     }
     try {
-      await generateFromGenModel({
+      const run = await generateFromGenModel({
         id: selectedModel.id,
         payload: sanitizePayload(values),
+        ...(characterId ? { app: "character", character_id: characterId } : {}),
       });
       showNotification({
         title: "Success",
         message: "Generation started successfully",
         type: "success",
       });
-      if (isMobile) {
+      onSubmitSuccess?.(run);
+      if (isMobile && !characterId) {
         openRunHistoryModal();
       }
     } catch (err) {

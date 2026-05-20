@@ -7,15 +7,25 @@ type ParsedRatio = {
   label: string;
   width?: number;
   height?: number;
+  /** e.g. `auto` — no aspect preview, label only */
   isAuto?: boolean;
+  /** e.g. `custom` — enum value without W:H shape; label only */
+  isLabelOnly?: boolean;
 };
 
 const PREVIEW_SIDE_PX = 22;
 
 function parseAspectRatio(option: string): ParsedRatio | null {
   const raw = option.trim();
-  if (raw.toLowerCase() === "auto") return { label: raw, isAuto: true };
-  if (!raw.includes(":")) return null;
+  if (!raw) return null;
+
+  const lower = raw.toLowerCase();
+  if (lower === "auto") return { label: raw, isAuto: true };
+
+  if (!raw.includes(":")) {
+    return { label: raw, isLabelOnly: true };
+  }
+
   const [lhs, rhs] = raw.split(":");
   const w = Number(lhs);
   const h = Number(rhs);
@@ -76,7 +86,29 @@ export function AspectRatioPicker({
               size="xs"
             >
               <Group gap={6} wrap="nowrap">
-                {ratio.isAuto ? null : (
+                {ratio.isAuto || ratio.isLabelOnly ? (
+                  ratio.isLabelOnly ? (
+                    <div
+                      style={{
+                        width: PREVIEW_SIDE_PX,
+                        height: PREVIEW_SIDE_PX,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexShrink: 0,
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: PREVIEW_SIDE_PX - 6,
+                          height: PREVIEW_SIDE_PX - 6,
+                          border: "2px dashed currentColor",
+                          borderRadius: 2,
+                        }}
+                      />
+                    </div>
+                  ) : null
+                ) : (
                   <div
                     style={{
                       width: PREVIEW_SIDE_PX,
@@ -95,7 +127,7 @@ export function AspectRatioPicker({
                     />
                   </div>
                 )}
-                <Text size="xs" fw={600}>
+                <Text size="xs" fw={600} tt={ratio.isLabelOnly ? "capitalize" : undefined}>
                   {ratio.label}
                 </Text>
               </Group>

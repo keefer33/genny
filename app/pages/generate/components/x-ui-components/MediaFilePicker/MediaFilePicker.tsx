@@ -79,6 +79,11 @@ export function MediaFilePicker({
 
   const rawValue = form.getInputProps(fieldName).value;
 
+  const readUrlsMulti = (): string[] => {
+    const v = getFormValueAtPath(form.values, fieldName);
+    return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+  };
+
   useEffect(() => {
     if (isMulti) {
       const normalized = Array.isArray(rawValue)
@@ -103,10 +108,35 @@ export function MediaFilePicker({
     }
   }, [fieldName, form, isMulti, fieldSchema["x-ui-component"].settings.min, rawValue]);
 
-  const readUrlsMulti = (): string[] => {
-    const v = getFormValueAtPath(form.values, fieldName);
-    return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
-  };
+  // Mirror prefilled form URLs into local picker rows (e.g. character edit modal).
+  useEffect(() => {
+    if (isMulti) {
+      const urls = readUrlsMulti();
+      setFilesArray((prev) => {
+        if (
+          prev.length === urls.length &&
+          prev.every((entry, index) => entry.url === urls[index])
+        ) {
+          return prev;
+        }
+        return urls.map((url) => ({ url, type: "picker" as MediaFilePickerSource }));
+      });
+      return;
+    }
+
+    const url =
+      typeof rawValue === "string" && rawValue.trim()
+        ? rawValue.trim()
+        : Array.isArray(rawValue) && typeof rawValue[0] === "string" && rawValue[0].trim()
+          ? rawValue[0].trim()
+          : "";
+
+    setFilesArray((prev) => {
+      if (!url) return prev.length === 0 ? prev : [];
+      if (prev.length === 1 && prev[0]?.url === url) return prev;
+      return [{ url, type: "addUrl" as MediaFilePickerSource }];
+    });
+  }, [fieldName, isMulti, rawValue]);
 
   const maxReached = typeof maxN === "number" && filesArray.length >= maxN;
   const showAddZone = isMulti ? !maxReached : filesArray.length === 0;
@@ -240,14 +270,7 @@ export function MediaFilePicker({
               : null}
           </Stack>
 
-          {showAddZone && (
-            <Stack gap="xs">
-              <Text size="xs" fw={500} c="dimmed">
-                {isMulti ? "Add from library or URL" : "Select from library or add a URL"}
-              </Text>
-              {addZone}
-            </Stack>
-          )}
+          {showAddZone && <Stack gap="xs">{addZone}</Stack>}
 
           {isMulti && (
             <Text size="xs" c="dimmed">

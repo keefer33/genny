@@ -9,9 +9,13 @@ import {
   Alert,
   Divider,
   TextInput,
+  Select,
 } from "@mantine/core";
-import { useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import useAppStore from "~/lib/stores/appStore";
+import useCharactersStore from "~/lib/stores/charactersStore";
+import { authFetchJson } from "~/lib/stores/authFetch";
+import { endpoint } from "~/lib/utils";
 import useFilesFoldersStore, {
   type FileData,
   type FileTypeFilter,
@@ -40,6 +44,11 @@ function uploadDescription(allowedTypes: FileTypeFilter): string {
   return `Upload ${labels.slice(0, -1).join(", ")} or ${labels.at(-1)} to add them to your collection`;
 }
 
+type PickerCharacter = {
+  id: string;
+  name: string | null;
+};
+
 export function FilePickerContent({
   onFileSelect,
   allowedTypes = "all",
@@ -48,8 +57,14 @@ export function FilePickerContent({
   onPasteUrl,
 }: FilePickerContentProps) {
   const { getUser } = useAppStore();
+  const selectedCharacter = useCharactersStore((s) => s.selectedCharacter);
   const { paginationData, gridLoading, loadUserFiles } = useFilesFoldersStore();
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(
+    () => selectedCharacter?.id?.trim() || null
+  );
+  const [characters, setCharacters] = useState<PickerCharacter[]>([]);
+  const [charactersLoading, setCharactersLoading] = useState(false);
   const [pendingUrl, setPendingUrl] = useState("");
 
   const flushUrl = () => {
@@ -66,14 +81,55 @@ export function FilePickerContent({
   const effectiveFileType = allowedTypes === "all" ? null : allowedTypes;
 
   useEffect(() => {
-    if (userId) {
-      loadUserFiles(currentPage, userId, [], null, effectiveFileType);
+    const id = selectedCharacter?.id?.trim();
+    if (id) {
+      setSelectedCharacterId(id);
+    } else {
+      setSelectedCharacterId(null);
     }
-  }, [userId, currentPage, effectiveFileType, loadUserFiles]);
+  }, [selectedCharacter?.id]);
+
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+    setCharactersLoading(true);
+    void authFetchJson<{ characters: PickerCharacter[] }>(
+      `${endpoint}/characters?minimal=1`,
+      undefined,
+      { errorMessage: "Failed to load characters" }
+    )
+      .then((json) => {
+        if (!cancelled) setCharacters(json.characters ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setCharacters([]);
+      })
+      .finally(() => {
+        if (!cancelled) setCharactersLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+
+  useEffect(() => {
+    if (userId) {
+      loadUserFiles(currentPage, userId, [], null, effectiveFileType, false, selectedCharacterId);
+    }
+  }, [userId, currentPage, effectiveFileType, selectedCharacterId, loadUserFiles]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [effectiveFileType]);
+  }, [effectiveFileType, selectedCharacterId]);
+
+  const characterSelectData = useMemo(
+    () =>
+      characters.map((c) => ({
+        value: c.id,
+        label: c.name?.trim() || "Unnamed character",
+      })),
+    [characters]
+  );
 
   const filteredFiles = paginationData.data;
 
@@ -144,6 +200,19 @@ export function FilePickerContent({
         </>
       )}
 
+      <Select
+        label="Character"
+        description="Filter files linked to a character"
+        placeholder="All files"
+        clearable
+        searchable
+        data={characterSelectData}
+        value={selectedCharacterId}
+        onChange={(value) => setSelectedCharacterId(typeof value === "string" ? value : null)}
+        disabled={charactersLoading && characterSelectData.length === 0}
+        comboboxProps={{ withinPortal: true }}
+      />
+
       {/* Files Grid */}
       {gridLoading ? (
         <Box ta="center" py="xl">
@@ -152,7 +221,9 @@ export function FilePickerContent({
         </Box>
       ) : filteredFiles.length === 0 ? (
         <Alert title="No files found" color="yellow">
-          You haven&apos;t uploaded any files yet.
+          {selectedCharacterId
+            ? "No files found for this character."
+            : "You haven't uploaded any files yet."}
         </Alert>
       ) : (
         <>
