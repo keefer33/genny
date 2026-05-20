@@ -28,10 +28,13 @@ import {
   hasUnsupportedXUiComponent,
   isBareStringSelectXUi,
   isMediaFieldName,
+  isObjectArrayItemsSchema,
   joinFieldPath,
   normalizedFieldName,
   orderedObjectPropertyKeys,
   parseEnumValue,
+  boxPickerEnumOptions,
+  boxPickerValueTypeForProp,
   resolveXUiComponent,
 } from "./ModelSchemaForm.utils";
 
@@ -65,6 +68,7 @@ export function SchemaNestedFields({
       {keys.map((key) => {
         const prop = objectSchema.properties[key];
         if (!prop) return null;
+        if (prop.readOnly) return null;
 
         const fieldPath = joinFieldPath(pathPrefix, key);
         const isRequired = requiredSet.has(key);
@@ -127,13 +131,11 @@ export function SchemaNestedFields({
           );
         }
 
-        if (prop.type === "string" && prop.enum?.length) {
-          const options = prop.enum
-            .filter((value): value is string => typeof value === "string")
-            .map((value) => value.trim())
-            .filter(Boolean);
-          if (options.length > 0) {
+        if (prop.enum?.length) {
+          const boxOptions = boxPickerEnumOptions(prop);
+          if (boxOptions.length > 0) {
             if (
+              prop.type === "string" &&
               !hasUnsupportedXUiComponent(prop) &&
               !isBareStringSelectXUi(prop) &&
               (xUiComponent === "AspectRatioPicker" ||
@@ -147,8 +149,8 @@ export function SchemaNestedFields({
                   description={description}
                   error={err}
                   isRequired={isRequired}
-                  options={options}
-                  readOnly={isFieldReadOnly || options.length === 1}
+                  options={boxOptions.filter((v): v is string => typeof v === "string")}
+                  readOnly={isFieldReadOnly || boxOptions.length === 1}
                   defaultValue={prop.default}
                   withAsterisk={inputWithAsterisk}
                 />
@@ -167,8 +169,9 @@ export function SchemaNestedFields({
                   description={description}
                   error={err}
                   isRequired={isRequired}
-                  options={options}
-                  readOnly={isFieldReadOnly || options.length === 1}
+                  valueType={boxPickerValueTypeForProp(prop)}
+                  options={boxOptions}
+                  readOnly={isFieldReadOnly || boxOptions.length === 1}
                   defaultValue={prop.default}
                   withAsterisk={inputWithAsterisk}
                 />
@@ -181,6 +184,7 @@ export function SchemaNestedFields({
           !hasUnsupportedXUiComponent(prop) &&
           (!xUiComponent || xUiComponent === "NumberSlider") &&
           (prop.type === "number" || prop.type === "integer") &&
+          !prop.enum?.length &&
           typeof prop.minimum === "number" &&
           typeof prop.maximum === "number"
         ) {
@@ -292,7 +296,7 @@ export function SchemaNestedFields({
           );
         }
 
-        if (prop.type === "array" && prop.items?.type === "object" && prop.items.properties) {
+        if (prop.type === "array" && isObjectArrayItemsSchema(prop)) {
           return (
             <SchemaObjectArrayField
               key={fieldPath}
@@ -309,7 +313,7 @@ export function SchemaNestedFields({
           );
         }
 
-        if (prop.type === "array" && prop.items?.type === "string") {
+        if (prop.type === "array" && !Array.isArray(prop.items) && prop.items?.type === "string") {
           if (
             !hasUnsupportedXUiComponent(prop) &&
             (resolveXUiComponent(prop) === "MediaFilePicker" || isMediaFieldName(key))

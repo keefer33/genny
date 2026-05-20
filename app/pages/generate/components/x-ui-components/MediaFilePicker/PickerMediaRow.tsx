@@ -171,7 +171,7 @@ export function PickerMediaRow({
           opened={previewOpen}
           onClose={closePreview}
           file={selectedFile}
-          onDelete={() => {
+          onFileDeleted={() => {
             onRemove();
             closePreview();
           }}

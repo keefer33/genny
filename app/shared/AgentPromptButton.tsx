@@ -6,11 +6,10 @@ import { useFormContext } from "~/lib/ContextForm";
 import useAppStore from "~/lib/stores/appStore";
 
 const AGENT_MODELS = [
-  { value: "anthropic/claude-sonnet-4.6", label: "Claude Sonnet 4.6" },
-  { value: "google/gemini-3.1-pro-preview", label: "Gemini 3.1 Pro" },
-  { value: "moonshotai/kimi-k2.5", label: "Kimi K2.5" },
-  { value: "xai/grok-4.1-fast-non-reasoning", label: "Grok 4.1 Fast" },
-  { value: "openai/gpt-5.2", label: "GPT-5.2" },
+  { value: "anthropic/claude-opus-4.7", label: "Claude Opus 4.7" },
+  { value: "google/gemini-3.1-flash-lite", label: "Gemini 3.1 Flash Lite" },
+  { value: "xai/grok-4.3", label: "Grok 4.3" },
+  { value: "openai/gpt-5.5", label: "GPT-5.5" },
 ] as const;
 
 function formatFormValuesForAgent(formValues: Record<string, unknown>): string {

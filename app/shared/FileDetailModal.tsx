@@ -27,11 +27,7 @@ export interface FileDetailModalFileItem {
   created_at: string;
   user_file_tags?: UserFileTag[];
   thumbnail_url?: string;
-  generated_info?: {
-    payload: {
-      prompt: string;
-    };
-  };
+  generated_info?: unknown;
 }
 
 export type FileDetailModalFile = Array<
@@ -53,9 +49,9 @@ type FileDetailModalProps = {
   modelName?: string;
   onDownload?: () => void;
   onEdit?: () => void;
-  onDelete?: () => void;
-  deleting?: boolean;
   onTagsUpdated?: (fileId: string, updatedTags: any) => void;
+  /** Called after a file is deleted from {@link FileDetails} (refresh lists, close modal). */
+  onFileDeleted?: (fileId: string) => void;
 };
 
 /** Eye control for file tiles — opens {@link FileDetailModal} (place inside a `position: relative` preview). */
@@ -92,6 +88,7 @@ export default function FileDetailModal({
   children,
   opened,
   onClose,
+  onFileDeleted,
 }: FileDetailModalProps) {
   const [internalOpened, { open: openFileDetailModal, close: closeFileDetailModal }] =
     useDisclosure(false);
@@ -148,16 +145,16 @@ export default function FileDetailModal({
         opened={fileDetailOpened}
         onClose={closeDetails}
         //title={file.file_name}
-        size="xl"
         fullScreen
         styles={{
           body: { padding: 0 },
-          header: { padding: "1rem" },
+          header: { padding: "2px", minHeight: "10px" },
+          root: { maxHeight: "10px" },
         }}
       >
         {files.length <= 1 ? (
           files[0] ? (
-            <FileDetails file={files[0]} onTagsUpdated={onTagsUpdated} />
+            <FileDetails file={files[0]} onTagsUpdated={onTagsUpdated} onDeleted={onFileDeleted} />
           ) : null
         ) : (
           <Tabs defaultValue={firstFileId} keepMounted={false}>
@@ -172,7 +169,7 @@ export default function FileDetailModal({
             </Tabs.List>
             {files.map((f) => (
               <Tabs.Panel key={f.id} value={f.id}>
-                <FileDetails file={f} onTagsUpdated={onTagsUpdated} />
+                <FileDetails file={f} onTagsUpdated={onTagsUpdated} onDeleted={onFileDeleted} />
               </Tabs.Panel>
             ))}
           </Tabs>

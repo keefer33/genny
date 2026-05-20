@@ -1,6 +1,6 @@
 import { ActionIcon, Group, Popover, Text } from "@mantine/core";
 import { RiInformationLine } from "@remixicon/react";
-import type { FunctionSchema, JsonSchemaProperty } from "~/types/generations";
+import type { BoxPickerValueType, FunctionSchema, JsonSchemaProperty } from "~/types/generations";
 
 export function parseFunctionSchema(raw: unknown): FunctionSchema | null {
   if (raw == null) return null;
@@ -126,10 +126,29 @@ function walkObjectSchemaForErrors(
           : undefined;
       walkObjectSchemaForErrors(fp, prop.properties, prop.required, child, errors);
     }
-    if (prop.type === "array" && prop.items?.type === "object" && prop.items.properties) {
+    if (prop.type === "array" && isObjectArrayItemsSchema(prop)) {
       Object.assign(errors, collectArrayOfObjectsFieldErrors(fp, prop, v));
     }
   }
+}
+
+/** Homogeneous `items: { type: "object", ... }` or Draft-04 tuple `items: [ {...}, ... ]`. */
+export function isObjectArrayItemsSchema(prop: JsonSchemaProperty): boolean {
+  if (prop.type !== "array" || prop.items == null) return false;
+  if (Array.isArray(prop.items)) {
+    return (
+      prop.items.length > 0 &&
+      prop.items.every(
+        (it) =>
+          it &&
+          typeof it === "object" &&
+          !Array.isArray(it) &&
+          it.type === "object" &&
+          !!it.properties
+      )
+    );
+  }
+  return prop.items.type === "object" && !!prop.items.properties;
 }
 
 function newRowKey(): string {
@@ -163,7 +182,25 @@ function getInitialValueForProperty(prop: JsonSchemaProperty): unknown {
   if (prop.type === "object" && prop.properties) {
     return buildInitialObjectFromItemSchema(prop);
   }
-  if (prop.type === "array" && prop.items?.type === "object" && prop.items.properties) {
+  if (prop.type === "array" && Array.isArray(prop.items)) {
+    const tuple = prop.items as JsonSchemaProperty[];
+    if (tuple.length > 0 && tuple.every((it) => it.type === "object" && it.properties)) {
+      return tuple.map((itemSchema) => {
+        const row = newArrayObjectRow(itemSchema) as Record<string, unknown>;
+        if (itemSchema["x-object-add-delete-buttons"]) {
+          row.__slotCollapsed = true;
+        }
+        return row;
+      });
+    }
+    return [];
+  }
+  if (
+    prop.type === "array" &&
+    !Array.isArray(prop.items) &&
+    prop.items?.type === "object" &&
+    prop.items.properties
+  ) {
     return [];
   }
   switch (prop.type) {
@@ -189,18 +226,79 @@ export function buildInitialValues(schema: FunctionSchema): Record<string, unkno
   return out;
 }
 
+/** Optional tuple row collapsed in UI (`x-object-add-delete-buttons`); omit from API payload. */
+function isCollapsedTupleSlot(item: unknown): boolean {
+  if (!item || typeof item !== "object" || Array.isArray(item)) return false;
+  return (item as Record<string, unknown>).__slotCollapsed === true;
+}
+
+function collectObjectArrayRowErrors(
+  arrayKey: string,
+  itemSchema: JsonSchemaProperty,
+  rowIndex: number,
+  row: unknown,
+  errors: Record<string, string>
+): void {
+  const path = (field: string) => `${arrayKey}.${rowIndex}.${field}`;
+  const required = itemSchema.required ?? [];
+  const props = itemSchema.properties ?? {};
+
+  if (!row || typeof row !== "object" || Array.isArray(row)) {
+    const rk0 = required[0] ?? Object.keys(props)[0];
+    if (rk0) errors[path(rk0)] = "Invalid entry";
+    return;
+  }
+  const r = row as Record<string, unknown>;
+  for (const rk of required) {
+    const ip = props[rk];
+    if (!ip) continue;
+    const v = r[rk];
+    if (v === undefined || v === null) {
+      errors[path(rk)] = "Required";
+      continue;
+    }
+    if (ip.type === "string" && typeof v === "string" && v.trim() === "") {
+      errors[path(rk)] = "Required";
+    }
+    if (ip.type === "array" && Array.isArray(v) && v.length === 0) {
+      errors[path(rk)] = "Required";
+    }
+    if (ip.type === "number" || ip.type === "integer") {
+      if (v === undefined || v === null || (typeof v === "number" && Number.isNaN(v))) {
+        errors[path(rk)] = "Required";
+      }
+    }
+  }
+
+  for (const nk of orderedObjectPropertyKeys(itemSchema)) {
+    const nip = props[nk];
+    if (!nip) continue;
+    const nv = r[nk];
+    const rowFieldPath = path(nk);
+    if (nip.type === "object" && nip.properties) {
+      if (nv === undefined || nv === null) continue;
+      const childObj =
+        nv && typeof nv === "object" && !Array.isArray(nv)
+          ? (nv as Record<string, unknown>)
+          : undefined;
+      walkObjectSchemaForErrors(rowFieldPath, nip.properties, nip.required, childObj, errors);
+    }
+    if (nip.type === "array" && isObjectArrayItemsSchema(nip)) {
+      Object.assign(errors, collectArrayOfObjectsFieldErrors(rowFieldPath, nip, nv));
+    }
+  }
+}
+
 export function collectArrayOfObjectsFieldErrors(
   arrayKey: string,
   prop: JsonSchemaProperty,
   value: unknown
 ): Record<string, string> {
   const errors: Record<string, string> = {};
-  if (prop.type !== "array" || prop.items?.type !== "object" || !prop.items.properties)
-    return errors;
+  if (prop.type !== "array" || !isObjectArrayItemsSchema(prop)) return errors;
 
   const minItems = typeof prop.minItems === "number" ? prop.minItems : 0;
   const maxItems = typeof prop.maxItems === "number" ? prop.maxItems : Infinity;
-  const itemSchema = prop.items;
 
   if (!Array.isArray(value)) {
     if (minItems > 0) errors[arrayKey] = "Required";
@@ -214,56 +312,18 @@ export function collectArrayOfObjectsFieldErrors(
     errors[arrayKey] = `At most ${maxItems} item(s) allowed`;
   }
 
-  const path = (index: number, field: string) => `${arrayKey}.${index}.${field}`;
-  const required = itemSchema.required ?? [];
-  const props = itemSchema.properties ?? {};
+  if (Array.isArray(prop.items)) {
+    const tuple = prop.items as JsonSchemaProperty[];
+    for (let i = 0; i < tuple.length; i++) {
+      if (isCollapsedTupleSlot(value[i])) continue;
+      collectObjectArrayRowErrors(arrayKey, tuple[i]!, i, value[i], errors);
+    }
+    return errors;
+  }
 
+  const itemSchema = prop.items as JsonSchemaProperty;
   for (let i = 0; i < value.length; i++) {
-    const row = value[i];
-    if (!row || typeof row !== "object" || Array.isArray(row)) {
-      const rk0 = required[0] ?? Object.keys(props)[0];
-      if (rk0) errors[path(i, rk0)] = "Invalid entry";
-      continue;
-    }
-    const r = row as Record<string, unknown>;
-    for (const rk of required) {
-      const ip = props[rk];
-      if (!ip) continue;
-      const v = r[rk];
-      if (v === undefined || v === null) {
-        errors[path(i, rk)] = "Required";
-        continue;
-      }
-      if (ip.type === "string" && typeof v === "string" && v.trim() === "") {
-        errors[path(i, rk)] = "Required";
-      }
-      if (ip.type === "array" && Array.isArray(v) && v.length === 0) {
-        errors[path(i, rk)] = "Required";
-      }
-      if (ip.type === "number" || ip.type === "integer") {
-        if (v === undefined || v === null || (typeof v === "number" && Number.isNaN(v))) {
-          errors[path(i, rk)] = "Required";
-        }
-      }
-    }
-
-    for (const nk of orderedObjectPropertyKeys(itemSchema)) {
-      const nip = props[nk];
-      if (!nip) continue;
-      const nv = r[nk];
-      const rowFieldPath = path(i, nk);
-      if (nip.type === "object" && nip.properties) {
-        if (nv === undefined || nv === null) continue;
-        const childObj =
-          nv && typeof nv === "object" && !Array.isArray(nv)
-            ? (nv as Record<string, unknown>)
-            : undefined;
-        walkObjectSchemaForErrors(rowFieldPath, nip.properties, nip.required, childObj, errors);
-      }
-      if (nip.type === "array" && nip.items?.type === "object" && nip.items.properties) {
-        Object.assign(errors, collectArrayOfObjectsFieldErrors(rowFieldPath, nip, nv));
-      }
-    }
+    collectObjectArrayRowErrors(arrayKey, itemSchema, i, value[i], errors);
   }
 
   return errors;
@@ -323,11 +383,42 @@ export function buildLabelWithDescription(label: string, description?: string, r
   );
 }
 
+export function boxPickerValueTypeForProp(prop: JsonSchemaProperty): BoxPickerValueType {
+  if (prop.type === "integer") return "integer";
+  if (prop.type === "number") return "number";
+  return "string";
+}
+
+/** Enum values for `BoxPicker` (strings as-is; numbers from numeric or numeric-string enum entries). */
+export function boxPickerEnumOptions(prop: JsonSchemaProperty): (string | number)[] {
+  if (!prop.enum?.length) return [];
+  if (prop.type === "string") {
+    return prop.enum
+      .filter((value): value is string => typeof value === "string")
+      .map((value) => value.trim())
+      .filter(Boolean);
+  }
+  if (prop.type === "number" || prop.type === "integer") {
+    return prop.enum
+      .map((value) => {
+        if (typeof value === "number" && Number.isFinite(value)) return value;
+        if (typeof value === "string" && value.trim()) {
+          const n = Number(value);
+          return Number.isFinite(n) ? n : NaN;
+        }
+        return NaN;
+      })
+      .filter((n): n is number => Number.isFinite(n));
+  }
+  return [];
+}
+
 export function parseEnumValue(raw: string | null, prop: JsonSchemaProperty): unknown {
   if (raw === null) return null;
   if (prop.type === "number" || prop.type === "integer") {
     const n = Number(raw);
-    return Number.isNaN(n) ? raw : n;
+    if (Number.isNaN(n)) return raw;
+    return prop.type === "integer" ? Math.trunc(n) : n;
   }
   if (prop.type === "boolean") {
     if (raw === "true") return true;
@@ -359,7 +450,7 @@ export function evaluateConditions(
   for (const condition of conditions) {
     const field = typeof condition?.if?.field === "string" ? condition.if.field : "";
     if (!field) continue;
-    const currentValue = values[field];
+    const currentValue = getFormValueAtPath(values, field);
     let matches = false;
 
     if ("equals" in (condition.if ?? {})) {
@@ -394,14 +485,18 @@ function sanitizePayloadEntry(value: unknown): unknown {
   if (typeof value === "string") return value.trim() === "" ? undefined : value;
   if (typeof value === "number" || typeof value === "boolean") return value;
   if (Array.isArray(value)) {
-    const items = value.map(sanitizePayloadEntry).filter((v) => v !== undefined) as unknown[];
+    const items = value
+      .filter((item) => !isCollapsedTupleSlot(item))
+      .map(sanitizePayloadEntry)
+      .filter((v) => v !== undefined) as unknown[];
     if (items.length === 0) return undefined;
     return items;
   }
   if (typeof value === "object") {
-    const { __rowKey: _rk, ...rest } = value as Record<string, unknown>;
+    const source = value as Record<string, unknown>;
     const out: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(rest)) {
+    for (const [k, v] of Object.entries(source)) {
+      if (k.startsWith("__")) continue;
       const s = sanitizePayloadEntry(v);
       if (s === undefined) continue;
       if (typeof s === "string" && s.trim() === "") continue;

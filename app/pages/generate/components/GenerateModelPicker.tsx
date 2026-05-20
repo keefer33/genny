@@ -65,6 +65,7 @@ export default function GenerateModelPicker() {
     error,
     selectedModel,
     allGenModels,
+    setSelectedModel,
     setGenerationsHistoryGenModelFilter,
     clearGenerationsHistoryFilters,
   } = useGenerationsStore();
@@ -150,6 +151,7 @@ export default function GenerateModelPicker() {
     const first = firstItemForProduct(items, value);
     if (!first) return;
     setSelectedProduct(value);
+    setSelectedModel(first);
     clearGenerationsHistoryFilters();
     setGenerationsHistoryGenModelFilter(first.id);
     navigate(`/generate/${generationType}/${routeModelId(first)}`, { replace: true });
@@ -158,6 +160,7 @@ export default function GenerateModelPicker() {
 
   function handleVariantChange(item: GenModelsItem) {
     if (!generationType) return;
+    setSelectedModel(item);
     clearGenerationsHistoryFilters();
     setGenerationsHistoryGenModelFilter(item.id);
     navigate(`/generate/${generationType}/${routeModelId(item)}`, { replace: true });

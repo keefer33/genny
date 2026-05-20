@@ -189,6 +189,8 @@ export interface GenerationsStoreState {
   generateFromGenModel: (input: {
     id: string;
     payload: Record<string, unknown>;
+    app?: string;
+    character_id?: string;
   }) => Promise<GenerateResponse>;
   calculateGenerateCost: (input: {
     modelId: string;
@@ -213,8 +215,13 @@ export type JsonSchemaProperty = {
   description?: string;
   enum?: Array<string | number | boolean>;
   default?: unknown;
-  /** Array element schema, or nested object `properties` when `type` is `"object"`. */
-  items?: JsonSchemaProperty;
+  /**
+   * Array element schema (homogeneous rows), **or** Draft-04 tuple: `items` as array of object
+   * schemas with `minItems`/`maxItems` matching length and `additionalItems: false`.
+   */
+  items?: JsonSchemaProperty | JsonSchemaProperty[];
+  /** Draft-04: when `items` is an array of schemas, set `false` to forbid extra elements. */
+  additionalItems?: boolean;
   properties?: Record<string, JsonSchemaProperty>;
   required?: string[];
   "x-order-properties"?: string[];
@@ -230,8 +237,8 @@ export type JsonSchemaProperty = {
   "x-placeholder"?: string;
   /** Legacy string (e.g. `"uploaders"`) or structured `{ type, settings }`. */
   "x-ui-component"?: any;
-  /** Optional UI overrides for schema form rendering. */
-  "x-ui-config"?: any;
+  /** When true on a tuple `items[]` object schema, row shows Add / Delete to clear or restore the slot (fixed-length arrays). */
+  "x-object-add-delete-buttons"?: boolean;
   types?: "images" | "videos" | "audio" | "all";
 };
 
@@ -288,14 +295,17 @@ export type SizePickerProps = {
   withAsterisk?: boolean;
 };
 
-/** `x-ui-component` type `BoxPicker` — enum string choices rendered as selectable boxes. */
+export type BoxPickerValueType = "string" | "number" | "integer";
+
+/** `x-ui-component` type `BoxPicker` — enum choices rendered as selectable boxes. */
 export type BoxPickerProps = {
   fieldName: string;
   label: ReactNode;
   description?: ReactNode;
   error?: ReactNode;
   isRequired?: boolean;
-  options: string[];
+  valueType?: BoxPickerValueType;
+  options: (string | number)[];
   readOnly?: boolean;
   defaultValue?: unknown;
   /** When false, hides Mantine’s label asterisk (use if the label node already shows required). */
