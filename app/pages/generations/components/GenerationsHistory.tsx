@@ -28,19 +28,36 @@ import FileDetailModal from "~/shared/FileDetailModal";
 import { PlayGroundRunHistoryFiltersModal } from "~/pages/generations/components/GenerationsHistoryFiltersModal";
 import { AppPagination } from "~/shared/AppPagination";
 import { CostBadge } from "~/shared/CostBadge";
+import { historyFileEntityName } from "./historyFileEntityName";
 import { HistoryPreviewWithBadge } from "./HistoryPreviewWithBadge";
 import { HistoryRunDurationLabel } from "./HistoryDurationLabel";
 import { HistoryRunLoadingThumb } from "./HistoryLoadingThumb";
 import useGenerationsStore from "~/lib/stores/generateStore";
+import type { GenerationsHistoryItem } from "~/types/generations";
+
+type GenerationsHistoryDataSource = {
+  items: GenerationsHistoryItem[];
+  total: number;
+  page: number;
+  limit: number;
+  loading: boolean;
+  error: string | null;
+  onPageChange?: (page: number) => void;
+  onRefresh?: () => void;
+};
 
 export default function GenerationsHistory({
   showFiltersModal = true,
   showBulkActions = true,
   showPagination = true,
+  dataSource,
+  onDeleteRun,
 }: {
   showFiltersModal?: boolean;
   showBulkActions?: boolean;
   showPagination?: boolean;
+  dataSource?: GenerationsHistoryDataSource;
+  onDeleteRun?: (runId: string) => Promise<void>;
 }) {
   const { isMobile, getUser, themeSettings } = useAppStore();
   const { colorScheme } = themeSettings;
@@ -71,22 +88,34 @@ export default function GenerationsHistory({
     deleteGenerate,
   } = useGenerationsStore();
 
+  const isExternalDataSource = Boolean(dataSource);
+  const historyItems = dataSource?.items ?? generationsHistory;
+  const historyTotal = dataSource?.total ?? generationsHistoryTotal;
+  const historyPage = dataSource?.page ?? generationsHistoryPage;
+  const historyLimit = dataSource?.limit ?? generationsHistoryLimit;
+  const historyLoading = dataSource?.loading ?? generationsHistoryLoading;
+  const historyError = dataSource?.error ?? generationsHistoryError;
+  const deleteRun = onDeleteRun ?? (!isExternalDataSource ? deleteGenerate : undefined);
+  const canDeleteRuns = Boolean(deleteRun);
+
   const generationsHistoryTotalPages = Math.max(
     1,
-    Math.ceil(generationsHistoryTotal / Math.max(1, generationsHistoryLimit))
+    Math.ceil(historyTotal / Math.max(1, historyLimit))
   );
 
   const brandFiltersKey = generationsHistoryBrandFilters.join(",");
   const productFiltersKey = generationsHistoryModelProductFilters.join(",");
   const modelTypeFiltersKey = generationsHistoryModelTypeFilters.join(",");
   const generationIdsFilterKey = generationsHistoryGenerationIdsFilter.join(",");
-  const isGenerationIdsScoped = generationsHistoryGenerationIdsFilter.length > 0;
+  const isGenerationIdsScoped =
+    !isExternalDataSource && generationsHistoryGenerationIdsFilter.length > 0;
   const shouldShowFiltersModal = showFiltersModal && !isGenerationIdsScoped;
-  const shouldShowBulkActions = showBulkActions && !isGenerationIdsScoped;
+  const shouldShowBulkActions = showBulkActions && !isGenerationIdsScoped && canDeleteRuns;
   const shouldShowPagination = showPagination && !isGenerationIdsScoped;
   useGenerationsRunsRealtime(userId);
 
   useEffect(() => {
+    if (isExternalDataSource) return;
     void fetchGenerationsHistory({
       page: 1,
       limit: isGenerationIdsScoped ? generationsHistoryGenerationIdsFilter.length : undefined,
@@ -98,12 +127,13 @@ export default function GenerationsHistory({
     brandFiltersKey,
     productFiltersKey,
     modelTypeFiltersKey,
+    isExternalDataSource,
     fetchGenerationsHistory,
   ]);
 
   const selectableRunsOnPage = useMemo(
-    () => generationsHistory.filter((row) => !isGenerationsHistoryInFlight(row.status)),
-    [generationsHistory]
+    () => historyItems.filter((row) => !isGenerationsHistoryInFlight(row.status)),
+    [historyItems]
   );
 
   const handleRunSelect = (runId: string, selected: boolean) => {
@@ -160,12 +190,12 @@ export default function GenerationsHistory({
 
   const handleConfirmDelete = async () => {
     const runIds = runDeleteId ? [runDeleteId] : [...selectedRunIds];
-    if (!userId || runIds.length === 0) return;
+    if (!deleteRun || runIds.length === 0) return;
     setBulkLoading(true);
     try {
       let deleted = 0;
       for (const id of runIds) {
-        await deleteGenerate(id);
+        await deleteRun(id);
         deleted += 1;
       }
       if (deleted > 0) {
@@ -181,9 +211,13 @@ export default function GenerationsHistory({
           return next;
         });
         closeDeleteConfirmModal();
-        const newTotal = Math.max(0, generationsHistoryTotal - deleted);
-        const maxPage = Math.max(1, Math.ceil(newTotal / generationsHistoryLimit));
-        await fetchGenerationsHistory({ page: Math.min(generationsHistoryPage, maxPage) });
+        if (isExternalDataSource) {
+          dataSource?.onRefresh?.();
+        } else {
+          const newTotal = Math.max(0, generationsHistoryTotal - deleted);
+          const maxPage = Math.max(1, Math.ceil(newTotal / generationsHistoryLimit));
+          await fetchGenerationsHistory({ page: Math.min(generationsHistoryPage, maxPage) });
+        }
       }
     } catch (e) {
       showNotification({
@@ -224,27 +258,35 @@ export default function GenerationsHistory({
       </Group>
 
       <Box style={{ flex: 1, minHeight: 0, minWidth: 0 }}>
-        <ScrollArea h="100%" type="auto" offsetScrollbars pr={!isMobile ? "xs" : 0}>
-          {generationsHistoryError ? (
+        <ScrollArea h="100%" type="auto">
+          {historyError ? (
             <Text c="dimmed" size="sm">
-              {generationsHistoryError}
+              {historyError}
             </Text>
-          ) : generationsHistoryLoading && generationsHistory.length === 0 ? (
+          ) : historyLoading && historyItems.length === 0 ? (
             <Box
               h="100%"
               style={{ display: "flex", alignItems: "center", justifyContent: "center" }}
             >
               <Loader size="sm" />
             </Box>
-          ) : generationsHistory.length === 0 ? (
+          ) : historyItems.length === 0 ? (
             <Text c="dimmed" size="sm">
               No runs yet.
             </Text>
           ) : (
-            <SimpleGrid cols={{ base: 1, "600px": 2, "900px": 3 }} spacing="xl" type="container">
-              {generationsHistory.map((row) => {
+            <SimpleGrid
+              cols={{ base: 1, "600px": 2, "900px": 3 }}
+              spacing="xl"
+              type="container"
+              px="sm"
+            >
+              {historyItems.map((row) => {
                 const inFlight = isGenerationsHistoryInFlight(row.status);
                 const showLoadingThumb = inFlight && row.user_files.length === 0;
+                const hasCharacterFile = row.user_files.some(
+                  (file) => (file.upload_type ?? "").trim().toLowerCase() === "character"
+                );
                 const singlePf = row.user_files[0];
                 const singleFid = singlePf?.id?.trim();
                 const detailFid =
@@ -295,6 +337,56 @@ export default function GenerationsHistory({
                             <RiImageLine size={28} />
                           </ThemeIcon>
                         </Center>
+                      ) : row.user_files.length > 1 ? (
+                        <Carousel
+                          height="100%"
+                          withControls
+                          withIndicators
+                          slideSize="100%"
+                          emblaOptions={{ loop: true }}
+                          previousControlProps={{
+                            onClick: (event) => event.stopPropagation(),
+                            onPointerDown: (event) => event.stopPropagation(),
+                          }}
+                          nextControlProps={{
+                            onClick: (event) => event.stopPropagation(),
+                            onPointerDown: (event) => event.stopPropagation(),
+                          }}
+                          styles={{
+                            root: { height: "100%" },
+                            viewport: { height: "100%" },
+                            container: { height: "100%" },
+                            slide: { height: "100%" },
+                            controls: { top: "50%", transform: "translateY(-50%)" },
+                            indicator: { width: 6, height: 6 },
+                          }}
+                        >
+                          {row.user_files.map((file, i) => (
+                            <Carousel.Slide key={`${file.id}-${i}`}>
+                              <Box
+                                role="button"
+                                tabIndex={0}
+                                h="100%"
+                                w="100%"
+                                onClick={() => openFileDetails(row.user_files)}
+                                onKeyDown={(event) => {
+                                  if (event.key === "Enter" || event.key === " ") {
+                                    event.preventDefault();
+                                    openFileDetails(row.user_files);
+                                  }
+                                }}
+                                style={{ cursor: "pointer" }}
+                              >
+                                <HistoryPreviewWithBadge
+                                  url={file.thumbnail_url ?? file.file_path ?? ""}
+                                  file_type={file.file_type ?? ""}
+                                  upload_type={file.upload_type}
+                                  isBaseLook={false}
+                                />
+                              </Box>
+                            </Carousel.Slide>
+                          ))}
+                        </Carousel>
                       ) : (
                         <Box
                           role="button"
@@ -310,39 +402,15 @@ export default function GenerationsHistory({
                           }}
                           style={{ cursor: "pointer" }}
                         >
-                          {row.user_files.length > 1 ? (
-                            <Carousel
-                              height="100%"
-                              withControls
-                              withIndicators
-                              slideSize="100%"
-                              emblaOptions={{ loop: true }}
-                              styles={{
-                                root: { height: "100%" },
-                                viewport: { height: "100%" },
-                                container: { height: "100%" },
-                                slide: { height: "100%" },
-                                controls: { top: "50%", transform: "translateY(-50%)" },
-                                indicator: { width: 6, height: 6 },
-                              }}
-                            >
-                              {row.user_files.map((file, i) => (
-                                <Carousel.Slide key={`${file.id}-${i}`}>
-                                  <HistoryPreviewWithBadge
-                                    url={file.thumbnail_url ?? file.file_path ?? ""}
-                                    file_type={file.file_type ?? ""}
-                                  />
-                                </Carousel.Slide>
-                              ))}
-                            </Carousel>
-                          ) : (
-                            <HistoryPreviewWithBadge
-                              url={
-                                row.user_files[0].thumbnail_url ?? row.user_files[0].file_path ?? ""
-                              }
-                              file_type={row.user_files[0].file_type ?? ""}
-                            />
-                          )}
+                          <HistoryPreviewWithBadge
+                            url={
+                              row.user_files[0].thumbnail_url ?? row.user_files[0].file_path ?? ""
+                            }
+                            file_type={row.user_files[0].file_type ?? ""}
+                            upload_type={row.user_files[0].upload_type}
+                            entityName={historyFileEntityName(row.user_files[0])}
+                            isBaseLook={false}
+                          />
                         </Box>
                       )}
                     </Box>
@@ -413,6 +481,7 @@ export default function GenerationsHistory({
                             variant="subtle"
                             color="red"
                             size="compact-xs"
+                            disabled={hasCharacterFile}
                             leftSection={<RiDeleteBinLine size={14} />}
                             onClick={() => openDeleteRunModal(row.id)}
                           >
@@ -446,8 +515,14 @@ export default function GenerationsHistory({
             boundaries={1}
             withEdges={false}
             total={generationsHistoryTotalPages}
-            value={generationsHistoryPage}
-            onChange={(page) => void fetchGenerationsHistory({ page })}
+            value={historyPage}
+            onChange={(page) => {
+              if (isExternalDataSource) {
+                dataSource?.onPageChange?.(page);
+                return;
+              }
+              void fetchGenerationsHistory({ page });
+            }}
             size="md"
           />
         </Group>
@@ -457,10 +532,21 @@ export default function GenerationsHistory({
         opened={fileDetailOpened}
         onClose={closeFileDetailModal}
         file={currentDetailFiles}
+        onFileUpdated={() => {
+          if (isExternalDataSource) {
+            dataSource?.onRefresh?.();
+          } else {
+            void fetchGenerationsHistory({ page: generationsHistoryPage });
+          }
+        }}
         onFileDeleted={() => {
           closeFileDetailModal();
           setCurrentDetailFiles(null);
-          void fetchGenerationsHistory({ page: generationsHistoryPage });
+          if (isExternalDataSource) {
+            dataSource?.onRefresh?.();
+          } else {
+            void fetchGenerationsHistory({ page: generationsHistoryPage });
+          }
         }}
       />
 

@@ -1,185 +1,87 @@
-import {
-  ActionIcon,
-  Badge,
-  Box,
-  Button,
-  Card,
-  Group,
-  Image,
-  Loader,
-  Modal,
-  Stack,
-  Text,
-  ThemeIcon,
-} from "@mantine/core";
-import { useDisclosure } from "@mantine/hooks";
-import { RiDeleteBinLine, RiErrorWarningLine } from "@remixicon/react";
-import { useState } from "react";
-import { useNavigate } from "react-router";
-import useAppStore from "~/lib/stores/appStore";
-import useCharactersStore, { type UserCharacter } from "~/lib/stores/charactersStore";
-import { firstGeneration, firstGenerationThumbUrl } from "~/pages/characters/characterFileUtils";
+import { ActionIcon, Card, Group, Image, Stack, Text, Tooltip } from "@mantine/core";
+import { RiDeleteBinLine, RiTeamLine } from "@remixicon/react";
+import { Link } from "react-router";
+import type { UserCharacter } from "~/lib/stores/charactersStore";
+import { characterMetaLine } from "~/pages/characters/characterUtils";
 
-export function CharacterCard({ character }: { character: UserCharacter }) {
-  const navigate = useNavigate();
-  const userId = useAppStore((s) => s.getUser()?.user?.id ?? "");
-  const deleteCharacter = useCharactersStore((s) => s.deleteCharacter);
-  const [deleteOpened, { open: openDelete, close: closeDelete }] = useDisclosure(false);
-  const [deleteBusy, setDeleteBusy] = useState(false);
-  const characterStatus = (character.status ?? "").toLowerCase();
-  const generation = firstGeneration(character.metadata);
-  const generationStatus = (generation?.status ?? "").toLowerCase();
-  const thumbUrl = firstGenerationThumbUrl(character.metadata);
-  const showCharacterPending = characterStatus === "pending";
-  const showGenerationLoader =
-    showCharacterPending || generationStatus === "pending" || generationStatus === "processing";
-  const showGenerationError = characterStatus === "failed" || generationStatus === "error";
+type CharacterCardProps = {
+  character: UserCharacter;
+  onDelete?: (character: UserCharacter) => void;
+};
 
-  const handleConfirmDelete = async () => {
-    if (!userId) return;
-    setDeleteBusy(true);
-    const ok = await deleteCharacter(userId, character.id);
-    setDeleteBusy(false);
-    if (ok) closeDelete();
-  };
-
-  const goToDetail = () => navigate(`/characters/${character.id}`);
+export function CharacterCard({ character, onDelete }: CharacterCardProps) {
+  const meta = characterMetaLine(character);
+  const detailPath = `/characters/${encodeURIComponent(character.id)}`;
 
   return (
-    <Card withBorder radius="md" padding="md" shadow="sm">
-      <Modal
-        opened={deleteOpened}
-        onClose={closeDelete}
-        title="Delete character"
-        centered
-        size="sm"
-      >
-        <Stack gap="md">
-          <Text size="sm">
-            Permanently delete{" "}
-            <Text span fw={500} inherit>
-              {character.name ?? "this character"}
-            </Text>{" "}
-            and all generated files?
-          </Text>
-          <Text size="sm">This cannot be undone.</Text>
-          <Group justify="flex-end" gap="xs">
-            <Button variant="default" onClick={closeDelete} disabled={deleteBusy}>
-              Cancel
-            </Button>
-            <Button color="red" onClick={() => void handleConfirmDelete()} loading={deleteBusy}>
-              Delete
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
-      <Stack gap="xs">
-        <Group justify="space-between" wrap="nowrap" align="flex-start" gap="sm">
-          <Stack
-            gap="xs"
-            style={{ flex: 1, minWidth: 0, cursor: "pointer" }}
-            onClick={goToDetail}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                goToDetail();
-              }
-            }}
-            tabIndex={0}
-            role="link"
-            aria-label={`Open ${character.name ?? "character"}`}
-          >
-            <Group gap="xs" wrap="wrap">
-              <Text fw={600} lineClamp={2}>
-                {character.name ?? "Unnamed character"}
+    <Card
+      withBorder
+      radius="md"
+      padding="md"
+      shadow="sm"
+      component={Link}
+      to={detailPath}
+      style={{ textDecoration: "none", color: "inherit" }}
+    >
+      <Group align="flex-start" wrap="nowrap" gap="md">
+        <Card
+          withBorder
+          radius="md"
+          p={0}
+          style={{
+            width: 88,
+            height: 88,
+            flexShrink: 0,
+            overflow: "hidden",
+            background: "var(--mantine-color-dark-6)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          {character.baseLookThumbnailUrl ? (
+            <Image src={character.baseLookThumbnailUrl} alt="" w={88} h={88} fit="cover" />
+          ) : (
+            <RiTeamLine size={32} style={{ opacity: 0.35 }} />
+          )}
+        </Card>
+
+        <Stack gap="sm" style={{ flex: 1, minWidth: 0 }}>
+          <Group justify="space-between" wrap="nowrap" align="flex-start">
+            <Stack gap={4} style={{ flex: 1, minWidth: 0 }}>
+              <Text fw={600} lineClamp={1}>
+                {character.name || "Unnamed character"}
               </Text>
-              {showCharacterPending ? (
-                <Badge size="xs" variant="light" color="yellow">
-                  Creating…
-                </Badge>
+              {meta ? (
+                <Text size="xs" c="dimmed" lineClamp={1}>
+                  {meta}
+                </Text>
               ) : null}
-              {characterStatus === "failed" ? (
-                <Badge size="xs" variant="light" color="red">
-                  Failed
-                </Badge>
+              {character.description ? (
+                <Text size="sm" c="dimmed" lineClamp={2}>
+                  {character.description}
+                </Text>
               ) : null}
-            </Group>
-            <Group gap="xs" wrap="nowrap">
-              <Box>
-                {showGenerationLoader ? (
-                  <Group
-                    w={90}
-                    h={90}
-                    justify="center"
-                    style={{ borderRadius: 8, border: "1px solid var(--mantine-color-gray-3)" }}
-                  >
-                    <Loader size="sm" />
-                  </Group>
-                ) : showGenerationError ? (
-                  <Group
-                    w={90}
-                    h={90}
-                    justify="center"
-                    style={{ borderRadius: 8, border: "1px solid var(--mantine-color-red-3)" }}
-                  >
-                    <ThemeIcon size="lg" color="red" variant="light" radius="xl">
-                      <RiErrorWarningLine size={18} />
-                    </ThemeIcon>
-                  </Group>
-                ) : thumbUrl ? (
-                  <Image
-                    src={thumbUrl}
-                    alt={character.name ?? "Character generation"}
-                    radius="sm"
-                    fit="contain"
-                    w={90}
-                    h={90}
-                  />
-                ) : null}
-              </Box>
-              <Stack gap="xs">
-                {character.description ? (
-                  <Text size="xs" c="dimmed" lineClamp={3}>
-                    {character.description}
-                  </Text>
-                ) : null}
-                <Group gap="xs">
-                  {character.gender ? (
-                    <Badge variant="outline" size="sm">
-                      {character.gender}
-                    </Badge>
-                  ) : null}
-                  {character.language ? (
-                    <Badge variant="outline" size="sm">
-                      {character.language}
-                    </Badge>
-                  ) : null}
-                  {character.accent ? (
-                    <Badge variant="outline" size="sm">
-                      {character.accent}
-                    </Badge>
-                  ) : null}
-                </Group>
-              </Stack>
-            </Group>
-          </Stack>
-          <Group gap={4} wrap="nowrap">
-            <ActionIcon
-              variant="subtle"
-              color="red"
-              aria-label="Delete character"
-              onClick={() => openDelete()}
-            >
-              <RiDeleteBinLine size={18} />
-            </ActionIcon>
-            {character.featured ? (
-              <Badge size="sm" variant="light">
-                Featured
-              </Badge>
+            </Stack>
+            {onDelete ? (
+              <Tooltip label="Delete">
+                <ActionIcon
+                  variant="subtle"
+                  color="red"
+                  aria-label="Delete character"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onDelete(character);
+                  }}
+                >
+                  <RiDeleteBinLine size={18} />
+                </ActionIcon>
+              </Tooltip>
             ) : null}
           </Group>
-        </Group>
-      </Stack>
+        </Stack>
+      </Group>
     </Card>
   );
 }

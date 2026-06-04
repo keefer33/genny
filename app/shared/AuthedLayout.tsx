@@ -6,7 +6,7 @@ import { AppShellNavbar } from "./AppShellNavbar";
 import PageLoader from "./PageLoader";
 import useAppStore from "~/lib/stores/appStore";
 import { Outlet, useNavigate } from "react-router";
-import { usePaymentModal } from "./PaymentModal";
+import { GlobalPaymentModal } from "./PaymentModal";
 import { MOBILE_GLOBAL_NAV_HEIGHT, MobileFooterGlobalNav } from "./MobileFooterGlobalNav";
 import useGenerateStore from "~/lib/stores/generateStore";
 
@@ -23,7 +23,6 @@ export default function AuthedLayout() {
   const { themeSettings } = useAppStore();
   const [mobileOpened, { toggle: toggleMobile }] = useDisclosure();
   const [desktopCollapsed, setDesktopCollapsed] = useState(true);
-  const { PaymentModalComponent } = usePaymentModal();
   const toggleDesktop = () => {
     setDesktopCollapsed(!desktopCollapsed);
   };
@@ -91,7 +90,7 @@ export default function AuthedLayout() {
         </AppShell.Footer>
       )}
 
-      <PaymentModalComponent showPackageSelection={true} />
+      <GlobalPaymentModal showPackageSelection />
     </AppShell>
   );
 }

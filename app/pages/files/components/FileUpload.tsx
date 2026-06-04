@@ -92,12 +92,11 @@ export default function FileUpload({ onUploadComplete, allowedTypes = "all" }: F
             onDrop={handleDrop}
             onMouseOver={() => setDragOver(true)}
             onMouseLeave={() => setDragOver(false)}
-            variant={dragOver ? "filled" : "light"}
+            variant={dragOver ? "filled" : "transparent"}
             title="Click to upload or drag files here"
             icon={<RiUploadLine size={20} />}
-          >
-            Support for multiple files. Max file size: 50MB
-          </Alert>
+            p={7}
+          />
 
           {uploading && (
             <Text size="sm" c="blue" ta="center" mt="sm">

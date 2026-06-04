@@ -1,6 +1,7 @@
 import { Card, SimpleGrid, Stack, Image, Box, Group, Text, ThemeIcon } from "@mantine/core";
 import { RiFileLine, RiImageLine, RiMusic2Line, RiVideoLine } from "@remixicon/react";
 import type { FileData } from "~/lib/stores/filesFoldersStore";
+import { GennyAudioPlayer } from "~/shared/GennyAudioPlayer";
 import { MediaTypeBadge } from "~/shared/MediaTypeBadge";
 
 interface FileGridProps {
@@ -132,16 +133,7 @@ export function FileGrid({
                     />
                   )
                 ) : file.file_type.startsWith("audio/") ? (
-                  <audio
-                    src={file.file_path}
-                    style={{
-                      width: "100%",
-                      maxWidth: "100%",
-                      height: "36px",
-                    }}
-                    controls
-                    preload="metadata"
-                  />
+                  <GennyAudioPlayer src={file.file_path} compact stopPropagation />
                 ) : (
                   <ThemeIcon size="xl" color={getFileTypeColor(file.file_type)} variant="light">
                     {getFileIcon(file.file_type)}

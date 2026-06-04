@@ -333,6 +333,9 @@ export default function MemberFiles() {
         onClose={close}
         file={currentFile}
         onTagsUpdated={(fileId, updatedTags) => handleTagsUpdated(fileId, updatedTags)}
+        onFileUpdated={() => {
+          void handleFileUpdate();
+        }}
         onFileDeleted={() => {
           close();
           setCurrentFile(null);

@@ -30,6 +30,7 @@ import dayjs from "dayjs";
 import { formatFileSize, formatDate, isTextFile, getFileExtension } from "~/lib/utils";
 import FileShare from "./FileShare";
 import FileTagModal from "~/pages/files/components/FileTagModal";
+import { GennyAudioPlayer } from "./GennyAudioPlayer";
 import { MediaTypeBadge } from "./MediaTypeBadge";
 import { notifications } from "@mantine/notifications";
 import { useDisclosure } from "@mantine/hooks";
@@ -248,7 +249,6 @@ function PayloadEntry({
 }
 
 function PayloadTreeRoot({ value }: { value: unknown }): ReactNode {
-  console.log("PayloadTreeRoot", value);
   if (value == null) {
     return (
       <Text size="xs" c="dimmed">
@@ -351,6 +351,7 @@ type UserFileTag = {
 export type FileDetailsProps = {
   file: {
     id: string;
+    character_id?: string;
     file_name: string;
     file_path: string;
     file_size: number;
@@ -358,14 +359,23 @@ export type FileDetailsProps = {
     created_at: string;
     user_file_tags?: UserFileTag[];
     generated_info?: unknown;
+    upload_type?: string;
   };
   onTagsUpdated?: (fileId: string, updatedTags: UserFileTag[]) => void;
+  /** Called after a non-delete file mutation (e.g. switch base look). */
+  onUpdated?: (fileId: string) => void;
   /** Called after the file row is removed from the API (e.g. close modal, refresh a list). */
   onDeleted?: (fileId: string) => void;
 };
 
-export function FileDetails({ file, onTagsUpdated, onDeleted }: FileDetailsProps) {
+export function FileDetails({
+  file,
+  onTagsUpdated,
+  onUpdated: _onUpdated,
+  onDeleted,
+}: FileDetailsProps) {
   const [fileDetail, setFileDetail] = useState(file);
+  const [uploadTypeOverride, setUploadTypeOverride] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteConfirmOpened, { open: openDeleteConfirm, close: closeDeleteConfirm }] =
     useDisclosure(false);
@@ -376,7 +386,18 @@ export function FileDetails({ file, onTagsUpdated, onDeleted }: FileDetailsProps
     setFileDetail(file);
   }, [file]);
 
-  const canDelete = Boolean(fileDetail.id?.trim() && fileDetail.file_name?.trim());
+  useEffect(() => {
+    setUploadTypeOverride(null);
+  }, [file.id]);
+
+  const uploadType = (uploadTypeOverride ?? fileDetail.upload_type ?? "").trim().toLowerCase();
+  const canDelete = Boolean(
+    fileDetail.id?.trim() &&
+      fileDetail.file_name?.trim() &&
+      uploadType !== "character"
+  );
+  const isCharacter = uploadType === "character";
+
   const getFileIcon = (size: number = 24) => {
     if (file.file_type.startsWith("image/")) {
       return <RiImageLine size={size} />;
@@ -526,18 +547,13 @@ export function FileDetails({ file, onTagsUpdated, onDeleted }: FileDetailsProps
                 Your browser does not support the video tag.
               </video>
             ) : fileDetail.file_type.startsWith("audio/") ? (
-              <audio
+              <GennyAudioPlayer
                 src={fileDetail.file_path}
-                style={{
-                  width: "100%",
-                  maxHeight: "60vh",
-                  borderRadius: "8px",
-                }}
-                controls
-                preload="metadata"
-              >
-                Your browser does not support the audio element.
-              </audio>
+                showWaveform
+                size="md"
+                waveformHeight={72}
+                wrapperProps={{ style: { maxHeight: "60vh" } }}
+              />
             ) : (
               <Center
                 h={400}
@@ -563,6 +579,9 @@ export function FileDetails({ file, onTagsUpdated, onDeleted }: FileDetailsProps
           }}
         >
           <Stack gap="xs">
+            <Group gap="xs" justify="space-between" align="flex-start" wrap="nowrap">
+              {isCharacter ? <Badge size="sm">Character</Badge> : null}
+            </Group>
             <Group justify="space-between" align="flex-start" wrap="nowrap">
               <Text size="md" fw={600} style={{ minWidth: 0, overflowWrap: "anywhere" }}>
                 {fileDetail.file_name}

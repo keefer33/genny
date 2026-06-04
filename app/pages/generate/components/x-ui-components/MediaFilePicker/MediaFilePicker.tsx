@@ -108,7 +108,7 @@ export function MediaFilePicker({
     }
   }, [fieldName, form, isMulti, fieldSchema["x-ui-component"].settings.min, rawValue]);
 
-  // Mirror prefilled form URLs into local picker rows (e.g. character edit modal).
+  // Mirror prefilled form URLs into local picker rows.
   useEffect(() => {
     if (isMulti) {
       const urls = readUrlsMulti();

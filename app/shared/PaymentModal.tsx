@@ -3,7 +3,7 @@ import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-
 import { Badge, Button, Card, Group, Modal, Stack, Text, useMantineTheme } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { RiVisaLine, RiMoneyDollarCircleLine } from "@remixicon/react";
-import React, { useState, useCallback, useRef } from "react";
+import React, { useState, useCallback, useRef, useMemo } from "react";
 import useAppStore from "~/lib/stores/appStore";
 import useBillingStore from "~/lib/stores/billingStore";
 import {
@@ -168,7 +168,7 @@ export default function PaymentModal({
   showPackageSelection = false,
   fullScreen: fullScreenProp,
 }: PaymentModalProps) {
-  const { isMobile } = useAppStore();
+  const isMobile = useAppStore((s) => s.isMobile);
   const fullScreen = fullScreenProp ?? isMobile;
   const {
     selectedTopUp,
@@ -263,6 +263,17 @@ export default function PaymentModal({
 
   const currentTopUp = selectedTopUp || topUpOption;
 
+  const elementsOptions = useMemo(
+    () =>
+      clientSecret
+        ? {
+            clientSecret,
+            appearance: { theme: "stripe" as const },
+          }
+        : null,
+    [clientSecret]
+  );
+
   return (
     <Modal
       opened={opened}
@@ -347,17 +358,8 @@ export default function PaymentModal({
           <Stack align="center" py="xl">
             <Text>Setting up payment...</Text>
           </Stack>
-        ) : clientSecret && currentTopUp ? (
-          <Elements
-            key={clientSecret}
-            stripe={stripePromise}
-            options={{
-              clientSecret,
-              appearance: {
-                theme: "stripe",
-              },
-            }}
-          >
+        ) : clientSecret && currentTopUp && elementsOptions ? (
+          <Elements key={clientSecret} stripe={stripePromise} options={elementsOptions}>
             <PaymentForm
               clientSecret={clientSecret}
               onSuccess={handleSuccess}
@@ -381,39 +383,43 @@ export default function PaymentModal({
   );
 }
 
-export function usePaymentModal() {
-  const {
-    paymentModalOpen,
-    selectedTopUp,
-    openPaymentModal: openModal,
-    closePaymentModal: closeModal,
-    setSelectedTopUp,
-  } = useBillingStore();
+/** Stable shell for AuthedLayout — avoids remounting Stripe Elements on unrelated store updates. */
+export function GlobalPaymentModal(
+  props: Omit<PaymentModalProps, "opened" | "onClose" | "topUpOption">
+) {
+  const paymentModalOpen = useBillingStore((s) => s.paymentModalOpen);
+  const selectedTopUp = useBillingStore((s) => s.selectedTopUp);
+  const closePaymentModal = useBillingStore((s) => s.closePaymentModal);
 
-  const openPaymentModal = (option?: CreditTopUpOption | null) => {
-    if (option) {
-      setSelectedTopUp(option);
-    } else {
-      setSelectedTopUp(null);
-    }
-    openModal();
-  };
+  return (
+    <PaymentModal
+      {...props}
+      opened={paymentModalOpen}
+      onClose={closePaymentModal}
+      topUpOption={selectedTopUp ?? undefined}
+    />
+  );
+}
+
+export function usePaymentModal() {
+  const paymentModalOpen = useBillingStore((s) => s.paymentModalOpen);
+  const selectedTopUp = useBillingStore((s) => s.selectedTopUp);
+  const openModal = useBillingStore((s) => s.openPaymentModal);
+  const closeModal = useBillingStore((s) => s.closePaymentModal);
+  const setSelectedTopUp = useBillingStore((s) => s.setSelectedTopUp);
+
+  const openPaymentModal = useCallback(
+    (option?: CreditTopUpOption | null) => {
+      setSelectedTopUp(option ?? null);
+      openModal();
+    },
+    [setSelectedTopUp, openModal]
+  );
 
   return {
     isOpen: paymentModalOpen,
     selectedTopUp,
     openPaymentModal,
     closePaymentModal: closeModal,
-    PaymentModalComponent: (
-      props: Omit<PaymentModalProps, "opened" | "onClose" | "topUpOption">
-    ) => (
-      <PaymentModal
-        {...props}
-        opened={paymentModalOpen}
-        onClose={closeModal}
-        topUpOption={selectedTopUp || undefined}
-        autoOpen={true}
-      />
-    ),
   };
 }

@@ -1,4 +1,4 @@
-import { Container, Modal } from "@mantine/core";
+import { Box, Container, Modal } from "@mantine/core";
 import GenerationsHistory from "~/pages/generations/components/GenerationsHistory";
 import useAppStore from "~/lib/stores/appStore";
 
@@ -32,20 +32,14 @@ const bodyBoxStyle = {
 export function GenerationsHistoryModal({ title, opened, onClose }: GenerationsHistoryModalProps) {
   const { isMobile } = useAppStore();
   return (
-    <Modal opened={opened} onClose={onClose} title={title} fullScreen>
+    <Modal opened={opened} onClose={onClose} title={title} fullScreen styles={modalStyles}>
       {isMobile ? (
-        <GenerationsHistory
-          showFiltersModal={false}
-          showBulkActions={false}
-          showPagination={false}
-        />
+        <Box style={bodyBoxStyle}>
+          <GenerationsHistory showFiltersModal={false} showBulkActions={false} showPagination />
+        </Box>
       ) : (
-        <Container size="lg">
-          <GenerationsHistory
-            showFiltersModal={false}
-            showBulkActions={false}
-            showPagination={false}
-          />
+        <Container size="lg" style={bodyBoxStyle}>
+          <GenerationsHistory showFiltersModal={false} showBulkActions={false} showPagination />
         </Container>
       )}
     </Modal>

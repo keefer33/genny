@@ -252,7 +252,7 @@ const useGenerationsStoreBase = create<GenerationsStoreState>((set, get) => ({
   generateFromGenModel: async (input) => {
     set({ runLoading: true, runError: null });
     try {
-      const { id, payload, app, character_id } = input;
+      const { id, payload, app } = input;
       const data = await authFetchJson<GenerateResponse>(
         `${endpoint}/playground/run`,
         {
@@ -261,7 +261,6 @@ const useGenerationsStoreBase = create<GenerationsStoreState>((set, get) => ({
             id,
             payload,
             ...(app ? { app } : {}),
-            ...(character_id ? { character_id } : {}),
           }),
         },
         { errorMessage: "Failed to run playground model" }

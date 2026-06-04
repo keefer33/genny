@@ -644,14 +644,21 @@ const useAppStoreBase = create<AppStoreState>((set, get) => ({
         };
         const status = payload?.status ?? payload?.data?.status;
         const ok = status === "OK";
-        set({ apiHealthStatus: ok ? "healthy" : "unhealthy" });
+        const next: ApiHealthStatus = ok ? "healthy" : "unhealthy";
+        if (get().apiHealthStatus !== next) {
+          set({ apiHealthStatus: next });
+        }
         return ok;
       }
-      set({ apiHealthStatus: "unhealthy" });
+      if (get().apiHealthStatus !== "unhealthy") {
+        set({ apiHealthStatus: "unhealthy" });
+      }
       return false;
     } catch (error) {
       console.error("API health check failed:", error);
-      set({ apiHealthStatus: "unhealthy" });
+      if (get().apiHealthStatus !== "unhealthy") {
+        set({ apiHealthStatus: "unhealthy" });
+      }
       return false;
     }
   },

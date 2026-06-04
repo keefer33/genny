@@ -22,7 +22,7 @@ import {
   RiVoiceAiLine,
   RiToolsLine,
   RiChatAi2Line,
-  RiUserVoiceLine,
+  RiTeamLine,
 } from "@remixicon/react";
 import { NavLink, useLocation } from "react-router";
 import useAppStore from "~/lib/stores/appStore";
@@ -117,10 +117,17 @@ export function Navbar({ toggleMobile, collapsed }: NavbarProps) {
     },
     {
       to: "/characters",
-      icon: RiUserVoiceLine,
+      icon: RiTeamLine,
       label: "Characters",
-      description: "Voice characters",
+      description: "Create and manage characters",
       matchPrefix: "/characters",
+    },
+    {
+      to: "/voices",
+      icon: RiVoiceAiLine,
+      label: "Voices",
+      description: "Design and manage voices",
+      matchPrefix: "/voices",
     },
     {
       to: "/account/usage-log",
