@@ -212,7 +212,7 @@ export default function ModelSchemaForm({
           style={{ height: "100%", minHeight: 0, display: "flex", flexDirection: "column" }}
         >
           <ScrollArea h="100%" type="auto" offsetScrollbars="y">
-            <Stack gap="xl" pb="xl">
+            <Stack gap="xl" pb="xl" px="xs">
               {functionSchema.properties ? (
                 <SchemaNestedFields
                   pathPrefix=""

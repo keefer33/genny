@@ -252,7 +252,7 @@ export default function GenerateModelPicker() {
     ) : null;
 
   return (
-    <Stack gap="xs">
+    <Stack gap="xs" px="xs">
       <Menu position="bottom-start" withinPortal shadow="md" width="target">
         <Menu.Target>
           <Button
