@@ -1,22 +1,9 @@
-import {
-  Box,
-  Button,
-  Group,
-  Image,
-  Loader,
-  Menu,
-  ScrollArea,
-  Stack,
-  Text,
-  Title,
-} from "@mantine/core";
+import { Box, Button, Group, Image, Loader, Menu, ScrollArea, Stack, Text } from "@mantine/core";
 import { RiArrowDownSLine, RiCheckLine, RiTeamLine } from "@remixicon/react";
 import { useEffect } from "react";
 import { useNavigate } from "react-router";
 import useCharactersStore from "~/lib/stores/charactersStore";
 import { characterMetaLine } from "~/pages/characters/characterUtils";
-import { CreateCharacterModal } from "~/pages/characters/components/CreateCharacterModal";
-import { CreateCharacterFromLibraryModal } from "./CreateCharacterFromLibraryModal";
 
 type CharacterPickerProps = {
   selectedCharacterId?: string;
@@ -36,17 +23,6 @@ export default function CharacterPicker({ selectedCharacterId }: CharacterPicker
 
   return (
     <Stack gap="sm">
-      <Group justify="space-between" align="center">
-        <Group gap={4}>
-          <RiTeamLine size={24} />
-          <Title order={3}>Characters</Title>
-        </Group>
-        <Group gap="xs">
-          <CreateCharacterModal />
-          <CreateCharacterFromLibraryModal />
-        </Group>
-      </Group>
-
       <Box>
         <Menu position="bottom-start" withinPortal shadow="md" width="target">
           <Menu.Target>
@@ -113,7 +89,9 @@ export default function CharacterPicker({ selectedCharacterId }: CharacterPicker
                     return (
                       <Menu.Item
                         key={character.id}
-                        onClick={() => navigate(`/characters/${encodeURIComponent(character.id)}`)}
+                        onClick={() =>
+                          navigate(`/characters/${encodeURIComponent(character.id)}/looks`)
+                        }
                         leftSection={
                           <Box
                             style={{

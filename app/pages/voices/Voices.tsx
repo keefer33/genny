@@ -15,10 +15,15 @@ import {
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { RiAddLine, RiBookOpenLine, RiFileCopyLine, RiMicLine } from "@remixicon/react";
-import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router";
 import useAppStore from "~/lib/stores/appStore";
 import useVoicesStore, { type UserVoice } from "~/lib/stores/voicesStore";
+import type { SharedVoiceItem } from "~/lib/voices/voiceLibraryQuery";
+import {
+  buildSharedVoiceCloneMetadata,
+  mapSharedVoiceLanguageToClone,
+} from "~/lib/voices/sharedVoiceUtils";
 import { AddMediaZone } from "~/pages/generate/components/x-ui-components/MediaFilePicker/AddMediaZone";
 import { DesignVoiceModal } from "~/pages/voices/components/DesignVoiceModal";
 import { EditVoiceModal } from "~/pages/voices/components/EditVoiceModal";
@@ -28,6 +33,7 @@ import {
   VOICE_AGE_OPTIONS,
   VOICE_GENDER_OPTIONS,
 } from "~/pages/voices/voiceFormOptions";
+import { VoiceLibraryPicker } from "~/shared/VoiceLibraryPicker";
 
 export function meta() {
   return [{ title: "Voices" }];
@@ -40,6 +46,7 @@ export default function Voices() {
   const [designOpened, { open: openDesign, close: closeDesign }] = useDisclosure(false);
   const [editOpened, { open: openEdit, close: closeEdit }] = useDisclosure(false);
   const [cloneOpened, { open: openClone, close: closeClone }] = useDisclosure(false);
+  const [libraryOpened, { open: openLibrary, close: closeLibrary }] = useDisclosure(false);
   const [deleteOpened, { open: openDelete, close: closeDelete }] = useDisclosure(false);
   const [editingVoice, setEditingVoice] = useState<UserVoice | null>(null);
   const [cloningVoice, setCloningVoice] = useState<UserVoice | null>(null);
@@ -93,6 +100,39 @@ export default function Voices() {
     setCloneAudioUrl(cloningVoice.files?.[0]?.file_path?.trim() || "");
   }, [cloneOpened, cloningVoice]);
 
+  const handleCloneFromLibrary = async (voice: SharedVoiceItem) => {
+    const previewUrl = voice.preview_url?.trim();
+    if (!previewUrl) return;
+
+    const voiceName = (voice.name ?? "").trim() || voice.voice_id;
+    const cloned = await cloneVoice({
+      audio: previewUrl,
+      name: voiceName,
+      language: mapSharedVoiceLanguageToClone(voice.language),
+      description: voice.description?.trim() || undefined,
+      gender: voice.gender?.trim() || undefined,
+      age: voice.age?.trim() || undefined,
+      accent: voice.accent?.trim() || undefined,
+      metadata: buildSharedVoiceCloneMetadata(voice),
+    });
+    if (cloned?.id) {
+      closeLibrary();
+      refresh();
+    }
+  };
+
+  const existingLibraryVoiceIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const voice of userVoices) {
+      const meta = voice.metadata;
+      if (!meta || typeof meta !== "object" || Array.isArray(meta)) continue;
+      const clone = (meta as { clone?: { voice_id?: unknown } }).clone;
+      const sourceId = typeof clone?.voice_id === "string" ? clone.voice_id.trim() : "";
+      if (sourceId) ids.add(sourceId);
+    }
+    return ids;
+  }, [userVoices]);
+
   return (
     <Container size="lg" py="md" px={isMobile ? "sm" : "md"}>
       <Stack gap="xl">
@@ -102,11 +142,10 @@ export default function Voices() {
           </Stack>
           <Group gap="xs" align="center">
             <Button
-              component={Link}
-              to="/voices/library"
               variant="default"
               leftSection={<RiBookOpenLine size={18} />}
               size="sm"
+              onClick={openLibrary}
             >
               Library
             </Button>
@@ -120,6 +159,36 @@ export default function Voices() {
         </Group>
 
         <DesignVoiceModal opened={designOpened} onClose={closeDesign} onPublished={refresh} />
+
+        <Modal
+          opened={libraryOpened}
+          onClose={() => {
+            if (cloneLoading) return;
+            closeLibrary();
+          }}
+          title="Voice library"
+          centered
+          size="xl"
+        >
+          <Stack gap="md">
+            <Text size="sm" c="dimmed">
+              Browse the shared voice library and clone a voice into your account.
+            </Text>
+            <VoiceLibraryPicker
+              active={libraryOpened}
+              onPick={handleCloneFromLibrary}
+              pickDisabled={cloneLoading}
+              pickButtonLabel="Clone"
+              existingVoiceIds={existingLibraryVoiceIds}
+              scrollHeight={360}
+            />
+            <Group justify="flex-end">
+              <Button variant="default" onClick={closeLibrary} disabled={cloneLoading}>
+                Close
+              </Button>
+            </Group>
+          </Stack>
+        </Modal>
 
         <EditVoiceModal
           opened={editOpened}
@@ -306,11 +375,19 @@ export default function Voices() {
             <Box py="md">
               <Text c="dimmed" size="sm">
                 You have not saved any voices yet. Use Design voice to create one from a text
-                description, or browse the{" "}
-                <Text component={Link} to="/voices/library" span c="blue" inherit>
+                description, or open the{" "}
+                <Text
+                  component="button"
+                  type="button"
+                  span
+                  c="blue"
+                  inherit
+                  style={{ background: "none", border: "none", padding: 0, cursor: "pointer" }}
+                  onClick={openLibrary}
+                >
                   voice library
-                </Text>
-                .
+                </Text>{" "}
+                to clone one.
               </Text>
             </Box>
           ) : (

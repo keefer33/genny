@@ -10,8 +10,9 @@ import {
 /** Internal form field for `CharacterBaseLookPicker` (not sent to the API as-is). */
 export const CHARACTER_GENERATE_LOOK_BASE_IMAGE_FIELD = "baseLookImage";
 
-/** @deprecated Prefer override detection via `prepareCharacterGenerateLookSchema`. */
 export const CHARACTER_GENERATE_LOOK_IMAGES_FIELD = "images";
+
+export const CHARACTER_GENERATE_LOOK_PROMPT_FIELD = "prompt";
 
 export const CHARACTER_GENERATE_LOOK_IMAGE_FIELD = "image";
 export const CHARACTER_GENERATE_LOOK_AUDIO_SCHEMA_FIELD = "audio";
@@ -169,6 +170,52 @@ export function prepareCharacterGenerateLookSchema(
     audioBindings,
     overriddenSchemaFields,
   };
+}
+
+/** Keeps only prompt + extra reference images for the generate-look form. */
+export function restrictCharacterGenerateLookFormSchema(
+  prepared: PreparedCharacterGenerateLookSchema
+): FunctionSchema {
+  return restrictCharacterGenerateFormSchema(prepared, [
+    CHARACTER_GENERATE_LOOK_PROMPT_FIELD,
+    CHARACTER_GENERATE_LOOK_IMAGES_FIELD,
+  ]);
+}
+
+export const CHARACTER_GENERATE_SCENE_ASPECT_RATIO_FIELD = "aspect_ratio";
+
+/** Scene form: prompt, reference images, and aspect ratio. */
+export function restrictCharacterGenerateSceneFormSchema(
+  prepared: PreparedCharacterGenerateLookSchema
+): FunctionSchema {
+  return restrictCharacterGenerateFormSchema(prepared, [
+    CHARACTER_GENERATE_LOOK_PROMPT_FIELD,
+    CHARACTER_GENERATE_LOOK_IMAGES_FIELD,
+    CHARACTER_GENERATE_SCENE_ASPECT_RATIO_FIELD,
+  ]);
+}
+
+function restrictCharacterGenerateFormSchema(
+  prepared: PreparedCharacterGenerateLookSchema,
+  allowedFields: string[]
+): FunctionSchema {
+  const allowed = new Set(allowedFields);
+  const formSchema = structuredClone(prepared.formSchema) as FunctionSchema;
+
+  if (formSchema.properties) {
+    for (const key of Object.keys(formSchema.properties)) {
+      if (!allowed.has(key)) {
+        delete formSchema.properties[key];
+      }
+    }
+  }
+
+  if (formSchema.required?.length) {
+    formSchema.required = formSchema.required.filter(
+      (key) => allowed.has(key) && formSchema.properties?.[key] != null
+    );
+  }
+  return formSchema;
 }
 
 export function parseModelFunctionSchema(raw: unknown): FunctionSchema | null {

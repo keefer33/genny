@@ -23,8 +23,9 @@ export default [
     route("/characters", "pages/characters/Characters.tsx"),
     layout("pages/characters/CharacterLayout.tsx", [
       route("/characters/:characterId", "pages/characters/CharacterDetail.tsx"),
+      route("/characters/:characterId/looks", "pages/characters/CharacterLooks.tsx"),
+      route("/characters/:characterId/scenes", "pages/characters/CharacterScenes.tsx"),
     ]),
-    route("/voices/library", "pages/voices/VoiceLibrary.tsx"),
     route("/voices", "pages/voices/Voices.tsx"),
     layout("pages/voices/VoiceLayout.tsx", [
       route("/voices/:voiceId", "pages/voices/VoiceDetail.tsx"),

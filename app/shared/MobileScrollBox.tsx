@@ -18,7 +18,7 @@ export default function MobileScrollBox({ children }: { children: ReactNode }) {
           flexDirection: "column",
         }}
       >
-        <Stack gap="xs" px="xs" pt="xs" style={{ flex: 1, minHeight: 0 }}>
+        <Stack gap="xs" pt="xs" style={{ flex: 1, minHeight: 0 }}>
           {children}
         </Stack>
       </Box>

@@ -20,7 +20,6 @@ type Step = "pick" | "review";
 export function CreateCharacterFromLibraryModal() {
   const [opened, { open, close }] = useDisclosure(false);
   const [step, setStep] = useState<Step>("pick");
-  const [selectedVoice, setSelectedVoice] = useState<SharedVoiceItem | null>(null);
   const [pipelineLoading, setPipelineLoading] = useState(false);
   const [reviewInitialValues, setReviewInitialValues] = useState<Partial<CharacterFormValues>>();
 
@@ -32,7 +31,6 @@ export function CreateCharacterFromLibraryModal() {
 
   const resetModal = () => {
     setStep("pick");
-    setSelectedVoice(null);
     setPipelineLoading(false);
     setReviewInitialValues(undefined);
   };
@@ -46,10 +44,6 @@ export function CreateCharacterFromLibraryModal() {
   const handleOpen = () => {
     resetModal();
     open();
-  };
-
-  const handlePickVoice = async (voice: SharedVoiceItem) => {
-    setSelectedVoice(voice);
   };
 
   const runCloneAndAssist = async (voice: SharedVoiceItem): Promise<CharacterFormValues | null> => {
@@ -91,11 +85,10 @@ export function CreateCharacterFromLibraryModal() {
     };
   };
 
-  const handleContinue = async () => {
-    if (!selectedVoice) return;
+  const handlePickVoice = async (voice: SharedVoiceItem) => {
     setPipelineLoading(true);
     try {
-      const values = await runCloneAndAssist(selectedVoice);
+      const values = await runCloneAndAssist(voice);
       if (!values) return;
       setReviewInitialValues(values);
       setStep("review");
@@ -108,7 +101,7 @@ export function CreateCharacterFromLibraryModal() {
     const created = await createCharacter(values);
     if (!created?.id) return;
     handleClose();
-    navigate(`/characters/${encodeURIComponent(created.id)}`);
+    navigate(`/characters/${encodeURIComponent(created.id)}/looks`);
   };
 
   const reviewOpen = opened && step === "review";
@@ -130,11 +123,13 @@ export function CreateCharacterFromLibraryModal() {
         title="Create character from voice library"
         size="xl"
         centered
+        closeOnClickOutside={!pipelineLoading}
+        closeOnEscape={!pipelineLoading}
       >
         <Stack gap="md">
           <Text size="sm" c="dimmed">
-            Browse the ElevenLabs shared library, select a voice, then we clone it to your account
-            and generate a matching character profile.
+            Browse the ElevenLabs shared library and select a voice. We clone it to your account and
+            generate a matching character profile.
           </Text>
 
           <VoiceLibraryPicker
@@ -142,20 +137,12 @@ export function CreateCharacterFromLibraryModal() {
             onPick={handlePickVoice}
             pickDisabled={pipelineLoading}
             pickButtonLabel="Select"
-            selectedVoiceId={selectedVoice?.voice_id ?? null}
             scrollHeight={360}
           />
 
           <Group justify="flex-end">
             <Button variant="default" onClick={handleClose} disabled={pipelineLoading}>
               Cancel
-            </Button>
-            <Button
-              onClick={() => void handleContinue()}
-              loading={pipelineLoading}
-              disabled={!selectedVoice?.preview_url?.trim()}
-            >
-              Continue
             </Button>
           </Group>
         </Stack>
@@ -170,6 +157,7 @@ export function CreateCharacterFromLibraryModal() {
         title="Review character"
         submitLabel="Create character"
         submitting={createLoading}
+        showLookModelPicker
         initialValues={reviewInitialValues}
         onSubmit={handleCreate}
       />

@@ -71,7 +71,9 @@ export default function VoiceLayout() {
     const id = updated.id?.trim();
     if (!id) return;
     setSpeeches((prev) =>
-      prev.map((speech) => (speech.id === id ? { ...speech, ...updated, file: updated.file ?? speech.file } : speech))
+      prev.map((speech) =>
+        speech.id === id ? { ...speech, ...updated, file: updated.file ?? speech.file } : speech
+      )
     );
   }, []);
 

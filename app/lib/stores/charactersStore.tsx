@@ -17,6 +17,29 @@ export type UserCharacter = {
   baseLookThumbnailUrl?: string | null;
 };
 
+export type CharacterLookModelUiField = {
+  type?: string;
+  enum?: string[];
+  default?: unknown;
+  description?: string;
+};
+
+export type CharacterLookModelOption = {
+  label: string;
+  create_model_id: string;
+  edit_model_id: string;
+  fields: {
+    default: Record<string, unknown>;
+    ui: Record<string, CharacterLookModelUiField>;
+  };
+};
+
+export type CharacterLookModelSelection = {
+  createModelId: string;
+  editModelId: string;
+  payload: Record<string, unknown>;
+};
+
 export type CharacterFormValues = {
   name: string;
   description: string;
@@ -24,6 +47,7 @@ export type CharacterFormValues = {
   gender: string | null;
   age: string | null;
   ethnicity: string | null;
+  lookModel?: CharacterLookModelSelection;
 };
 
 export type CharacterDesignAssistResult = {
@@ -37,13 +61,19 @@ export type CharacterDesignAssistResult = {
 type CharactersState = {
   characters: UserCharacter[];
   charactersLoading: boolean;
+  selectedCharacter: UserCharacter | null;
+  setSelectedCharacter: (character: UserCharacter | null) => void;
   assistLoading: boolean;
   createLoading: boolean;
   updateLoading: boolean;
   deleteLoading: boolean;
   generateLookLoading: boolean;
+  generateSceneLoading: boolean;
+  lookModelOptions: CharacterLookModelOption[];
+  lookModelOptionsLoading: boolean;
   error: string | null;
   loadCharacters: () => Promise<void>;
+  loadLookModelOptions: () => Promise<CharacterLookModelOption[]>;
   fetchCharacterById: (characterId: string) => Promise<UserCharacter | null>;
   assistCharacterDesign: (payload: {
     description?: string;
@@ -63,21 +93,47 @@ type CharactersState = {
       name: string;
     }
   ) => Promise<boolean>;
+  generateCharacterScene: (
+    characterId: string,
+    values: {
+      modelId: string;
+      payload: Record<string, unknown>;
+      name: string;
+    }
+  ) => Promise<boolean>;
+  deleteCharacterScene: (sceneId: string, characterId: string) => Promise<boolean>;
+  updateCharacterSceneName: (
+    sceneId: string,
+    characterId: string,
+    name: string
+  ) => Promise<boolean>;
   switchCharacterBaseLook: (lookId: string, characterId: string) => Promise<boolean>;
   deleteCharacterLook: (lookId: string, characterId: string) => Promise<boolean>;
   updateCharacterLookName: (lookId: string, characterId: string, name: string) => Promise<boolean>;
+  retryCharacterLookGeneration: (
+    characterId: string,
+    lookId: string,
+    input?: { modelId: string; payload: Record<string, unknown>; name?: string }
+  ) => Promise<boolean>;
 };
+
+let lookModelOptionsInFlight: Promise<CharacterLookModelOption[]> | null = null;
 
 const useCharactersStore = create<CharactersState>((set, get) => ({
   characters: [],
   charactersLoading: false,
+  selectedCharacter: null,
   assistLoading: false,
   createLoading: false,
   updateLoading: false,
   deleteLoading: false,
   generateLookLoading: false,
+  generateSceneLoading: false,
+  lookModelOptions: [],
+  lookModelOptionsLoading: false,
   error: null,
 
+  setSelectedCharacter: (character) => set({ selectedCharacter: character }),
   loadCharacters: async () => {
     set({ charactersLoading: true, error: null });
     try {
@@ -92,6 +148,35 @@ const useCharactersStore = create<CharactersState>((set, get) => ({
       set({ charactersLoading: false, error: message });
       showNotification({ title: "Could not load characters", message, type: "error" });
     }
+  },
+
+  loadLookModelOptions: async () => {
+    if (lookModelOptionsInFlight) {
+      return lookModelOptionsInFlight;
+    }
+
+    set({ lookModelOptionsLoading: true });
+    lookModelOptionsInFlight = (async () => {
+      try {
+        const data = await authFetchJson<{ options?: CharacterLookModelOption[] }>(
+          `${endpoint}/characters/look-model-options`,
+          undefined,
+          { errorMessage: "Failed to load look models" }
+        );
+        const options = data.options ?? [];
+        set({ lookModelOptions: options, lookModelOptionsLoading: false });
+        return options;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Failed to load look models";
+        set({ lookModelOptions: [], lookModelOptionsLoading: false });
+        showNotification({ title: "Could not load look models", message, type: "error" });
+        return [];
+      } finally {
+        lookModelOptionsInFlight = null;
+      }
+    })();
+
+    return lookModelOptionsInFlight;
   },
 
   assistCharacterDesign: async (payload) => {
@@ -157,6 +242,7 @@ const useCharactersStore = create<CharactersState>((set, get) => ({
             gender: values.gender?.trim() || undefined,
             age: values.age?.trim() || undefined,
             ethnicity: values.ethnicity?.trim() || undefined,
+            lookModel: values.lookModel,
           }),
         },
         { errorMessage: "Failed to create character" }
@@ -203,6 +289,8 @@ const useCharactersStore = create<CharactersState>((set, get) => ({
       if (updated?.id) {
         set({
           characters: get().characters.map((c) => (c.id === updated.id ? updated : c)),
+          selectedCharacter:
+            get().selectedCharacter?.id === updated.id ? updated : get().selectedCharacter,
         });
         showNotification({
           title: "Character updated",
@@ -250,6 +338,83 @@ const useCharactersStore = create<CharactersState>((set, get) => ({
         message,
         type: "error",
       });
+      return false;
+    }
+  },
+
+  generateCharacterScene: async (characterId, values) => {
+    set({ generateSceneLoading: true, error: null });
+    try {
+      await authFetchJson(
+        `${endpoint}/characters/${encodeURIComponent(characterId)}/generate-scene`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            modelId: values.modelId,
+            payload: values.payload,
+            name: values.name.trim(),
+          }),
+        },
+        { errorMessage: "Failed to start scene generation" }
+      );
+      set({ generateSceneLoading: false });
+      showNotification({
+        title: "Generating scene",
+        message: "Your scene is being generated.",
+        type: "success",
+      });
+      return true;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to start scene generation";
+      set({ generateSceneLoading: false, error: message });
+      showNotification({
+        title: "Could not generate scene",
+        message,
+        type: "error",
+      });
+      return false;
+    }
+  },
+
+  deleteCharacterScene: async (sceneId, characterId) => {
+    try {
+      await authFetchJson(
+        `${endpoint}/characters/${encodeURIComponent(characterId)}/scenes/${encodeURIComponent(sceneId)}`,
+        { method: "DELETE" },
+        { errorMessage: "Failed to delete scene" }
+      );
+      showNotification({
+        title: "Scene deleted",
+        message: "The scene was removed.",
+        type: "success",
+      });
+      return true;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to delete scene";
+      showNotification({ title: "Could not delete scene", message, type: "error" });
+      return false;
+    }
+  },
+
+  updateCharacterSceneName: async (sceneId, characterId, name) => {
+    try {
+      await authFetchJson(
+        `${endpoint}/characters/${encodeURIComponent(characterId)}/scenes/${encodeURIComponent(sceneId)}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ name: name.trim() }),
+        },
+        { errorMessage: "Failed to update scene name" }
+      );
+      showNotification({
+        title: "Scene updated",
+        message: "Scene name was saved.",
+        type: "success",
+      });
+      return true;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to update scene name";
+      showNotification({ title: "Could not update scene", message, type: "error" });
       return false;
     }
   },
@@ -325,6 +490,35 @@ const useCharactersStore = create<CharactersState>((set, get) => ({
     }
   },
 
+  retryCharacterLookGeneration: async (characterId, lookId, input) => {
+    try {
+      await authFetchJson(
+        `${endpoint}/characters/${encodeURIComponent(characterId)}/looks/${encodeURIComponent(lookId)}/retry-generation`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            modelId: input?.modelId,
+            payload: input?.payload,
+            name: input?.name?.trim() || undefined,
+          }),
+        },
+        { errorMessage: "Failed to retry look generation" }
+      );
+      showNotification({
+        title: "Retrying look generation",
+        message: input?.payload
+          ? "Your look is being generated with the updated settings."
+          : "Your look is being generated again.",
+        type: "success",
+      });
+      return true;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to retry look generation";
+      showNotification({ title: "Could not retry look", message, type: "error" });
+      return false;
+    }
+  },
+
   deleteCharacter: async (characterId) => {
     set({ deleteLoading: true, error: null });
     try {
@@ -336,6 +530,8 @@ const useCharactersStore = create<CharactersState>((set, get) => ({
       set({
         deleteLoading: false,
         characters: get().characters.filter((c) => c.id !== characterId),
+        selectedCharacter:
+          get().selectedCharacter?.id === characterId ? null : get().selectedCharacter,
       });
       showNotification({
         title: "Character deleted",

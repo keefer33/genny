@@ -258,7 +258,7 @@ export default function GenerationsHistory({
       </Group>
 
       <Box style={{ flex: 1, minHeight: 0, minWidth: 0 }}>
-        <ScrollArea h="100%" type="auto">
+        <ScrollArea h="100%" type="auto" pb={isMobile ? undefined : "lg"}>
           {historyError ? (
             <Text c="dimmed" size="sm">
               {historyError}

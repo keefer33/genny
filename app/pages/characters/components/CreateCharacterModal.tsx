@@ -14,7 +14,7 @@ export function CreateCharacterModal() {
     const created = await createCharacter(values);
     if (!created?.id) return;
     closeCreate();
-    navigate(`/characters/${encodeURIComponent(created.id)}`);
+    navigate(`/characters/${encodeURIComponent(created.id)}/looks`);
   };
 
   return (
@@ -29,6 +29,7 @@ export function CreateCharacterModal() {
         submitLabel="Create character"
         submitting={createLoading}
         showUseVoiceProfileButton
+        showLookModelPicker
         onSubmit={handleCreate}
       />
     </>

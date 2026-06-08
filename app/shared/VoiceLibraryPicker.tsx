@@ -91,7 +91,6 @@ function VoicePickRow({
   pickButtonLabel,
   showPreviewAudio,
   alreadyAdded,
-  selected,
   onPick,
 }: {
   voice: SharedVoiceItem;
@@ -100,7 +99,6 @@ function VoicePickRow({
   pickButtonLabel: string;
   showPreviewAudio: boolean;
   alreadyAdded: boolean;
-  selected: boolean;
   onPick: (voice: SharedVoiceItem) => void;
 }) {
   const metaBits = [voice.gender, voice.accent, voice.age, voice.language, voice.category].filter(
@@ -109,15 +107,7 @@ function VoicePickRow({
   const description = voice.description?.trim() ?? "";
 
   return (
-    <Card
-      withBorder
-      radius="sm"
-      padding="sm"
-      style={{
-        borderColor: selected ? "var(--mantine-color-blue-6)" : undefined,
-        backgroundColor: selected ? "var(--mantine-color-blue-0)" : undefined,
-      }}
-    >
+    <Card withBorder radius="sm" padding="sm">
       <Group justify="space-between" align="flex-start" wrap="nowrap">
         <Stack gap={4} style={{ flex: 1, minWidth: 0 }}>
           <Group gap="xs">
@@ -127,11 +117,6 @@ function VoicePickRow({
             {alreadyAdded && (
               <Badge size="xs" color="gray" variant="light">
                 Added
-              </Badge>
-            )}
-            {selected && (
-              <Badge size="xs" color="blue" variant="light">
-                Selected
               </Badge>
             )}
           </Group>
@@ -172,7 +157,6 @@ export type VoiceLibraryPickerProps = {
   scrollHeight?: number | string;
   showPreviewAudio?: boolean;
   existingVoiceIds?: Set<string>;
-  selectedVoiceId?: string | null;
 };
 
 export function VoiceLibraryPicker({
@@ -183,7 +167,6 @@ export function VoiceLibraryPicker({
   scrollHeight = 360,
   showPreviewAudio = true,
   existingVoiceIds,
-  selectedVoiceId = null,
 }: VoiceLibraryPickerProps) {
   const [libraryVoices, setLibraryVoices] = useState<SharedVoiceItem[]>([]);
   const [libraryLoading, setLibraryLoading] = useState(false);
@@ -406,7 +389,6 @@ export function VoiceLibraryPicker({
                 pickButtonLabel={pickButtonLabel}
                 showPreviewAudio={showPreviewAudio}
                 alreadyAdded={existingVoiceIds?.has(v.voice_id) ?? false}
-                selected={selectedVoiceId === v.voice_id}
                 onPick={handlePick}
               />
             ))}
