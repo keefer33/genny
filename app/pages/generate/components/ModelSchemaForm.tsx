@@ -1,10 +1,21 @@
-import { Button, Input, ScrollArea, Stack, Text, Loader, Box, Skeleton } from "@mantine/core";
+import {
+  Button,
+  Input,
+  ScrollArea,
+  Stack,
+  Text,
+  Loader,
+  Box,
+  Skeleton,
+  Group,
+} from "@mantine/core";
 import { useEffect, useMemo } from "react";
 import { FormProvider, useForm } from "~/lib/ContextForm";
 import { showNotification } from "~/lib/notificationUtils";
 import useGenerationsStore from "~/lib/stores/generateStore";
 import { CostBadge } from "~/shared/CostBadge";
 import { GenerationsHistoryModal } from "~/shared/GenerationsHistoryModal";
+import { usePaymentModal } from "~/shared/PaymentModal";
 import useAppStore from "~/lib/stores/appStore";
 import { useDisclosure } from "@mantine/hooks";
 import {
@@ -20,17 +31,14 @@ import {
 import { SchemaNestedFields } from "./SchemaNestedFields";
 
 export type ModelSchemaFormProps = {
-  /** Merged on top of schema defaults when the model loads (e.g. character edit prefill). */
+  /** Merged on top of schema defaults when the model loads. */
   initialValuesOverride?: Record<string, unknown>;
-  /** When set, runs are tagged `app: character` and linked to this character. */
-  characterId?: string;
   /** Called after a run is successfully started (receives API run row). */
   onSubmitSuccess?: (run: unknown) => void;
 };
 
 export default function ModelSchemaForm({
   initialValuesOverride,
-  characterId,
   onSubmitSuccess,
 }: ModelSchemaFormProps = {}) {
   const {
@@ -43,6 +51,8 @@ export default function ModelSchemaForm({
   } = useGenerationsStore();
 
   const { isMobile } = useAppStore();
+  const userUsageBalance = useAppStore((s) => s.userUsageBalance);
+  const { openPaymentModal } = usePaymentModal();
   const [runHistoryModalOpened, { open: openRunHistoryModal, close: closeRunHistoryModal }] =
     useDisclosure(false);
 
@@ -154,16 +164,27 @@ export default function ModelSchemaForm({
   } else if (normalizedMediaType.includes("video")) {
     generationType = "video";
   }
+  const costKnown = latestCost != null && !costLoading;
+  const hasInsufficientFunds = costKnown && userUsageBalance < latestCost!;
+
   const onSubmit = form.onSubmit(async (values) => {
     if (!selectedModel?.id) {
       showNotification({ message: "No model selected.", type: "error" });
+      return;
+    }
+    if (costKnown && userUsageBalance < (latestCost ?? 0)) {
+      openPaymentModal(null);
+      showNotification({
+        title: "Insufficient balance",
+        message: "Add funds to your account before generating.",
+        type: "warning",
+      });
       return;
     }
     try {
       const run = await generateFromGenModel({
         id: selectedModel.id,
         payload: sanitizePayload(values),
-        ...(characterId ? { app: "character", character_id: characterId } : {}),
       });
       showNotification({
         title: "Success",
@@ -171,7 +192,7 @@ export default function ModelSchemaForm({
         type: "success",
       });
       onSubmitSuccess?.(run);
-      if (isMobile && !characterId) {
+      if (isMobile) {
         openRunHistoryModal();
       }
     } catch (err) {
@@ -210,23 +231,47 @@ export default function ModelSchemaForm({
             </Stack>
           </ScrollArea>
           <Box px="xs" pt="xs">
-            <Button
-              type="submit"
-              variant="filled"
-              size="md"
-              fullWidth
-              justify="space-between"
-              loading={runLoading}
-              rightSection={
-                costLoading ? (
-                  <Loader type="dots" color="gray.4" size="sm" />
-                ) : latestCost != null ? (
-                  <CostBadge cost={latestCost} size="sm" clickable={false} />
-                ) : null
-              }
-            >
-              Generate
-            </Button>
+            {hasInsufficientFunds ? (
+              <Stack gap="xs">
+                <Group gap={6} justify="center" wrap="wrap">
+                  <Text size="xs" c="dimmed">
+                    Balance
+                  </Text>
+                  <CostBadge cost={userUsageBalance} size="xs" clickable={false} />
+                  <Text size="xs" c="dimmed">
+                    · Est.
+                  </Text>
+                  <CostBadge cost={latestCost!} size="xs" clickable={false} />
+                </Group>
+                <Button
+                  type="button"
+                  variant="default"
+                  size="md"
+                  fullWidth
+                  onClick={() => openPaymentModal(null)}
+                >
+                  Add funds
+                </Button>
+              </Stack>
+            ) : (
+              <Button
+                type="submit"
+                variant="filled"
+                size="md"
+                fullWidth
+                justify="space-between"
+                loading={runLoading}
+                rightSection={
+                  costLoading ? (
+                    <Loader type="dots" color="gray.4" size="sm" />
+                  ) : latestCost != null ? (
+                    <CostBadge cost={latestCost} size="sm" clickable={false} />
+                  ) : null
+                }
+              >
+                Generate
+              </Button>
+            )}
           </Box>
         </form>
       </FormProvider>

@@ -90,6 +90,11 @@ export type GenerationsHistoryItem = {
   /** When present, used to build previews if `preview_urls` is empty. */
   user_files?: Array<{
     id: string;
+    character_id?: string | null;
+    voice_id?: string | null;
+    character_name?: string | null;
+    voice_name?: string | null;
+    upload_type?: string | null;
     file_path?: string | null;
     file_size?: number | null;
     file_type?: string | null;
@@ -190,7 +195,6 @@ export interface GenerationsStoreState {
     id: string;
     payload: Record<string, unknown>;
     app?: string;
-    character_id?: string;
   }) => Promise<GenerateResponse>;
   calculateGenerateCost: (input: {
     modelId: string;

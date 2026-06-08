@@ -21,7 +21,15 @@ export default [
     route("/agents", "pages/agents/Agents.tsx"),
     route("/files", "pages/files/MemberFiles.tsx"),
     route("/characters", "pages/characters/Characters.tsx"),
-    route("/characters/:characterId", "pages/characters/CharacterDetail.tsx"),
+    layout("pages/characters/CharacterLayout.tsx", [
+      route("/characters/:characterId", "pages/characters/CharacterDetail.tsx"),
+      route("/characters/:characterId/looks", "pages/characters/CharacterLooks.tsx"),
+      route("/characters/:characterId/scenes", "pages/characters/CharacterScenes.tsx"),
+    ]),
+    route("/voices", "pages/voices/Voices.tsx"),
+    layout("pages/voices/VoiceLayout.tsx", [
+      route("/voices/:voiceId", "pages/voices/VoiceDetail.tsx"),
+    ]),
     route("/generations", "pages/generations/Generations.tsx"),
     route("/generate", "pages/generate/Generate.tsx"),
     layout("pages/generate/GenerateModelLayout.tsx", [

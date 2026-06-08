@@ -12,34 +12,27 @@ import {
   Stack,
   Text,
   TextInput,
+  Badge,
 } from "@mantine/core";
 import { RiFilterOffLine, RiSearchLine } from "@remixicon/react";
 import { useEffect, useLayoutEffect, useState } from "react";
-import useCharactersStore, {
+import { authFetchJson } from "~/lib/stores/authFetch";
+import { endpoint } from "~/lib/utils";
+import {
+  ACCENT_OPTIONS,
+  CATEGORY_OPTIONS,
+  GENDER_OPTIONS,
+  LANGUAGE_OPTIONS,
+} from "~/lib/voices/voiceLibraryConstants";
+import {
+  buildNextFilters,
+  buildVoiceLibraryQueryString,
+  trimFilters,
+  VOICE_LIBRARY_PAGE_SIZE_DEFAULT,
+  type SharedLibraryPayload,
   type SharedVoiceItem,
   type VoiceLibraryFilters,
-  VOICE_LIBRARY_PAGE_SIZE_DEFAULT,
-} from "~/lib/stores/charactersStore";
-
-function trimFilters(f: VoiceLibraryFilters): VoiceLibraryFilters | undefined {
-  const out: VoiceLibraryFilters = {};
-  for (const [key, raw] of Object.entries(f)) {
-    const v = typeof raw === "string" ? raw.trim() : "";
-    if (v) (out as Record<string, string>)[key] = v;
-  }
-  return Object.keys(out).length > 0 ? out : undefined;
-}
-
-function buildNextFilters(
-  prev: VoiceLibraryFilters,
-  key: keyof VoiceLibraryFilters,
-  value: string | null
-): VoiceLibraryFilters {
-  const next = { ...prev };
-  if (value == null || value === "") delete next[key];
-  else next[key] = value;
-  return next;
-}
+} from "~/lib/voices/voiceLibraryQuery";
 
 const VOICE_LIBRARY_FORM_STORAGE_KEY = "genny_voice_library_search_form";
 
@@ -79,7 +72,7 @@ function writeVoiceLibraryFormToStorage(filters: VoiceLibraryFilters, search: st
       })
     );
   } catch {
-    /* ignore quota / private mode */
+    /* ignore */
   }
 }
 
@@ -97,6 +90,7 @@ function VoicePickRow({
   pickDisabled,
   pickButtonLabel,
   showPreviewAudio,
+  alreadyAdded,
   onPick,
 }: {
   voice: SharedVoiceItem;
@@ -104,6 +98,7 @@ function VoicePickRow({
   pickDisabled?: boolean;
   pickButtonLabel: string;
   showPreviewAudio: boolean;
+  alreadyAdded: boolean;
   onPick: (voice: SharedVoiceItem) => void;
 }) {
   const metaBits = [voice.gender, voice.accent, voice.age, voice.language, voice.category].filter(
@@ -115,9 +110,16 @@ function VoicePickRow({
     <Card withBorder radius="sm" padding="sm">
       <Group justify="space-between" align="flex-start" wrap="nowrap">
         <Stack gap={4} style={{ flex: 1, minWidth: 0 }}>
-          <Text fw={500} size="sm" lineClamp={1}>
-            {voice.name ?? voice.voice_id}
-          </Text>
+          <Group gap="xs">
+            <Text fw={500} size="sm" lineClamp={1}>
+              {voice.name ?? voice.voice_id}
+            </Text>
+            {alreadyAdded && (
+              <Badge size="xs" color="gray" variant="light">
+                Added
+              </Badge>
+            )}
+          </Group>
           <Text size="xs" c="dimmed" lineClamp={1}>
             {metaBits.length > 0 ? metaBits.join(" · ") : voice.voice_id}
           </Text>
@@ -134,7 +136,12 @@ function VoicePickRow({
             />
           ) : null}
         </Stack>
-        <Button size="xs" loading={busy} onClick={() => onPick(voice)} disabled={pickDisabled}>
+        <Button
+          size="xs"
+          loading={busy}
+          onClick={() => onPick(voice)}
+          disabled={pickDisabled || alreadyAdded || !voice.preview_url?.trim()}
+        >
           {pickButtonLabel}
         </Button>
       </Group>
@@ -142,183 +149,100 @@ function VoicePickRow({
   );
 }
 
-const GENDER_OPTIONS = [
-  { value: "male", label: "Male" },
-  { value: "female", label: "Female" },
-  { value: "neutral", label: "Neutral" },
-];
-
-/** ElevenLabs shared-voices language codes (name + code for search). */
-const LANGUAGE_OPTIONS = [
-  { value: "af", label: "Afrikaans (af)" },
-  { value: "ar", label: "Arabic (ar)" },
-  { value: "hy", label: "Armenian (hy)" },
-  { value: "as", label: "Assamese (as)" },
-  { value: "az", label: "Azerbaijani (az)" },
-  { value: "be", label: "Belarusian (be)" },
-  { value: "bn", label: "Bengali (bn)" },
-  { value: "bs", label: "Bosnian (bs)" },
-  { value: "bg", label: "Bulgarian (bg)" },
-  { value: "ca", label: "Catalan (ca)" },
-  { value: "ceb", label: "Cebuano (ceb)" },
-  { value: "ny", label: "Chichewa (ny)" },
-  { value: "hr", label: "Croatian (hr)" },
-  { value: "cs", label: "Czech (cs)" },
-  { value: "da", label: "Danish (da)" },
-  { value: "nl", label: "Dutch (nl)" },
-  { value: "en", label: "English (en)" },
-  { value: "et", label: "Estonian (et)" },
-  { value: "fil", label: "Filipino (fil)" },
-  { value: "fi", label: "Finnish (fi)" },
-  { value: "fr", label: "French (fr)" },
-  { value: "gl", label: "Galician (gl)" },
-  { value: "ka", label: "Georgian (ka)" },
-  { value: "de", label: "German (de)" },
-  { value: "el", label: "Greek (el)" },
-  { value: "gu", label: "Gujarati (gu)" },
-  { value: "ha", label: "Hausa (ha)" },
-  { value: "he", label: "Hebrew (he)" },
-  { value: "hi", label: "Hindi (hi)" },
-  { value: "hu", label: "Hungarian (hu)" },
-  { value: "is", label: "Icelandic (is)" },
-  { value: "id", label: "Indonesian (id)" },
-  { value: "ga", label: "Irish (ga)" },
-  { value: "it", label: "Italian (it)" },
-  { value: "ja", label: "Japanese (ja)" },
-  { value: "jv", label: "Javanese (jv)" },
-  { value: "kn", label: "Kannada (kn)" },
-  { value: "kk", label: "Kazakh (kk)" },
-  { value: "ky", label: "Kirghiz (ky)" },
-  { value: "ko", label: "Korean (ko)" },
-  { value: "lv", label: "Latvian (lv)" },
-  { value: "ln", label: "Lingala (ln)" },
-  { value: "lt", label: "Lithuanian (lt)" },
-  { value: "lb", label: "Luxembourgish (lb)" },
-  { value: "mk", label: "Macedonian (mk)" },
-  { value: "ms", label: "Malay (ms)" },
-  { value: "ml", label: "Malayalam (ml)" },
-  { value: "zh", label: "Mandarin Chinese (zh)" },
-  { value: "mr", label: "Marathi (mr)" },
-  { value: "ne", label: "Nepali (ne)" },
-  { value: "no", label: "Norwegian (no)" },
-  { value: "ps", label: "Pashto (ps)" },
-  { value: "fa", label: "Persian (fa)" },
-  { value: "pl", label: "Polish (pl)" },
-  { value: "pt", label: "Portuguese (pt)" },
-  { value: "pa", label: "Punjabi (pa)" },
-  { value: "ro", label: "Romanian (ro)" },
-  { value: "ru", label: "Russian (ru)" },
-  { value: "sr", label: "Serbian (sr)" },
-  { value: "sd", label: "Sindhi (sd)" },
-  { value: "sk", label: "Slovak (sk)" },
-  { value: "sl", label: "Slovenian (sl)" },
-  { value: "so", label: "Somali (so)" },
-  { value: "es", label: "Spanish (es)" },
-  { value: "sw", label: "Swahili (sw)" },
-  { value: "sv", label: "Swedish (sv)" },
-  { value: "ta", label: "Tamil (ta)" },
-  { value: "te", label: "Telugu (te)" },
-  { value: "th", label: "Thai (th)" },
-  { value: "tr", label: "Turkish (tr)" },
-  { value: "uk", label: "Ukrainian (uk)" },
-  { value: "ur", label: "Urdu (ur)" },
-  { value: "vi", label: "Vietnamese (vi)" },
-  { value: "cy", label: "Welsh (cy)" },
-];
-
-/** ElevenLabs shared-voices accents — `value` is the filter string (lowercase). */
-const ACCENT_OPTIONS = [
-  { value: "standard", label: "Standard" },
-  { value: "american", label: "American" },
-  { value: "british", label: "British" },
-  { value: "australian", label: "Australian" },
-  { value: "canadian", label: "Canadian" },
-  { value: "indian", label: "Indian" },
-  { value: "irish", label: "Irish" },
-  { value: "scottish", label: "Scottish" },
-  { value: "south african", label: "South African" },
-  { value: "new zealand", label: "New Zealand" },
-  { value: "west indies", label: "West Indies" },
-  { value: "american-southern", label: "American-Southern" },
-  { value: "american-new york", label: "American-New York" },
-  { value: "american-midwest", label: "American-Midwest" },
-  { value: "british-london (cockney or posh)", label: "British-London (Cockney or Posh)" },
-  { value: "spanish-castilian", label: "Spanish-Castilian" },
-  { value: "spanish-latin american", label: "Spanish-Latin American" },
-  { value: "portuguese-brazilian", label: "Portuguese-Brazilian" },
-];
-
-const CATEGORY_OPTIONS = [
-  { value: "professional", label: "professional" },
-  { value: "famous", label: "famous" },
-  { value: "high_quality", label: "high_quality" },
-];
-
 export type VoiceLibraryPickerProps = {
-  userId: string;
   active: boolean;
   onPick: (voice: SharedVoiceItem) => void;
   pickDisabled?: boolean;
   pickButtonLabel?: string;
   scrollHeight?: number | string;
-  /** When false, hides preview audio on each row. Default true. */
   showPreviewAudio?: boolean;
+  existingVoiceIds?: Set<string>;
 };
 
 export function VoiceLibraryPicker({
-  userId,
   active,
   onPick,
   pickDisabled,
-  pickButtonLabel = "Use",
-  scrollHeight = 320,
+  pickButtonLabel = "Select",
+  scrollHeight = 360,
   showPreviewAudio = true,
+  existingVoiceIds,
 }: VoiceLibraryPickerProps) {
-  const {
-    libraryVoices,
-    libraryLoading,
-    libraryHasMore,
-    libraryTotalCount,
-    libraryPage,
-    error: libraryError,
-    loadVoiceLibrary,
-    clearVoiceLibrary,
-  } = useCharactersStore();
-
+  const [libraryVoices, setLibraryVoices] = useState<SharedVoiceItem[]>([]);
+  const [libraryLoading, setLibraryLoading] = useState(false);
+  const [libraryHasMore, setLibraryHasMore] = useState(false);
+  const [libraryTotalCount, setLibraryTotalCount] = useState<number | null>(null);
+  const [libraryPage, setLibraryPage] = useState(0);
+  const [libraryError, setLibraryError] = useState<string | null>(null);
   const [searchInput, setSearchInput] = useState("");
   const [filters, setFilters] = useState<VoiceLibraryFilters>({});
   const [pickingVoiceId, setPickingVoiceId] = useState<string | null>(null);
 
+  const loadVoiceLibrary = async (args: {
+    search: string;
+    filters?: VoiceLibraryFilters;
+    page: number;
+    pageSize: number;
+  }) => {
+    setLibraryLoading(true);
+    setLibraryError(null);
+    try {
+      const qs = buildVoiceLibraryQueryString(args);
+      const payload = await authFetchJson<SharedLibraryPayload>(
+        `${endpoint}/voices/shared-library?${qs}`,
+        undefined,
+        { errorMessage: "Failed to load voice library" }
+      );
+      const voices = (payload.voices ?? []).filter(
+        (v): v is SharedVoiceItem => typeof v?.voice_id === "string" && v.voice_id.length > 0
+      );
+      setLibraryVoices(voices);
+      setLibraryHasMore(Boolean(payload.has_more));
+      setLibraryTotalCount(typeof payload.total_count === "number" ? payload.total_count : null);
+      setLibraryPage(args.page);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to load voice library";
+      setLibraryError(message);
+      setLibraryVoices([]);
+      setLibraryHasMore(false);
+      setLibraryTotalCount(null);
+      setLibraryPage(0);
+    } finally {
+      setLibraryLoading(false);
+    }
+  };
+
   useLayoutEffect(() => {
-    if (!active || !userId) return;
+    if (!active) return;
     const { filters: f, search: s } = readVoiceLibraryFormFromStorage();
     setFilters(f);
     setSearchInput(s);
-  }, [active, userId]);
+  }, [active]);
 
   useEffect(() => {
     if (!active) {
-      clearVoiceLibrary();
+      setLibraryVoices([]);
+      setLibraryHasMore(false);
+      setLibraryTotalCount(null);
+      setLibraryPage(0);
+      setLibraryError(null);
       return;
     }
-    if (!userId) return;
     const { filters: f, search: s } = readVoiceLibraryFormFromStorage();
     void loadVoiceLibrary({
-      userId,
       search: s.trim(),
       filters: trimFilters(f),
       page: 0,
       pageSize: VOICE_LIBRARY_PAGE_SIZE_DEFAULT,
     });
-  }, [active, userId, loadVoiceLibrary, clearVoiceLibrary]);
+  }, [active]);
 
   const applyFilterAndFetch = (key: keyof VoiceLibraryFilters, value: string | null) => {
-    if (!userId || !active) return;
+    if (!active) return;
     const next = buildNextFilters(filters, key, value);
     setFilters(next);
     writeVoiceLibraryFormToStorage(next, searchInput);
     void loadVoiceLibrary({
-      userId,
       search: searchInput,
       filters: trimFilters(next),
       page: 0,
@@ -327,9 +251,8 @@ export function VoiceLibraryPicker({
   };
 
   const fetchPage = (page: number) => {
-    if (!userId || !active) return;
+    if (!active) return;
     void loadVoiceLibrary({
-      userId,
       search: searchInput,
       filters: trimFilters(filters),
       page,
@@ -346,9 +269,8 @@ export function VoiceLibraryPicker({
     clearVoiceLibraryFormStorage();
     setSearchInput("");
     setFilters({});
-    if (!userId || !active) return;
+    if (!active) return;
     void loadVoiceLibrary({
-      userId,
       search: "",
       filters: undefined,
       page: 0,
@@ -466,6 +388,7 @@ export function VoiceLibraryPicker({
                 pickDisabled={pickDisabled}
                 pickButtonLabel={pickButtonLabel}
                 showPreviewAudio={showPreviewAudio}
+                alreadyAdded={existingVoiceIds?.has(v.voice_id) ?? false}
                 onPick={handlePick}
               />
             ))}

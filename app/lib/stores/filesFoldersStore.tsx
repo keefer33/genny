@@ -118,8 +118,7 @@ interface FilesFoldersState {
     selectedTags?: string[],
     uploadType?: string | null,
     fileTypeFilter?: FileTypeFilter | null,
-    _isPageChange?: boolean,
-    characterId?: string | null
+    _isPageChange?: boolean
   ) => Promise<void>;
   handleFilesPageChange: (page: number) => void;
   handleFileUpdate: () => Promise<void>;
@@ -392,8 +391,7 @@ const useFilesFoldersStoreBase = create<FilesFoldersState>((set, get) => ({
     selectedTags?: string[],
     uploadType?: string | null,
     fileTypeFilter?: FileTypeFilter | null,
-    _isPageChange?: boolean,
-    characterId?: string | null
+    _isPageChange?: boolean
   ) => {
     const finalLimit = get().filesPageSize;
     // Auto-get userId from appStore if not provided
@@ -432,9 +430,6 @@ const useFilesFoldersStoreBase = create<FilesFoldersState>((set, get) => ({
       }
       if (finalFileTypeFilter && finalFileTypeFilter !== "all") {
         params.set("fileTypeFilter", finalFileTypeFilter);
-      }
-      if (characterId?.trim()) {
-        params.set("characterId", characterId.trim());
       }
       const json = await authFetchJson<{
         files: FileData[];

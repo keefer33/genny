@@ -1,8 +1,28 @@
-import { Box } from "@mantine/core";
+import { Badge, Box } from "@mantine/core";
+import { GennyAudioPlayer } from "~/shared/GennyAudioPlayer";
 import { MediaTypeBadge } from "~/shared/MediaTypeBadge";
 
-export function HistoryPreviewWithBadge({ url, file_type }: { url: string; file_type: string }) {
+function formatUploadTypeLabel(uploadType: string): string {
+  return uploadType.trim().replace(/_/g, " ");
+}
+
+export function HistoryPreviewWithBadge({
+  url,
+  file_type,
+  upload_type,
+  entityName,
+  isBaseLook = false,
+}: {
+  url: string;
+  file_type: string;
+  upload_type?: string | null;
+  /** Character or voice display name when the file is linked. */
+  entityName?: string | null;
+  isBaseLook?: boolean;
+}) {
   const isAudio = file_type.startsWith("audio/");
+  const uploadTypeLabel = upload_type?.trim() ? formatUploadTypeLabel(upload_type) : "";
+  const entityLabel = entityName?.trim() || "";
 
   return (
     <Box pos="relative" w="100%" h="100%">
@@ -17,19 +37,7 @@ export function HistoryPreviewWithBadge({ url, file_type }: { url: string; file_
           }}
           p="xs"
         >
-          <audio
-            src={url}
-            controls
-            preload="metadata"
-            aria-label="Audio preview"
-            onClick={(e) => e.stopPropagation()}
-            onPointerDown={(e) => e.stopPropagation()}
-            style={{
-              width: "100%",
-              maxWidth: "100%",
-              height: 40,
-            }}
-          />
+          <GennyAudioPlayer src={url} compact stopPropagation aria-label="Audio preview" />
         </Box>
       ) : (
         <img
@@ -52,6 +60,53 @@ export function HistoryPreviewWithBadge({ url, file_type }: { url: string; file_
         left={6}
         style={{ zIndex: 2, textTransform: "none", pointerEvents: "none" }}
       />
+      {isBaseLook ? (
+        <Badge
+          size="sm"
+          variant="filled"
+          pos="absolute"
+          top={6}
+          right={6}
+          style={{ zIndex: 2, textTransform: "none", pointerEvents: "none" }}
+        >
+          Base look
+        </Badge>
+      ) : null}
+      {uploadTypeLabel ? (
+        <Badge
+          size="sm"
+          variant="light"
+          color="gray"
+          pos="absolute"
+          bottom={6}
+          left={6}
+          style={{ zIndex: 2, textTransform: "none", pointerEvents: "none" }}
+        >
+          {uploadTypeLabel}
+        </Badge>
+      ) : null}
+      {entityLabel ? (
+        <Badge
+          size="sm"
+          variant="filled"
+          color="blue"
+          pos="absolute"
+          bottom={6}
+          right={6}
+          style={{
+            zIndex: 2,
+            textTransform: "none",
+            pointerEvents: "none",
+            maxWidth: "45%",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+          title={entityLabel}
+        >
+          {entityLabel}
+        </Badge>
+      ) : null}
     </Box>
   );
 }

@@ -697,8 +697,8 @@ export function resolveMediaPickerSettings(
           : null;
 
   const min =
-    Number.isFinite(minCandidate) && (minCandidate as number) > 0
-      ? Math.floor(minCandidate as number)
+    minCandidate != null && Number.isFinite(minCandidate)
+      ? Math.max(0, Math.floor(minCandidate as number))
       : 1;
   let max =
     Number.isFinite(maxCandidate) && (maxCandidate as number) > 0

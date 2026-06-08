@@ -6,6 +6,7 @@ import { RiCloseLine } from "@remixicon/react";
 import { extensionMediaKind } from "~/lib/utils";
 import type { FileTypeFilter } from "~/lib/stores/filesFoldersStore";
 import FileDetailModal from "~/shared/FileDetailModal";
+import { GennyAudioPlayer } from "~/shared/GennyAudioPlayer";
 import { FilePickerModal } from "~/shared/FilePickerModal";
 import { buildMinimalFile, fetchUserFileByPath } from "./mediaFilePickerByPath";
 
@@ -115,11 +116,11 @@ export function PickerMediaRow({
                   />
                 )
               ) : fileType === "audio" ? (
-                <audio
+                <GennyAudioPlayer
                   src={fileUrl}
-                  controls
-                  preload="metadata"
-                  style={{ maxWidth: 220, height: 36 }}
+                  compact
+                  stopPropagation
+                  wrapperProps={{ style: { maxWidth: 220 } }}
                 />
               ) : (
                 <Text size="sm" c="dimmed">

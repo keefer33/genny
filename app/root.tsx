@@ -9,6 +9,7 @@ import {
 import mantine from "@mantine/core/styles.css?url";
 import notifications from "@mantine/notifications/styles.css?url";
 import carousel from "@mantine/carousel/styles.css?url";
+import mantineAudio from "@gfazioli/mantine-audio/styles.css?url";
 import globalStyles from "./global.css?url";
 import useAppStore from "~/lib/stores/appStore";
 import { useEffect } from "react";
@@ -102,6 +103,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <link rel="stylesheet" href={mantine} />
         <link rel="stylesheet" href={notifications} />
         <link rel="stylesheet" href={carousel} />
+        <link rel="stylesheet" href={mantineAudio} />
         <link rel="stylesheet" href={globalStyles} />
         <script src="https://accounts.google.com/gsi/client" async></script>
       </head>

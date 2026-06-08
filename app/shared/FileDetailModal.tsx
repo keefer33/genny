@@ -20,6 +20,7 @@ interface UserFileTag {
 
 export interface FileDetailModalFileItem {
   id: string;
+  character_id?: string;
   file_name: string;
   file_path: string;
   file_size: number;
@@ -28,6 +29,7 @@ export interface FileDetailModalFileItem {
   user_file_tags?: UserFileTag[];
   thumbnail_url?: string;
   generated_info?: unknown;
+  upload_type?: string;
 }
 
 export type FileDetailModalFile = Array<
@@ -50,6 +52,8 @@ type FileDetailModalProps = {
   onDownload?: () => void;
   onEdit?: () => void;
   onTagsUpdated?: (fileId: string, updatedTags: any) => void;
+  /** Called after a non-delete file mutation (e.g. switch base look). */
+  onFileUpdated?: (fileId: string) => void;
   /** Called after a file is deleted from {@link FileDetails} (refresh lists, close modal). */
   onFileDeleted?: (fileId: string) => void;
 };
@@ -89,6 +93,7 @@ export default function FileDetailModal({
   opened,
   onClose,
   onFileDeleted,
+  onFileUpdated,
 }: FileDetailModalProps) {
   const [internalOpened, { open: openFileDetailModal, close: closeFileDetailModal }] =
     useDisclosure(false);
@@ -103,6 +108,8 @@ export default function FileDetailModal({
     user_file_tags: f.user_file_tags,
     thumbnail_url: f.thumbnail_url,
     generated_info: f.generated_info,
+    upload_type: f.upload_type,
+    character_id: f.character_id,
   }));
   const firstFileId = files[0]?.id ?? "file-0";
   const fileDetailOpened = opened ?? internalOpened;
@@ -154,7 +161,12 @@ export default function FileDetailModal({
       >
         {files.length <= 1 ? (
           files[0] ? (
-            <FileDetails file={files[0]} onTagsUpdated={onTagsUpdated} onDeleted={onFileDeleted} />
+            <FileDetails
+              file={files[0]}
+              onTagsUpdated={onTagsUpdated}
+              onUpdated={onFileUpdated}
+              onDeleted={onFileDeleted}
+            />
           ) : null
         ) : (
           <Tabs defaultValue={firstFileId} keepMounted={false}>
@@ -169,7 +181,12 @@ export default function FileDetailModal({
             </Tabs.List>
             {files.map((f) => (
               <Tabs.Panel key={f.id} value={f.id}>
-                <FileDetails file={f} onTagsUpdated={onTagsUpdated} onDeleted={onFileDeleted} />
+                <FileDetails
+                  file={f}
+                  onTagsUpdated={onTagsUpdated}
+                  onUpdated={onFileUpdated}
+                  onDeleted={onFileDeleted}
+                />
               </Tabs.Panel>
             ))}
           </Tabs>

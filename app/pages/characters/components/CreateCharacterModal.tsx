@@ -1,52 +1,37 @@
-import { Button, Group, Modal, Stack, Text } from "@mantine/core";
-import type { SharedVoiceItem } from "~/lib/stores/charactersStore";
-import { VoiceLibraryPicker } from "~/pages/characters/components/VoiceLibraryPicker";
+import { Button } from "@mantine/core";
+import { RiAddLine } from "@remixicon/react";
+import useCharactersStore, { type CharacterFormValues } from "~/lib/stores/charactersStore";
+import { CharacterUpsertModal } from "~/pages/characters/components/CharacterUpsertModal";
+import { useDisclosure } from "@mantine/hooks";
+import { useNavigate } from "react-router";
 
-export type CreateCharacterPayload = {
-  voice_id: string;
-};
-
-type CreateCharacterModalProps = {
-  opened: boolean;
-  onClose: () => void;
-  userId: string;
-  submitting?: boolean;
-  onSubmit: (payload: CreateCharacterPayload) => void | Promise<void>;
-};
-
-export function CreateCharacterModal({
-  opened,
-  onClose,
-  userId,
-  submitting = false,
-  onSubmit,
-}: CreateCharacterModalProps) {
-  const handleUseVoice = async (voice: SharedVoiceItem) => {
-    const voiceId = voice.voice_id?.trim();
-    if (!voiceId || submitting) return;
-    await onSubmit({ voice_id: voiceId });
+export function CreateCharacterModal() {
+  const [createOpened, { open: openCreate, close: closeCreate }] = useDisclosure(false);
+  const createCharacter = useCharactersStore((s) => s.createCharacter);
+  const createLoading = useCharactersStore((s) => s.createLoading);
+  const navigate = useNavigate();
+  const handleCreate = async (values: CharacterFormValues) => {
+    const created = await createCharacter(values);
+    if (!created?.id) return;
+    closeCreate();
+    navigate(`/characters/${encodeURIComponent(created.id)}/looks`);
   };
 
   return (
-    <Modal opened={opened} onClose={onClose} title="New character" centered size="xl">
-      <Stack gap="md">
-        <Text size="sm" c="dimmed">
-          Choose a voice from the ElevenLabs library. We will save the preview audio and create your
-          character with that voice.
-        </Text>
-        <VoiceLibraryPicker
-          userId={userId}
-          active={opened}
-          onPick={handleUseVoice}
-          pickDisabled={submitting}
-          scrollHeight={360}
-        />
-        <Group justify="flex-end">
-          <Button variant="default" onClick={onClose} disabled={submitting}>
-            Cancel
-          </Button>
-        </Group>
-      </Stack>
-    </Modal>
+    <>
+      <Button size="xs" leftSection={<RiAddLine size={18} />} onClick={openCreate}>
+        New
+      </Button>
+      <CharacterUpsertModal
+        opened={createOpened}
+        onClose={closeCreate}
+        title="Create character"
+        submitLabel="Create character"
+        submitting={createLoading}
+        showUseVoiceProfileButton
+        showLookModelPicker
+        onSubmit={handleCreate}
+      />
+    </>
   );
 }
