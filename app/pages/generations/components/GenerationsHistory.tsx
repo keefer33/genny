@@ -231,7 +231,7 @@ export default function GenerationsHistory({
 
   return (
     <Stack gap="xs" h="100%" style={{ minHeight: 0 }}>
-      <Group gap="sm" justify="space-between" align="center">
+      <Group gap="sm" justify="space-between" align="center" px="xs">
         {shouldShowFiltersModal ? <PlayGroundRunHistoryFiltersModal /> : null}
         {shouldShowBulkActions ? (
           <Group gap="0">
