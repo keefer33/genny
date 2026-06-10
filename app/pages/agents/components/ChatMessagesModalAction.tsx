@@ -16,6 +16,27 @@ export default function ChatMessagesModalAction() {
 
   if (!selectedChat || messages.length === 0) return null;
 
+  const modalStyles = {
+    content: {
+      display: "flex",
+      flexDirection: "column" as const,
+      height: isMobile ? "100%" : "min(85vh, 900px)",
+      maxHeight: isMobile ? undefined : "85vh",
+      overflow: "hidden",
+    },
+    header: {
+      flexShrink: 0,
+    },
+    body: {
+      flex: 1,
+      minHeight: 0,
+      display: "flex",
+      flexDirection: "column" as const,
+      padding: 0,
+      overflow: "hidden",
+    },
+  };
+
   return (
     <>
       <ActionIcon
@@ -32,14 +53,22 @@ export default function ChatMessagesModalAction() {
         title={title}
         fullScreen={isMobile}
         size="lg"
-        styles={{
-          content: { display: "flex", flexDirection: "column" },
-          body: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column", padding: 0 },
-        }}
+        centered={!isMobile}
+        styles={modalStyles}
       >
-        <Box style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
-          <ChatMessagesUsageSummary chat={chat} messages={messages} />
-          <MessagesContent showAllMessages shouldScrollToBottom={false} />
+        <Box
+          style={{
+            flex: 1,
+            minHeight: 0,
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden",
+          }}
+        >
+          <Box style={{ flexShrink: 0 }}>
+            <ChatMessagesUsageSummary chat={chat} messages={messages} />
+          </Box>
+          <MessagesContent showAllMessages shouldScrollToBottom={false} fillContainer />
         </Box>
       </Modal>
     </>

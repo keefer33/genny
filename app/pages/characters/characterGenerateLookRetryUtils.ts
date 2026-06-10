@@ -1,6 +1,6 @@
 import { CHARACTER_GENERATE_LOOK_BASE_IMAGE_FIELD } from "~/pages/characters/characterGenerateLookSchema";
 import type { CharacterLookModelOption } from "~/lib/stores/charactersStore";
-import type { CharacterLook } from "~/pages/characters/components/CharacterLooksPanel";
+import type { CharacterLook } from "~/pages/characters/characterLookTypes";
 import {
   getLookGenerationError,
   lookCanRetry,
@@ -28,7 +28,9 @@ function lookMetadataRecord(look: CharacterLook): Record<string, unknown> {
 export function lookHasFrontView(look: CharacterLook): boolean {
   return look.items.some((item) => {
     const view = (item.view ?? "").trim().toLowerCase();
-    return view === "front" && Boolean(item.file?.file_path?.trim() || item.file?.thumbnail_url?.trim());
+    return (
+      view === "front" && Boolean(item.file?.file_path?.trim() || item.file?.thumbnail_url?.trim())
+    );
   });
 }
 
@@ -103,8 +105,12 @@ export function extractGenerateLookRetryDraft(
     formSeed[CHARACTER_GENERATE_LOOK_BASE_IMAGE_FIELD] = payload.image.trim();
   }
 
-  if (typeof payload.audio === "string" && payload.audio.trim()) {
-    formSeed.characterAudio = payload.audio.trim();
+  const audioUrl =
+    (typeof payload.audio === "string" && payload.audio.trim()) ||
+    (typeof payload.sound_file === "string" && payload.sound_file.trim()) ||
+    "";
+  if (audioUrl) {
+    formSeed.characterAudio = audioUrl;
   }
 
   return {

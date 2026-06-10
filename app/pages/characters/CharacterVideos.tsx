@@ -1,12 +1,12 @@
 import { Box } from "@mantine/core";
 import { useParams } from "react-router";
-import CharacterScenesPanel from "~/pages/characters/components/CharacterScenesPanel";
+import CharacterVideosPanel from "~/pages/characters/components/CharacterVideosPanel";
 
 export function meta() {
-  return [{ title: "Character scenes" }];
+  return [{ title: "Character videos" }];
 }
 
-export default function CharacterScenes() {
+export default function CharacterVideos() {
   const { characterId } = useParams<{ characterId: string }>();
 
   return (
@@ -19,7 +19,7 @@ export default function CharacterScenes() {
         flexDirection: "column",
       }}
     >
-      <CharacterScenesPanel characterId={characterId} />
+      <CharacterVideosPanel characterId={characterId} />
     </Box>
   );
 }

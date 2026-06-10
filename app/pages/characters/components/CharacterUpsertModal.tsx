@@ -1,12 +1,12 @@
-import { ActionIcon, Button, Group, Loader, Modal, Select, Stack, Text } from "@mantine/core";
-import { RiPauseCircleLine, RiPlayCircleLine } from "@remixicon/react";
+import { Button, Group, Loader, Modal, Select, Stack } from "@mantine/core";
 import { useEffect, useMemo, useState } from "react";
 import useAppStore from "~/lib/stores/appStore";
 import useCharactersStore, { type CharacterFormValues } from "~/lib/stores/charactersStore";
 import useGenerationsStore from "~/lib/stores/generateStore";
-import useVoicesStore, { getVoicePreviewUrl, type UserVoice } from "~/lib/stores/voicesStore";
+import useVoicesStore from "~/lib/stores/voicesStore";
 import { CharacterAiAssistBar } from "~/pages/characters/components/CharacterAiAssistBar";
 import { CharacterFormFields } from "~/pages/characters/components/CharacterFormFields";
+import VoicePicker from "~/pages/voices/components/VoicePicker";
 import {
   CharacterLookModelFields,
   getUiFieldDefaults,
@@ -56,8 +56,7 @@ export function CharacterUpsertModal({
   showLookModelPicker = false,
   onSubmit,
 }: CharacterUpsertModalProps) {
-  const [previewAudio, setPreviewAudio] = useState<HTMLAudioElement | null>(null);
-  const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
+  const isMobile = useAppStore((s) => s.isMobile);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [voiceId, setVoiceId] = useState<string | null>(null);
@@ -77,22 +76,12 @@ export function CharacterUpsertModal({
   const calculateGenerateCost = useGenerationsStore((s) => s.calculateGenerateCost);
   const userId = useAppStore((s) => s.getUser()?.user?.id ?? "");
   const userVoices = useVoicesStore((s) => s.userVoices);
-  const libraryVoices = useVoicesStore((s) => s.libraryVoices);
-  const userVoicesLoading = useVoicesStore((s) => s.userVoicesLoading);
-  const libraryVoicesLoading = useVoicesStore((s) => s.libraryVoicesLoading);
   const loadUserVoices = useVoicesStore((s) => s.loadUserVoices);
-  const loadLibraryVoices = useVoicesStore((s) => s.loadLibraryVoices);
 
   const busy = submitting || assistLoading;
 
   useEffect(() => {
     if (!opened) {
-      if (previewAudio) {
-        previewAudio.pause();
-        previewAudio.currentTime = 0;
-      }
-      setPreviewAudio(null);
-      setPlayingVoiceId(null);
       const next = normalizeInitialValues(undefined);
       setName(next.name);
       setDescription(next.description);
@@ -114,7 +103,7 @@ export function CharacterUpsertModal({
     setGender(next.gender);
     setAge(next.age);
     setEthnicity(next.ethnicity ?? "");
-  }, [opened, initialValues, previewAudio]);
+  }, [opened, initialValues]);
 
   useEffect(() => {
     if (!opened || !showLookModelPicker) return;
@@ -133,52 +122,14 @@ export function CharacterUpsertModal({
   }, [opened, showLookModelPicker, loadLookModelOptions]);
 
   useEffect(() => {
-    if (!opened) return;
-    if (userId) void loadUserVoices(userId);
-    void loadLibraryVoices();
-  }, [opened, userId, loadUserVoices, loadLibraryVoices]);
-
-  useEffect(() => {
-    if (!previewAudio) return;
-    const onEnded = () => setPlayingVoiceId(null);
-    previewAudio.addEventListener("ended", onEnded);
-    return () => previewAudio.removeEventListener("ended", onEnded);
-  }, [previewAudio]);
-
-  const voiceOptions = useMemo(() => {
-    const mappedUser = userVoices
-      .map((voice) => ({
-        value: voice.id,
-        label: voice.name?.trim() || "Untitled voice",
-      }))
-      .filter((voice) => voice.value.trim().length > 0);
-    const seen = new Set(mappedUser.map((voice) => voice.value));
-    const mappedLibrary = libraryVoices
-      .map((voice) => ({
-        value: voice.id,
-        label: voice.name?.trim() || "Untitled voice",
-      }))
-      .filter((voice) => voice.value.trim().length > 0 && !seen.has(voice.value));
-    return [
-      { group: "My voices", items: mappedUser },
-      { group: "Voice library", items: mappedLibrary },
-    ].filter((group) => group.items.length > 0);
-  }, [userVoices, libraryVoices]);
-
-  const allVoicesById = useMemo(() => {
-    const map = new Map<string, UserVoice>();
-    for (const voice of [...userVoices, ...libraryVoices]) {
-      const id = voice.id?.trim();
-      if (!id) continue;
-      if (!map.has(id)) map.set(id, voice);
-    }
-    return map;
-  }, [userVoices, libraryVoices]);
+    if (!opened || !userId) return;
+    void loadUserVoices({ paginate: false });
+  }, [opened, userId, loadUserVoices]);
 
   const selectedVoice = useMemo(() => {
     if (!voiceId) return null;
-    return allVoicesById.get(voiceId) ?? null;
-  }, [voiceId, allVoicesById]);
+    return userVoices.find((voice) => voice.id === voiceId) ?? null;
+  }, [voiceId, userVoices]);
 
   const selectedLookModel = useMemo(() => {
     if (!selectedCreateModelId) return null;
@@ -206,33 +157,6 @@ export function CharacterUpsertModal({
 
   const handleLookModelFieldChange = (key: string, value: unknown) => {
     setLookModelPayload((current) => ({ ...current, [key]: value }));
-  };
-
-  const toggleVoicePreview = async (voiceIdToToggle: string) => {
-    const voice = allVoicesById.get(voiceIdToToggle);
-    if (!voice) return;
-    const previewUrl = getVoicePreviewUrl(voice);
-    if (!previewUrl) return;
-
-    if (previewAudio && playingVoiceId === voiceIdToToggle) {
-      previewAudio.pause();
-      setPlayingVoiceId(null);
-      return;
-    }
-
-    if (previewAudio) {
-      previewAudio.pause();
-      previewAudio.currentTime = 0;
-    }
-
-    const audio = new Audio(previewUrl);
-    setPreviewAudio(audio);
-    setPlayingVoiceId(voiceIdToToggle);
-    try {
-      await audio.play();
-    } catch {
-      setPlayingVoiceId(null);
-    }
   };
 
   const handleUseVoiceProfile = () => {
@@ -348,50 +272,20 @@ export function CharacterUpsertModal({
   };
 
   return (
-    <Modal opened={opened} onClose={onClose} title={title} centered size="md">
+    <Modal opened={opened} onClose={onClose} title={title} centered size="md" fullScreen={isMobile}>
       <Stack gap="md">
         <CharacterAiAssistBar
           loading={assistLoading}
           disabled={busy}
           onAssist={() => void handleAiAssist()}
         />
-        <Select
-          label="Voice"
-          placeholder="Optional"
-          clearable
-          searchable
-          data={voiceOptions}
+        <VoicePicker
           value={voiceId}
-          onChange={(value) => setVoiceId(typeof value === "string" ? value : null)}
-          disabled={busy || userVoicesLoading || libraryVoicesLoading}
-          renderOption={({ option }) => {
-            const optionVoiceId = String(option.value ?? "");
-            const voice = allVoicesById.get(optionVoiceId);
-            const previewUrl = voice ? getVoicePreviewUrl(voice) : null;
-            const isPlaying = playingVoiceId === optionVoiceId;
-
-            return (
-              <Group justify="space-between" wrap="nowrap" gap="xs">
-                {previewUrl ? (
-                  <ActionIcon
-                    variant="subtle"
-                    size="sm"
-                    aria-label={isPlaying ? "Pause voice preview" : "Play voice preview"}
-                    onClick={(event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      void toggleVoicePreview(optionVoiceId);
-                    }}
-                  >
-                    {isPlaying ? <RiPauseCircleLine size={24} /> : <RiPlayCircleLine size={24} />}
-                  </ActionIcon>
-                ) : null}
-                <Text size="sm" style={{ minWidth: 0, overflowWrap: "anywhere" }}>
-                  {option.label}
-                </Text>
-              </Group>
-            );
-          }}
+          onChange={setVoiceId}
+          disabled={busy}
+          placeholder="Optional — select voice"
+          modalTitle="Choose character voice"
+          clearable
         />
         {showUseVoiceProfileButton && selectedVoice ? (
           <Button variant="light" onClick={handleUseVoiceProfile} disabled={busy}>

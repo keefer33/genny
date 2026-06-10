@@ -17,11 +17,22 @@ export const CHARACTER_GENERATE_LOOK_PROMPT_FIELD = "prompt";
 export const CHARACTER_GENERATE_LOOK_IMAGE_FIELD = "image";
 export const CHARACTER_GENERATE_LOOK_AUDIO_SCHEMA_FIELD = "audio";
 
-/** Internal form field for `CharacterAudioPicker` (maps to schema `audio` in the API payload). */
+/** Kling AI Avatar uses `sound_file` instead of `audio`. */
+export const CHARACTER_GENERATE_LOOK_SOUND_FILE_SCHEMA_FIELD = "sound_file";
+
+export const CHARACTER_GENERATE_LOOK_AUDIO_SCHEMA_FIELDS = [
+  CHARACTER_GENERATE_LOOK_AUDIO_SCHEMA_FIELD,
+  CHARACTER_GENERATE_LOOK_SOUND_FILE_SCHEMA_FIELD,
+] as const;
+
+export type CharacterGenerateLookAudioSchemaField =
+  (typeof CHARACTER_GENERATE_LOOK_AUDIO_SCHEMA_FIELDS)[number];
+
+/** Internal form field for `CharacterAudioPicker` (maps to schema audio field in the API payload). */
 export const CHARACTER_GENERATE_LOOK_CHARACTER_AUDIO_FIELD = "characterAudio";
 
 export type AudioPayloadBinding = {
-  field: typeof CHARACTER_GENERATE_LOOK_AUDIO_SCHEMA_FIELD;
+  field: CharacterGenerateLookAudioSchemaField;
   mode: "replaceString";
 };
 
@@ -61,9 +72,9 @@ export type PreparedCharacterGenerateLookSchema = {
   formSchema: FunctionSchema;
   /** How the base look URL is written into the API payload. */
   baseLookBindings: BaseLookPayloadBinding[];
-  /** How speech audio URL is written into the API `audio` field. */
+  /** How speech audio URL is written into the API audio field (`audio` or `sound_file`). */
   audioBindings: AudioPayloadBinding[];
-  /** Original schema keys replaced by custom UI (e.g. `image`, `images`, `audio`). */
+  /** Original schema keys replaced by custom UI (e.g. `image`, `images`, `audio`, `sound_file`). */
   overriddenSchemaFields: string[];
 };
 
@@ -117,8 +128,13 @@ function detectApplicableOverrides(
 }
 
 function detectAudioBinding(properties: FunctionSchema["properties"]): AudioPayloadBinding[] {
-  if (!properties?.[CHARACTER_GENERATE_LOOK_AUDIO_SCHEMA_FIELD]) return [];
-  return [{ field: CHARACTER_GENERATE_LOOK_AUDIO_SCHEMA_FIELD, mode: "replaceString" }];
+  if (!properties) return [];
+  for (const field of CHARACTER_GENERATE_LOOK_AUDIO_SCHEMA_FIELDS) {
+    if (properties[field]) {
+      return [{ field, mode: "replaceString" }];
+    }
+  }
+  return [];
 }
 
 /**
@@ -137,7 +153,9 @@ export function prepareCharacterGenerateLookSchema(
   ];
 
   if (audioBindings.length > 0 && formSchema.properties) {
-    delete formSchema.properties[CHARACTER_GENERATE_LOOK_AUDIO_SCHEMA_FIELD];
+    for (const binding of audioBindings) {
+      delete formSchema.properties[binding.field];
+    }
   }
 
   for (const rule of applicable) {
@@ -192,6 +210,16 @@ export function restrictCharacterGenerateSceneFormSchema(
     CHARACTER_GENERATE_LOOK_PROMPT_FIELD,
     CHARACTER_GENERATE_LOOK_IMAGES_FIELD,
     CHARACTER_GENERATE_SCENE_ASPECT_RATIO_FIELD,
+  ]);
+}
+
+/** Video form: prompt and reference images (no aspect ratio). */
+export function restrictCharacterGenerateVideoFormSchema(
+  prepared: PreparedCharacterGenerateLookSchema
+): FunctionSchema {
+  return restrictCharacterGenerateFormSchema(prepared, [
+    CHARACTER_GENERATE_LOOK_PROMPT_FIELD,
+    CHARACTER_GENERATE_LOOK_IMAGES_FIELD,
   ]);
 }
 

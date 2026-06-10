@@ -1,16 +1,13 @@
 import { Button, Group, Stack, Text, TextInput } from "@mantine/core";
 import { useState } from "react";
 import useVoicesStore, { type UserVoiceSpeech } from "~/lib/stores/voicesStore";
+import { inworldProviderVoiceId } from "~/pages/voices/voiceUtils";
 import { SpeechScriptEditor } from "~/shared/SpeechScriptEditor";
 
 export const MAX_SPEECH_CHARS = 2000;
 
 export type GenerateSpeechFormProps = {
-  /** Genny `user_voices.id` */
-  voiceId: string;
-  /** Inworld voice id from `metadata.provider.voice_id` */
-  inworldVoiceId: string | null;
-  /** Called after speech is synthesized and saved */
+  /** Optional callback after speech is synthesized and added to history. */
   onGenerated?: (speech: UserVoiceSpeech) => void;
   /** Helper text above the fields */
   description?: string;
@@ -22,8 +19,6 @@ export type GenerateSpeechFormProps = {
 };
 
 export function GenerateSpeechForm({
-  voiceId,
-  inworldVoiceId,
   onGenerated,
   description = "Write your script below. Use Delivery for mood and pacing, Non-verbal for sounds like [laugh]. Audio is saved to your speech history.",
   submitLabel = "Generate speech",
@@ -33,9 +28,14 @@ export function GenerateSpeechForm({
   const [text, setText] = useState("");
   const [title, setTitle] = useState("");
 
+  const selectedVoice = useVoicesStore((s) => s.selectedVoice);
   const synthesizeSpeech = useVoicesStore((s) => s.synthesizeSpeech);
+  const prependVoiceSpeech = useVoicesStore((s) => s.prependVoiceSpeech);
   const speechSynthesizeLoading = useVoicesStore((s) => s.speechSynthesizeLoading);
 
+  const voiceId = selectedVoice?.id?.trim() ?? "";
+  const inworldVoiceId = selectedVoice ? inworldProviderVoiceId(selectedVoice) : null;
+  const hasSelectedVoice = Boolean(voiceId);
   const hasInworldVoice = Boolean(inworldVoiceId?.trim());
   const charCount = text.length;
   const canSubmit =
@@ -52,7 +52,7 @@ export function GenerateSpeechForm({
   const handleGenerate = async () => {
     const trimmedText = text.trim();
     const providerVoiceId = inworldVoiceId?.trim();
-    if (!trimmedText || charCount > MAX_SPEECH_CHARS || !providerVoiceId) return;
+    if (!trimmedText || charCount > MAX_SPEECH_CHARS || !providerVoiceId || !voiceId) return;
 
     const result = await synthesizeSpeech({
       voiceId,
@@ -62,15 +62,30 @@ export function GenerateSpeechForm({
     });
     if (!result) return;
 
+    prependVoiceSpeech(result.speech);
     onGenerated?.(result.speech);
     resetForm();
   };
+
+  if (!hasSelectedVoice) {
+    return (
+      <Text size="sm" c="dimmed">
+        Select a voice to generate speech.
+      </Text>
+    );
+  }
 
   return (
     <Stack gap="md">
       {description ? (
         <Text size="sm" c="dimmed">
           {description}
+        </Text>
+      ) : null}
+      {!hasInworldVoice ? (
+        <Text size="sm" c="dimmed">
+          This voice is not linked to Inworld (missing metadata.provider.voice_id), so speech cannot
+          be generated.
         </Text>
       ) : null}
       <SpeechScriptEditor

@@ -6,7 +6,7 @@ import {
   characterMemberFileGenerationUrl,
   characterMemberFileThumbnailUrl,
 } from "~/pages/characters/characterUtils";
-import type { CharacterLook } from "~/pages/characters/components/CharacterLooksPanel";
+import type { CharacterLook } from "~/pages/characters/characterLookTypes";
 
 export type BaseLookPickerOption = {
   value: string;

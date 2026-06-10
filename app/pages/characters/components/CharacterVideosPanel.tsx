@@ -22,12 +22,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { authFetchJson } from "~/lib/stores/authFetch";
 import useCharactersStore from "~/lib/stores/charactersStore";
 import {
-  getSceneGenerationError,
-  sceneHasFailed,
-  sceneIsActivelyGenerating,
-  shouldPollScene,
-  type CharacterScene,
-} from "~/pages/characters/characterSceneGenerationUtils";
+  getVideoGenerationError,
+  videoHasFailed,
+  videoIsActivelyGenerating,
+  shouldPollVideo,
+  type CharacterVideo,
+} from "~/pages/characters/characterVideoGenerationUtils";
 import {
   characterMemberFileThumbnailUrl,
   type CharacterMemberFile,
@@ -37,56 +37,56 @@ import FileDetailModal from "~/shared/FileDetailModal";
 import { GenerateLookModal } from "~/pages/characters/components/GenerateLookModal";
 import { GenerateAssetPlaceholderCard } from "~/pages/characters/components/GenerateAssetPlaceholderCard";
 
-type CharacterScenesResponse = {
-  scenes: CharacterScene[];
+type CharacterVideosResponse = {
+  videos: CharacterVideo[];
 };
 
-function sceneFileToMemberFile(file: NonNullable<CharacterScene["file"]>): CharacterMemberFile {
+function videoFileToMemberFile(file: NonNullable<CharacterVideo["file"]>): CharacterMemberFile {
   return {
     id: file.id,
-    file_name: file.file_name?.trim() || "Scene",
+    file_name: file.file_name?.trim() || "Video",
     file_path: file.file_path?.trim() || "",
     file_size: file.file_size ?? 0,
-    file_type: file.file_type?.trim() || "image/png",
+    file_type: file.file_type?.trim() || "video/mp4",
     created_at: file.created_at ?? "",
     thumbnail_url: file.thumbnail_url?.trim() || undefined,
     upload_type: file.upload_type,
   };
 }
 
-type CharacterScenesPanelProps = {
+type CharacterVideosPanelProps = {
   characterId?: string | null;
 };
 
-export default function CharacterScenesPanel({ characterId }: CharacterScenesPanelProps) {
-  const [scenes, setScenes] = useState<CharacterScene[]>([]);
+export default function CharacterVideosPanel({ characterId }: CharacterVideosPanelProps) {
+  const [videos, setVideos] = useState<CharacterVideo[]>([]);
   const [_loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [detailFile, setDetailFile] = useState<CharacterMemberFile | null>(null);
   const [detailOpened, { open: openDetail, close: closeDetail }] = useDisclosure(false);
-  const [deletingSceneId, setDeletingSceneId] = useState<string | null>(null);
-  const [deleteConfirmScene, setDeleteConfirmScene] = useState<CharacterScene | null>(null);
-  const [editScene, setEditScene] = useState<CharacterScene | null>(null);
+  const [deletingVideoId, setDeletingVideoId] = useState<string | null>(null);
+  const [deleteConfirmVideo, setDeleteConfirmVideo] = useState<CharacterVideo | null>(null);
+  const [editVideo, setEditVideo] = useState<CharacterVideo | null>(null);
   const [editName, setEditName] = useState("");
   const [editNameError, setEditNameError] = useState<string | null>(null);
-  const [savingSceneId, setSavingSceneId] = useState<string | null>(null);
+  const [savingVideoId, setSavingVideoId] = useState<string | null>(null);
 
-  const deleteCharacterScene = useCharactersStore((s) => s.deleteCharacterScene);
-  const updateCharacterSceneName = useCharactersStore((s) => s.updateCharacterSceneName);
+  const deleteCharacterVideo = useCharactersStore((s) => s.deleteCharacterVideo);
+  const updateCharacterVideoName = useCharactersStore((s) => s.updateCharacterVideoName);
 
-  const fetchScenes = useCallback(async (id: string, opts?: { silent?: boolean }) => {
+  const fetchVideos = useCallback(async (id: string, opts?: { silent?: boolean }) => {
     if (!opts?.silent) setLoading(true);
     setError(null);
     try {
-      const data = await authFetchJson<CharacterScenesResponse>(
-        `${endpoint}/characters/${encodeURIComponent(id)}/scenes`,
+      const data = await authFetchJson<CharacterVideosResponse>(
+        `${endpoint}/characters/${encodeURIComponent(id)}/videos`,
         undefined,
-        { errorMessage: "Failed to load character scenes" }
+        { errorMessage: "Failed to load character videos" }
       );
-      setScenes(data.scenes ?? []);
+      setVideos(data.videos ?? []);
     } catch (err) {
-      setScenes([]);
-      setError(err instanceof Error ? err.message : "Failed to load character scenes");
+      setVideos([]);
+      setError(err instanceof Error ? err.message : "Failed to load character videos");
     } finally {
       if (!opts?.silent) setLoading(false);
     }
@@ -95,94 +95,94 @@ export default function CharacterScenesPanel({ characterId }: CharacterScenesPan
   useEffect(() => {
     const id = characterId?.trim();
     if (!id) {
-      setScenes([]);
+      setVideos([]);
       setError(null);
       return;
     }
-    void fetchScenes(id);
-  }, [characterId, fetchScenes]);
+    void fetchVideos(id);
+  }, [characterId, fetchVideos]);
 
-  const hasActiveGeneratingScenes = useMemo(() => scenes.some(shouldPollScene), [scenes]);
+  const hasActiveGeneratingVideos = useMemo(() => videos.some(shouldPollVideo), [videos]);
 
   useEffect(() => {
     const id = characterId?.trim();
-    if (!id || !hasActiveGeneratingScenes) return;
+    if (!id || !hasActiveGeneratingVideos) return;
     const interval = window.setInterval(() => {
-      void fetchScenes(id, { silent: true });
+      void fetchVideos(id, { silent: true });
     }, 4000);
     return () => window.clearInterval(interval);
-  }, [characterId, fetchScenes, hasActiveGeneratingScenes]);
+  }, [characterId, fetchVideos, hasActiveGeneratingVideos]);
 
-  const openFileDetail = (file: NonNullable<CharacterScene["file"]>) => {
-    setDetailFile(sceneFileToMemberFile(file));
+  const openFileDetail = (file: NonNullable<CharacterVideo["file"]>) => {
+    setDetailFile(videoFileToMemberFile(file));
     openDetail();
   };
 
-  const handleConfirmDeleteScene = async () => {
+  const handleConfirmDeleteVideo = async () => {
     const id = characterId?.trim();
-    const scene = deleteConfirmScene;
-    const sceneId = scene?.id?.trim();
-    if (!id || !sceneId) return;
+    const video = deleteConfirmVideo;
+    const videoId = video?.id?.trim();
+    if (!id || !videoId) return;
 
-    setDeletingSceneId(sceneId);
+    setDeletingVideoId(videoId);
     try {
-      const ok = await deleteCharacterScene(sceneId, id);
+      const ok = await deleteCharacterVideo(videoId, id);
       if (ok) {
-        setDeleteConfirmScene(null);
-        await fetchScenes(id, { silent: true });
+        setDeleteConfirmVideo(null);
+        await fetchVideos(id, { silent: true });
       }
     } finally {
-      setDeletingSceneId(null);
+      setDeletingVideoId(null);
     }
   };
 
-  const closeEditScene = () => {
-    if (savingSceneId) return;
-    setEditScene(null);
+  const closeEditVideo = () => {
+    if (savingVideoId) return;
+    setEditVideo(null);
     setEditName("");
     setEditNameError(null);
   };
 
-  const handleSaveSceneName = async () => {
+  const handleSaveVideoName = async () => {
     const id = characterId?.trim();
-    const sceneId = editScene?.id?.trim();
+    const videoId = editVideo?.id?.trim();
     const trimmed = editName.trim();
-    if (!id || !sceneId) return;
+    if (!id || !videoId) return;
     if (!trimmed) {
-      setEditNameError("Scene name is required");
+      setEditNameError("Video name is required");
       return;
     }
 
-    setSavingSceneId(sceneId);
+    setSavingVideoId(videoId);
     setEditNameError(null);
     try {
-      const ok = await updateCharacterSceneName(sceneId, id, trimmed);
+      const ok = await updateCharacterVideoName(videoId, id, trimmed);
       if (ok) {
-        setEditScene(null);
+        setEditVideo(null);
         setEditName("");
-        await fetchScenes(id, { silent: true });
+        await fetchVideos(id, { silent: true });
       }
     } finally {
-      setSavingSceneId(null);
+      setSavingVideoId(null);
     }
   };
 
-  const handleSceneGenerated = useCallback(async () => {
+  const handleVideoGenerated = useCallback(async () => {
     const id = characterId?.trim();
-    if (id) await fetchScenes(id, { silent: true });
-  }, [characterId, fetchScenes]);
+    if (id) await fetchVideos(id, { silent: true });
+  }, [characterId, fetchVideos]);
 
   if (!characterId?.trim()) {
     return (
       <Center h="100%">
         <Text c="dimmed" size="sm">
-          Select a character to view scenes.
+          Select a character to view videos.
         </Text>
       </Center>
     );
   }
 
-  if (error && scenes.length === 0) {
+  if (error && videos.length === 0) {
     return (
       <Center h="100%">
         <Text c="red" size="sm">
@@ -210,29 +210,29 @@ export default function CharacterScenesPanel({ characterId }: CharacterScenesPan
           px="sm"
         >
           <GenerateLookModal
-            kind="scene"
+            kind="video"
             characterId={characterId}
-            onGenerated={handleSceneGenerated}
+            onGenerated={handleVideoGenerated}
             renderTrigger={({ open, opening, label }) => (
               <GenerateAssetPlaceholderCard
                 label={label}
-                description="Place this character in a setting"
+                description="Generate a video of this character"
                 onClick={open}
                 loading={opening}
               />
             )}
           />
-          {scenes.map((scene) => {
-            const failed = sceneHasFailed(scene);
-            const generating = sceneIsActivelyGenerating(scene);
-            const generationError = getSceneGenerationError(scene);
-            const file = scene.file;
+          {videos.map((video) => {
+            const failed = videoHasFailed(video);
+            const generating = videoIsActivelyGenerating(video);
+            const generationError = getVideoGenerationError(video);
+            const file = video.file;
             const thumbUrl = file
-              ? characterMemberFileThumbnailUrl(sceneFileToMemberFile(file))
+              ? characterMemberFileThumbnailUrl(videoFileToMemberFile(file))
               : "";
 
             return (
-              <Card key={scene.id} padding={0} radius="md">
+              <Card key={video.id} padding={0} radius="md">
                 <Card.Section>
                   <Box
                     h={200}
@@ -268,16 +268,16 @@ export default function CharacterScenesPanel({ characterId }: CharacterScenesPan
                 <Stack gap="xs" p="xs">
                   <Group justify="space-between" wrap="nowrap" align="flex-start">
                     <Text fw={600} size="sm" lineClamp={1}>
-                      {scene.name?.trim() || "Untitled scene"}
+                      {video.name?.trim() || "Untitled video"}
                     </Text>
                     <Group gap={4} wrap="nowrap">
                       <Tooltip label="Edit name">
                         <ActionIcon
                           variant="subtle"
-                          aria-label="Edit scene name"
+                          aria-label="Edit video name"
                           onClick={() => {
-                            setEditScene(scene);
-                            setEditName(scene.name?.trim() || "");
+                            setEditVideo(video);
+                            setEditName(video.name?.trim() || "");
                             setEditNameError(null);
                           }}
                         >
@@ -288,8 +288,8 @@ export default function CharacterScenesPanel({ characterId }: CharacterScenesPan
                         <ActionIcon
                           variant="subtle"
                           color="red"
-                          aria-label="Delete scene"
-                          onClick={() => setDeleteConfirmScene(scene)}
+                          aria-label="Delete video"
+                          onClick={() => setDeleteConfirmVideo(video)}
                         >
                           <RiDeleteBinLine size={16} />
                         </ActionIcon>
@@ -311,31 +311,31 @@ export default function CharacterScenesPanel({ characterId }: CharacterScenesPan
       <FileDetailModal opened={detailOpened} onClose={closeDetail} file={detailFile} />
 
       <Modal
-        opened={Boolean(deleteConfirmScene)}
+        opened={Boolean(deleteConfirmVideo)}
         onClose={() => {
-          if (deletingSceneId) return;
-          setDeleteConfirmScene(null);
+          if (deletingVideoId) return;
+          setDeleteConfirmVideo(null);
         }}
-        title="Delete scene?"
+        title="Delete video?"
         centered
       >
         <Stack gap="md">
           <Text size="sm" c="dimmed">
-            Remove &quot;{deleteConfirmScene?.name?.trim() || "this scene"}&quot;? This cannot be
+            Remove &quot;{deleteConfirmVideo?.name?.trim() || "this video"}&quot;? This cannot be
             undone.
           </Text>
           <Group justify="flex-end">
             <Button
               variant="default"
-              disabled={Boolean(deletingSceneId)}
-              onClick={() => setDeleteConfirmScene(null)}
+              disabled={Boolean(deletingVideoId)}
+              onClick={() => setDeleteConfirmVideo(null)}
             >
               Cancel
             </Button>
             <Button
               color="red"
-              loading={Boolean(deletingSceneId)}
-              onClick={() => void handleConfirmDeleteScene()}
+              loading={Boolean(deletingVideoId)}
+              onClick={() => void handleConfirmDeleteVideo()}
             >
               Delete
             </Button>
@@ -343,26 +343,26 @@ export default function CharacterScenesPanel({ characterId }: CharacterScenesPan
         </Stack>
       </Modal>
 
-      <Modal opened={Boolean(editScene)} onClose={closeEditScene} title="Edit scene name" centered>
+      <Modal opened={Boolean(editVideo)} onClose={closeEditVideo} title="Edit video name" centered>
         <Stack gap="md">
           <TextInput
-            label="Scene name"
+            label="Video name"
             value={editName}
             error={editNameError}
-            disabled={Boolean(savingSceneId)}
+            disabled={Boolean(savingVideoId)}
             onChange={(event) => {
               setEditName(event.currentTarget.value);
               if (editNameError) setEditNameError(null);
             }}
             onKeyDown={(event) => {
-              if (event.key === "Enter") void handleSaveSceneName();
+              if (event.key === "Enter") void handleSaveVideoName();
             }}
           />
           <Group justify="flex-end">
-            <Button variant="default" disabled={Boolean(savingSceneId)} onClick={closeEditScene}>
+            <Button variant="default" disabled={Boolean(savingVideoId)} onClick={closeEditVideo}>
               Cancel
             </Button>
-            <Button loading={Boolean(savingSceneId)} onClick={() => void handleSaveSceneName()}>
+            <Button loading={Boolean(savingVideoId)} onClick={() => void handleSaveVideoName()}>
               Save
             </Button>
           </Group>

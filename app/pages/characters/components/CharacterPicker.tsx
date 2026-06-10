@@ -18,7 +18,7 @@ export default function CharacterPicker({ selectedCharacterId }: CharacterPicker
 
   useEffect(() => {
     if (characters.length > 0) return;
-    void loadCharacters();
+    void loadCharacters({ paginate: false });
   }, [characters.length, loadCharacters]);
 
   return (

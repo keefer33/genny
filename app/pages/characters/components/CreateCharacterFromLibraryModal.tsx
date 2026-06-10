@@ -1,4 +1,4 @@
-import { Button, Group, Modal, Stack, Text } from "@mantine/core";
+import { Box, Button, Container, Modal, Stack } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { RiBookOpenLine } from "@remixicon/react";
 import { useState } from "react";
@@ -16,6 +16,26 @@ import { CharacterUpsertModal } from "~/pages/characters/components/CharacterUps
 import { VoiceLibraryPicker } from "~/shared/VoiceLibraryPicker";
 
 type Step = "pick" | "review";
+
+const modalStyles = {
+  content: { display: "flex", flexDirection: "column" as const },
+  body: {
+    flex: 1,
+    minHeight: 0,
+    display: "flex",
+    flexDirection: "column" as const,
+    overflow: "hidden",
+  },
+};
+
+const bodyBoxStyle = {
+  flex: 1,
+  minHeight: 0,
+  width: "100%",
+  overflow: "hidden",
+  display: "flex",
+  flexDirection: "column" as const,
+};
 
 export function CreateCharacterFromLibraryModal() {
   const [opened, { open, close }] = useDisclosure(false);
@@ -121,31 +141,36 @@ export function CreateCharacterFromLibraryModal() {
         opened={opened && step === "pick"}
         onClose={handleClose}
         title="Create character from voice library"
-        size="xl"
+        fullScreen
         centered
         closeOnClickOutside={!pipelineLoading}
         closeOnEscape={!pipelineLoading}
+        styles={modalStyles}
       >
-        <Stack gap="md">
-          <Text size="sm" c="dimmed">
-            Browse the ElevenLabs shared library and select a voice. We clone it to your account and
-            generate a matching character profile.
-          </Text>
-
-          <VoiceLibraryPicker
-            active={opened && step === "pick"}
-            onPick={handlePickVoice}
-            pickDisabled={pipelineLoading}
-            pickButtonLabel="Select"
-            scrollHeight={360}
-          />
-
-          <Group justify="flex-end">
-            <Button variant="default" onClick={handleClose} disabled={pipelineLoading}>
-              Cancel
-            </Button>
-          </Group>
-        </Stack>
+        <Container size="md" p="0" style={bodyBoxStyle}>
+          <Stack
+            gap="md"
+            style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}
+          >
+            <Box
+              style={{
+                flex: 1,
+                minHeight: 0,
+                minWidth: 0,
+                display: "flex",
+                flexDirection: "column",
+              }}
+            >
+              <VoiceLibraryPicker
+                active={opened && step === "pick"}
+                onPick={handlePickVoice}
+                pickDisabled={pipelineLoading}
+                pickButtonLabel="Select"
+                fillContainer
+              />
+            </Box>
+          </Stack>
+        </Container>
       </Modal>
 
       <CharacterUpsertModal

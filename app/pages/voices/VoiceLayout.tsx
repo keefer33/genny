@@ -1,11 +1,10 @@
-import { Box, Button, Modal, Paper, ScrollArea, Stack } from "@mantine/core";
+import { Box, Button, Group, Modal, Paper, ScrollArea, Stack } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { RiSoundModuleLine } from "@remixicon/react";
-import { useCallback, useEffect, useState } from "react";
-import { Outlet, useParams } from "react-router";
+import { RiArrowLeftLine, RiSoundModuleLine } from "@remixicon/react";
+import { useEffect } from "react";
+import { Link, Outlet, useNavigate, useParams } from "react-router";
 import useAppStore from "~/lib/stores/appStore";
-import useVoicesStore, { type UserVoiceSpeech } from "~/lib/stores/voicesStore";
-import VoicePicker from "~/pages/voices/components/VoicePicker";
+import useVoicesStore from "~/lib/stores/voicesStore";
 import { VoiceSpeechesHistory } from "~/pages/voices/components/VoiceSpeechesHistory";
 import DesktopSplitLayout from "~/shared/DesktopSplitLayout";
 import MobileScrollBox from "~/shared/MobileScrollBox";
@@ -22,81 +21,76 @@ const historyModalStyles = {
   },
 };
 
-export type VoiceLayoutOutletContext = {
-  refreshVoiceSpeeches: () => Promise<void>;
-  prependSpeech: (speech: UserVoiceSpeech) => void;
-};
-
 export default function VoiceLayout() {
   const { isMobile } = useAppStore();
+  const navigate = useNavigate();
   const { voiceId } = useParams<{ voiceId: string }>();
-  const getVoiceSpeeches = useVoicesStore((s) => s.getVoiceSpeeches);
-  const deleteVoiceSpeech = useVoicesStore((s) => s.deleteVoiceSpeech);
-  const speechesLoading = useVoicesStore((s) => s.speechesLoading);
-  const speechDeleteLoading = useVoicesStore((s) => s.speechDeleteLoading);
-
-  const [speeches, setSpeeches] = useState<UserVoiceSpeech[]>([]);
+  const userVoices = useVoicesStore((s) => s.userVoices);
+  const setSelectedVoice = useVoicesStore((s) => s.setSelectedVoice);
+  const getVoiceById = useVoicesStore((s) => s.getVoiceById);
   const [historyOpened, { open: openHistory, close: closeHistory }] = useDisclosure(false);
 
-  const refreshVoiceSpeeches = useCallback(async () => {
+  useEffect(() => {
     const id = voiceId?.trim();
     if (!id) {
-      setSpeeches([]);
+      setSelectedVoice(null);
       return;
     }
-    const rows = await getVoiceSpeeches(id);
-    setSpeeches(rows);
-  }, [voiceId, getVoiceSpeeches]);
 
-  useEffect(() => {
-    void refreshVoiceSpeeches();
-  }, [refreshVoiceSpeeches]);
+    const fromList = userVoices.find((voice) => voice.id === id);
+    if (fromList) {
+      setSelectedVoice(fromList);
+      return;
+    }
 
-  const prependSpeech = useCallback((speech: UserVoiceSpeech) => {
-    setSpeeches((prev) => [speech, ...prev]);
-  }, []);
-
-  const handleDeleteSpeech = useCallback(
-    async (speechId: string) => {
-      const ok = await deleteVoiceSpeech(speechId);
-      if (ok) {
-        setSpeeches((prev) => prev.filter((s) => s.id !== speechId));
+    let cancelled = false;
+    void getVoiceById(id).then((voice) => {
+      if (cancelled) return;
+      if (voice?.id === id) {
+        setSelectedVoice(voice);
+        return;
       }
-      return ok;
-    },
-    [deleteVoiceSpeech]
-  );
-
-  const handleSpeechUpdated = useCallback((updated: UserVoiceSpeech) => {
-    const id = updated.id?.trim();
-    if (!id) return;
-    setSpeeches((prev) =>
-      prev.map((speech) =>
-        speech.id === id ? { ...speech, ...updated, file: updated.file ?? speech.file } : speech
-      )
-    );
-  }, []);
-
-  const outletContext: VoiceLayoutOutletContext = {
-    refreshVoiceSpeeches,
-    prependSpeech,
-  };
+      setSelectedVoice(null);
+      navigate("/voices", { replace: true });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [voiceId, userVoices, getVoiceById, setSelectedVoice, navigate]);
 
   const historyPanel = (
-    <VoiceSpeechesHistory
-      speeches={speeches}
-      loading={speechesLoading}
-      voiceSelected={Boolean(voiceId?.trim())}
-      speechDeleteLoading={speechDeleteLoading}
-      onDeleteSpeech={handleDeleteSpeech}
-      onSpeechUpdated={handleSpeechUpdated}
-    />
+    <Box
+      p={isMobile ? undefined : "sm"}
+      style={{
+        flex: 1,
+        minHeight: 0,
+        overflow: "hidden",
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
+      <VoiceSpeechesHistory />
+    </Box>
+  );
+
+  const backButton = (
+    <Group gap="xs" px="xs">
+      <Button
+        component={Link}
+        to="/voices"
+        size="compact-xs"
+        variant="filled"
+        leftSection={<RiArrowLeftLine size={16} />}
+      >
+        Voices
+      </Button>
+    </Group>
   );
 
   return isMobile ? (
     <MobileScrollBox>
       <Stack
-        gap="md"
+        gap="xs"
         style={{
           flex: 1,
           minHeight: 0,
@@ -105,13 +99,20 @@ export default function VoiceLayout() {
           flexDirection: "column",
         }}
       >
-        <VoicePicker selectedVoiceId={voiceId} />
+        {backButton}
         <ScrollArea style={{ flex: 1, minHeight: 0 }} type="auto" offsetScrollbars="y">
-          <Outlet context={outletContext} />
+          <Outlet />
         </ScrollArea>
-        <Button variant="light" leftSection={<RiSoundModuleLine size={16} />} onClick={openHistory}>
-          Speech history
-        </Button>
+        <Box p="xs">
+          <Button
+            variant="light"
+            leftSection={<RiSoundModuleLine size={16} />}
+            onClick={openHistory}
+            fullWidth
+          >
+            Speech history
+          </Button>
+        </Box>
       </Stack>
       <Modal
         opened={historyOpened}
@@ -120,7 +121,7 @@ export default function VoiceLayout() {
         fullScreen
         styles={historyModalStyles}
       >
-        <Box style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>{historyPanel}</Box>
+        {historyPanel}
       </Modal>
     </MobileScrollBox>
   ) : (
@@ -148,15 +149,13 @@ export default function VoiceLayout() {
             flexDirection: "column",
           }}
         >
-          <VoicePicker selectedVoiceId={voiceId} />
+          {backButton}
           <ScrollArea style={{ flex: 1, minHeight: 0 }} type="auto" offsetScrollbars="y">
-            <Outlet context={outletContext} />
+            <Outlet />
           </ScrollArea>
         </Stack>
       </Paper>
-      <Box p="sm" style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
-        {historyPanel}
-      </Box>
+      {historyPanel}
     </DesktopSplitLayout>
   );
 }

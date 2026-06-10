@@ -18,9 +18,8 @@ import {
   Tooltip,
 } from "@mantine/core";
 import { Carousel } from "@mantine/carousel";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { RiAlertLine, RiDeleteBinLine, RiPencilLine } from "@remixicon/react";
-import { authFetchJson } from "~/lib/stores/authFetch";
 import useCharactersStore from "~/lib/stores/charactersStore";
 import useVoicesStore, { type UserVoice, type UserVoiceSpeech } from "~/lib/stores/voicesStore";
 import {
@@ -34,12 +33,19 @@ import {
   lookHasFailed,
   lookIsActivelyGenerating,
   shouldPollLook,
+  CHARACTER_LOOK_VIEW_ORDER,
+  type CharacterLookView,
 } from "~/pages/characters/characterLookGenerationUtils";
+import {
+  EMPTY_CHARACTER_LOOKS,
+  type CharacterLook,
+  type CharacterLookItem,
+  type CharacterLookItemFile,
+} from "~/pages/characters/characterLookTypes";
 import {
   characterMemberFileThumbnailUrl,
   type CharacterMemberFile,
 } from "~/pages/characters/characterUtils";
-import { endpoint } from "~/lib/utils";
 import FileDetailModal from "~/shared/FileDetailModal";
 import { useDisclosure } from "@mantine/hooks";
 import { buildBaseLookPickerOptionsFromLooks } from "~/pages/characters/components/CharacterBaseLookPicker";
@@ -48,53 +54,6 @@ import {
   type GenerateLookSubmitValues,
 } from "~/pages/characters/components/GenerateLookModal";
 import { GenerateAssetPlaceholderCard } from "~/pages/characters/components/GenerateAssetPlaceholderCard";
-
-export {
-  CHARACTER_LOOK_VIEW_ORDER,
-  type CharacterLookView,
-} from "~/pages/characters/characterLookGenerationUtils";
-import {
-  CHARACTER_LOOK_VIEW_ORDER,
-  type CharacterLookView,
-} from "~/pages/characters/characterLookGenerationUtils";
-
-export type CharacterLookItemFile = {
-  id: string;
-  file_name?: string | null;
-  file_path?: string | null;
-  file_type?: string | null;
-  file_size?: number | null;
-  created_at?: string | null;
-  thumbnail_url?: string | null;
-  upload_type?: string | null;
-  status?: string | null;
-};
-
-export type CharacterLookItem = {
-  id: string;
-  created_at?: string | null;
-  look_id?: string | null;
-  file_id?: string | null;
-  view?: CharacterLookView | string | null;
-  metadata?: unknown;
-  file?: CharacterLookItemFile | null;
-};
-
-export type CharacterLook = {
-  id: string;
-  created_at?: string | null;
-  updated_at?: string | null;
-  user_id?: string | null;
-  character_id?: string | null;
-  name?: string | null;
-  base_look?: boolean | null;
-  metadata?: unknown;
-  items: CharacterLookItem[];
-};
-
-type CharacterLooksResponse = {
-  looks: CharacterLook[];
-};
 
 const VIEW_LABELS: Record<CharacterLookView, string> = {
   front: "Front",
@@ -127,36 +86,27 @@ function itemByView(items: CharacterLookItem[]): Map<CharacterLookView, Characte
   return map;
 }
 
-/** Tracks front-view URLs and base-look flags for thumbnail / picker refresh. */
-export function looksVisualSignature(looks: CharacterLook[]): string {
-  return looks
-    .map((look) => {
-      const front = look.items.find((item) => (item.view ?? "").trim().toLowerCase() === "front");
-      const file = front?.file;
-      const url = file?.file_path?.trim() || file?.thumbnail_url?.trim() || "";
-      return `${look.id}:${look.base_look ? 1 : 0}:${url}`;
-    })
-    .sort()
-    .join("|");
-}
-
 type CharacterLooksPanelProps = {
   characterId?: string | null;
-  refreshSignal?: number;
-  onLooksVisualsUpdated?: () => void;
-  onGenerated?: () => void | Promise<void>;
 };
 
-export default function CharacterLooksPanel({
-  characterId,
-  refreshSignal = 0,
-  onLooksVisualsUpdated,
-  onGenerated,
-}: CharacterLooksPanelProps) {
-  const [looks, setLooks] = useState<CharacterLook[]>([]);
-  const [_loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const lastVisualSignatureRef = useRef("");
+export default function CharacterLooksPanel({ characterId }: CharacterLooksPanelProps) {
+  const id = characterId?.trim() ?? "";
+  const looks = useCharactersStore((s) =>
+    id ? (s.characterLooksById[id] ?? EMPTY_CHARACTER_LOOKS) : EMPTY_CHARACTER_LOOKS
+  );
+  const error = useCharactersStore((s) => (id ? (s.characterLooksErrorById[id] ?? null) : null));
+  const fetchCharacterLooks = useCharactersStore((s) => s.fetchCharacterLooks);
+  const clearCharacterLooks = useCharactersStore((s) => s.clearCharacterLooks);
+  const switchCharacterBaseLook = useCharactersStore((s) => s.switchCharacterBaseLook);
+  const deleteCharacterLook = useCharactersStore((s) => s.deleteCharacterLook);
+  const updateCharacterLookName = useCharactersStore((s) => s.updateCharacterLookName);
+  const retryCharacterLookGeneration = useCharactersStore((s) => s.retryCharacterLookGeneration);
+  const loadLookModelOptions = useCharactersStore((s) => s.loadLookModelOptions);
+  const fetchCharacterById = useCharactersStore((s) => s.fetchCharacterById);
+  const getVoiceById = useVoicesStore((s) => s.getVoiceById);
+  const getVoiceSpeeches = useVoicesStore((s) => s.getVoiceSpeeches);
+
   const [detailFile, setDetailFile] = useState<CharacterMemberFile | null>(null);
   const [detailOpened, { open: openDetail, close: closeDetail }] = useDisclosure(false);
   const [deletingLookId, setDeletingLookId] = useState<string | null>(null);
@@ -172,69 +122,26 @@ export default function CharacterLooksPanel({
   const [retryModalSubmitting, setRetryModalSubmitting] = useState(false);
   const [characterVoice, setCharacterVoice] = useState<UserVoice | null>(null);
   const [voiceSpeeches, setVoiceSpeeches] = useState<UserVoiceSpeech[]>([]);
-  const switchCharacterBaseLook = useCharactersStore((s) => s.switchCharacterBaseLook);
-  const deleteCharacterLook = useCharactersStore((s) => s.deleteCharacterLook);
-  const updateCharacterLookName = useCharactersStore((s) => s.updateCharacterLookName);
-  const retryCharacterLookGeneration = useCharactersStore((s) => s.retryCharacterLookGeneration);
-  const loadLookModelOptions = useCharactersStore((s) => s.loadLookModelOptions);
-  const fetchCharacterById = useCharactersStore((s) => s.fetchCharacterById);
-  const getVoiceById = useVoicesStore((s) => s.getVoiceById);
-  const getVoiceSpeeches = useVoicesStore((s) => s.getVoiceSpeeches);
 
   const baseLookOptions = useMemo(() => buildBaseLookPickerOptionsFromLooks(looks), [looks]);
 
-  const fetchLooks = useCallback(
-    async (id: string, opts?: { silent?: boolean }) => {
-      if (!opts?.silent) setLoading(true);
-      setError(null);
-      try {
-        const data = await authFetchJson<CharacterLooksResponse>(
-          `${endpoint}/characters/${encodeURIComponent(id)}/looks`,
-          undefined,
-          { errorMessage: "Failed to load character looks" }
-        );
-        const nextLooks = data.looks ?? [];
-        setLooks(nextLooks);
-
-        const signature = looksVisualSignature(nextLooks);
-        if (lastVisualSignatureRef.current !== "" && signature !== lastVisualSignatureRef.current) {
-          onLooksVisualsUpdated?.();
-        }
-        lastVisualSignatureRef.current = signature;
-      } catch (err) {
-        setLooks([]);
-        setError(err instanceof Error ? err.message : "Failed to load character looks");
-      } finally {
-        if (!opts?.silent) setLoading(false);
-      }
-    },
-    [onLooksVisualsUpdated]
-  );
-
   useEffect(() => {
-    lastVisualSignatureRef.current = "";
-  }, [characterId]);
-
-  useEffect(() => {
-    const id = characterId?.trim();
     if (!id) {
-      setLooks([]);
-      setError(null);
       return;
     }
-    void fetchLooks(id);
-  }, [characterId, refreshSignal, fetchLooks]);
+    void fetchCharacterLooks(id);
+    return () => clearCharacterLooks(id);
+  }, [id, fetchCharacterLooks, clearCharacterLooks]);
 
   const hasActiveGeneratingLooks = useMemo(() => looks.some(shouldPollLook), [looks]);
 
   useEffect(() => {
-    const id = characterId?.trim();
     if (!id || !hasActiveGeneratingLooks) return;
     const interval = window.setInterval(() => {
-      void fetchLooks(id, { silent: true });
+      void fetchCharacterLooks(id, { silent: true });
     }, 4000);
     return () => window.clearInterval(interval);
-  }, [characterId, fetchLooks, hasActiveGeneratingLooks]);
+  }, [id, fetchCharacterLooks, hasActiveGeneratingLooks]);
 
   const openFileDetail = (file: CharacterLookItemFile) => {
     setDetailFile(lookItemFileToMemberFile(file));
@@ -257,7 +164,6 @@ export default function CharacterLooksPanel({
   };
 
   const handleSaveLook = async () => {
-    const id = characterId?.trim();
     const lookId = editLook?.id?.trim();
     const trimmed = editName.trim();
     if (!id || !lookId || !editLook) return;
@@ -287,14 +193,13 @@ export default function CharacterLooksPanel({
       }
 
       closeEditLook();
-      await fetchLooks(id, { silent: true });
+      await fetchCharacterLooks(id, { silent: true });
     } finally {
       setSavingLookId(null);
     }
   };
 
   const handleConfirmDeleteLook = async () => {
-    const id = characterId?.trim();
     const look = deleteConfirmLook;
     const lookId = look?.id?.trim();
     if (!id || !lookId || look?.base_look) return;
@@ -304,7 +209,7 @@ export default function CharacterLooksPanel({
       const ok = await deleteCharacterLook(lookId, id);
       if (ok) {
         setDeleteConfirmLook(null);
-        await fetchLooks(id, { silent: true });
+        await fetchCharacterLooks(id, { silent: true });
       }
     } finally {
       setDeletingLookId(null);
@@ -312,7 +217,6 @@ export default function CharacterLooksPanel({
   };
 
   const handleRetryLook = async (look: CharacterLook) => {
-    const id = characterId?.trim();
     const lookId = look.id?.trim();
     if (!id || !lookId) return;
 
@@ -327,7 +231,7 @@ export default function CharacterLooksPanel({
         setCharacterVoice(null);
         setVoiceSpeeches([]);
 
-        const character = await fetchCharacterById(id);
+        const character = await fetchCharacterById(id, { silent: true });
         const voiceId = character?.voice_id?.trim();
         if (voiceId) {
           const voice = await getVoiceById(voiceId);
@@ -346,7 +250,7 @@ export default function CharacterLooksPanel({
     try {
       const ok = await retryCharacterLookGeneration(id, lookId);
       if (ok) {
-        await fetchLooks(id, { silent: true });
+        await fetchCharacterLooks(id, { silent: true });
       }
     } finally {
       setRetryingLookId(null);
@@ -362,7 +266,6 @@ export default function CharacterLooksPanel({
   };
 
   const handleRetryModalSubmit = async (values: GenerateLookSubmitValues) => {
-    const id = characterId?.trim();
     const lookId = values.lookId?.trim();
     if (!id || !lookId) return;
 
@@ -378,7 +281,7 @@ export default function CharacterLooksPanel({
         setRetryDraft(null);
         setCharacterVoice(null);
         setVoiceSpeeches([]);
-        await fetchLooks(id, { silent: true });
+        await fetchCharacterLooks(id, { silent: true });
       }
     } finally {
       setRetryModalSubmitting(false);
@@ -386,12 +289,10 @@ export default function CharacterLooksPanel({
   };
 
   const handleLookGenerated = useCallback(async () => {
-    const id = characterId?.trim();
-    if (id) await fetchLooks(id, { silent: true });
-    await onGenerated?.();
-  }, [characterId, fetchLooks, onGenerated]);
+    if (id) await fetchCharacterLooks(id, { silent: true });
+  }, [id, fetchCharacterLooks]);
 
-  if (!characterId?.trim()) {
+  if (!id) {
     return (
       <Center h="100%">
         <Text c="dimmed" size="sm">
@@ -429,7 +330,7 @@ export default function CharacterLooksPanel({
           px="sm"
         >
           <GenerateLookModal
-            characterId={characterId}
+            characterId={id}
             onGenerated={handleLookGenerated}
             renderTrigger={({ open, opening, label }) => (
               <GenerateAssetPlaceholderCard
