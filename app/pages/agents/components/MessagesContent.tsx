@@ -1,4 +1,4 @@
-import { ScrollArea, Stack, Text } from "@mantine/core";
+import { Box, ScrollArea, Stack, Text } from "@mantine/core";
 import { useEffect, useMemo } from "react";
 import { useChatScroll } from "~/lib/hooks/useChatScroll";
 import MessageBubble from "~/pages/agents/components/MessageBubble";
@@ -8,9 +8,12 @@ import { buildChatInteractions } from "./chatInteractions";
 export default function MessagesContent({
   showAllMessages = false,
   shouldScrollToBottom = true,
+  fillContainer = false,
 }: {
   showAllMessages?: boolean;
   shouldScrollToBottom?: boolean;
+  /** When true, fills a flex parent (e.g. modal) using h="100%" ScrollArea. */
+  fillContainer?: boolean;
 }) {
   const { viewportRef, scrollToBottom } = useChatScroll();
   const {
@@ -56,34 +59,48 @@ export default function MessagesContent({
     [visibleMessages]
   );
 
+  const messageList = (
+    <Stack gap="md" p="md" pb="xl">
+      {visibleMessages.length === 0 && !shouldShowStreamingAssistant && (
+        <Text size="sm" c="dimmed">
+          Send a message to start. Pick a model and optionally add a system prompt.
+        </Text>
+      )}
+      {renderedMessages}
+      {shouldShowStreamingAssistant && (
+        <MessageBubble
+          message={{
+            id: "streaming",
+            role: "assistant",
+            content: [
+              { type: "text", text: streamingContent },
+              ...streamedFileUrls.map((url) => ({
+                type: "image" as const,
+                imageUrl: url,
+              })),
+            ],
+          }}
+          streaming
+          streamStatus={streamStatus}
+          streamingReasoning={streamingReasoning}
+        />
+      )}
+    </Stack>
+  );
+
+  if (fillContainer) {
+    return (
+      <Box style={{ flex: 1, minHeight: 0, minWidth: 0 }}>
+        <ScrollArea h="100%" type="auto" viewportRef={viewportRef} py="xs" offsetScrollbars="y">
+          {messageList}
+        </ScrollArea>
+      </Box>
+    );
+  }
+
   return (
     <ScrollArea viewportRef={viewportRef} style={{ flex: 1, minHeight: 0 }} py="xs">
-      <Stack gap="md" p="md" pb="xl">
-        {visibleMessages.length === 0 && !shouldShowStreamingAssistant && (
-          <Text size="sm" c="dimmed">
-            Send a message to start. Pick a model and optionally add a system prompt.
-          </Text>
-        )}
-        {renderedMessages}
-        {shouldShowStreamingAssistant && (
-          <MessageBubble
-            message={{
-              id: "streaming",
-              role: "assistant",
-              content: [
-                { type: "text", text: streamingContent },
-                ...streamedFileUrls.map((url) => ({
-                  type: "image" as const,
-                  imageUrl: url,
-                })),
-              ],
-            }}
-            streaming
-            streamStatus={streamStatus}
-            streamingReasoning={streamingReasoning}
-          />
-        )}
-      </Stack>
+      {messageList}
     </ScrollArea>
   );
 }

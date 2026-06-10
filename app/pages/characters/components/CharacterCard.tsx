@@ -1,71 +1,45 @@
-import {
-  ActionIcon,
-  Button,
-  Card,
-  Group,
-  Image,
-  Loader,
-  Stack,
-  Text,
-  Tooltip,
-} from "@mantine/core";
+import { ActionIcon, Card, Group, Image, Loader, Stack, Text, Tooltip } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { RiDeleteBinLine, RiPencilLine, RiTeamLine } from "@remixicon/react";
-import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router";
-import useCharactersStore, { type UserCharacter } from "~/lib/stores/charactersStore";
+import { useEffect, useMemo, type MouseEvent } from "react";
+import { useNavigate } from "react-router";
+import useCharactersStore from "~/lib/stores/charactersStore";
 import { characterMetaLine } from "~/pages/characters/characterUtils";
 import { CharacterDeleteModal } from "~/pages/characters/components/CharacterDeleteModal";
 import { EditCharacterModal } from "~/pages/characters/components/EditCharacterModal";
 
 type CharacterCardProps = {
   characterId: string;
+  listMode?: boolean;
   onDeleted?: () => void;
 };
 
-export function CharacterCard({ characterId, onDeleted }: CharacterCardProps) {
+export function CharacterCard({ characterId, listMode = false, onDeleted }: CharacterCardProps) {
+  const navigate = useNavigate();
   const characters = useCharactersStore((s) => s.characters);
+  const selectedCharacter = useCharactersStore((s) => s.selectedCharacter);
+  const selectedCharacterLoading = useCharactersStore((s) => s.selectedCharacterLoading);
   const fetchCharacterById = useCharactersStore((s) => s.fetchCharacterById);
   const updateCharacter = useCharactersStore((s) => s.updateCharacter);
   const deleteCharacter = useCharactersStore((s) => s.deleteCharacter);
   const updateLoading = useCharactersStore((s) => s.updateLoading);
   const deleteLoading = useCharactersStore((s) => s.deleteLoading);
-
-  const [character, setCharacter] = useState<UserCharacter | null>(
-    () => characters.find((row) => row.id === characterId) ?? null
-  );
-  const [loading, setLoading] = useState(!character);
   const [editOpened, { open: openEdit, close: closeEdit }] = useDisclosure(false);
   const [deleteOpened, { open: openDelete, close: closeDelete }] = useDisclosure(false);
 
-  const loadCharacter = useCallback(async () => {
-    const row = await fetchCharacterById(characterId);
-    setCharacter(row);
-    setLoading(false);
-    return row;
-  }, [characterId, fetchCharacterById]);
+  const character = useMemo(() => {
+    if (selectedCharacter?.id === characterId) return selectedCharacter;
+    return characters.find((row) => row.id === characterId) ?? null;
+  }, [selectedCharacter, characters, characterId]);
 
   useEffect(() => {
-    const fromList = characters.find((row) => row.id === characterId);
-    if (fromList) {
-      setCharacter(fromList);
-    }
-  }, [characters, characterId]);
+    if (character) return;
+    void fetchCharacterById(characterId, { silent: true });
+  }, [character, characterId, fetchCharacterById]);
 
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    void fetchCharacterById(characterId).then((row) => {
-      if (cancelled) return;
-      setCharacter(row);
-      setLoading(false);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [characterId, fetchCharacterById]);
+  const loading = !character && selectedCharacterLoading;
 
-  if (loading && !character) {
+  if (loading) {
     return (
       <Card radius="md" padding="md" shadow="sm">
         <Group justify="center" py="lg">
@@ -87,9 +61,34 @@ export function CharacterCard({ characterId, onDeleted }: CharacterCardProps) {
 
   const meta = characterMetaLine(character);
 
+  const goToLooks = () => navigate(`/characters/${encodeURIComponent(character.id)}/looks`);
+
+  const openCharacterAction = (action: () => void) => (event: MouseEvent) => {
+    event.stopPropagation();
+    action();
+  };
+
   return (
     <>
-      <Card radius="md" padding="md" shadow="sm">
+      <Card
+        radius="md"
+        padding="md"
+        shadow="sm"
+        role={listMode ? "button" : undefined}
+        tabIndex={listMode ? 0 : undefined}
+        onClick={listMode ? goToLooks : undefined}
+        onKeyDown={
+          listMode
+            ? (event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  goToLooks();
+                }
+              }
+            : undefined
+        }
+        style={listMode ? { cursor: "pointer" } : undefined}
+      >
         <Stack gap="md">
           <Group align="flex-start" wrap="nowrap" gap="md">
             <Card
@@ -127,7 +126,11 @@ export function CharacterCard({ characterId, onDeleted }: CharacterCardProps) {
                 </Stack>
                 <Group gap={4} wrap="nowrap">
                   <Tooltip label="Edit">
-                    <ActionIcon variant="subtle" aria-label="Edit character" onClick={openEdit}>
+                    <ActionIcon
+                      variant="subtle"
+                      aria-label="Edit character"
+                      onClick={openCharacterAction(openEdit)}
+                    >
                       <RiPencilLine size={18} />
                     </ActionIcon>
                   </Tooltip>
@@ -136,7 +139,7 @@ export function CharacterCard({ characterId, onDeleted }: CharacterCardProps) {
                       variant="subtle"
                       color="red"
                       aria-label="Delete character"
-                      onClick={openDelete}
+                      onClick={openCharacterAction(openDelete)}
                     >
                       <RiDeleteBinLine size={18} />
                     </ActionIcon>
@@ -153,25 +156,6 @@ export function CharacterCard({ characterId, onDeleted }: CharacterCardProps) {
               </Text>
             </Stack>
           </Group>
-
-          <Group gap="xs" grow>
-            <Button
-              component={Link}
-              to={`/characters/${encodeURIComponent(character.id)}/looks`}
-              variant="filled"
-              size="compact-sm"
-            >
-              Looks
-            </Button>
-            <Button
-              component={Link}
-              to={`/characters/${encodeURIComponent(character.id)}/scenes`}
-              variant="filled"
-              size="compact-sm"
-            >
-              Scenes
-            </Button>
-          </Group>
         </Stack>
       </Card>
 
@@ -182,10 +166,7 @@ export function CharacterCard({ characterId, onDeleted }: CharacterCardProps) {
         onClose={closeEdit}
         onSubmit={async (values) => {
           const ok = await updateCharacter(character.id, values);
-          if (ok) {
-            closeEdit();
-            await loadCharacter();
-          }
+          if (ok) closeEdit();
         }}
       />
 

@@ -2,12 +2,11 @@ import { Button, Modal } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { RiSoundModuleLine } from "@remixicon/react";
 import useVoicesStore from "~/lib/stores/voicesStore";
-import { GenerateSpeechForm, type GenerateSpeechFormProps } from "~/shared/GenerateSpeechForm";
+import { inworldProviderVoiceId } from "~/pages/voices/voiceUtils";
+import { GenerateSpeechForm } from "~/shared/GenerateSpeechForm";
+import useAppStore from "~/lib/stores/appStore";
 
-export type GenerateSpeechModalProps = Omit<
-  GenerateSpeechFormProps,
-  "showCancel" | "onCancel" | "description" | "submitLabel"
-> & {
+export type GenerateSpeechModalProps = {
   /** Trigger button label */
   buttonLabel?: string;
   /** Disable the open button */
@@ -15,16 +14,16 @@ export type GenerateSpeechModalProps = Omit<
 };
 
 export function GenerateSpeechModal({
-  voiceId,
-  inworldVoiceId,
-  onGenerated,
   buttonLabel = "Generate",
   disabled = false,
 }: GenerateSpeechModalProps) {
   const [opened, { open, close }] = useDisclosure(false);
+  const selectedVoice = useVoicesStore((s) => s.selectedVoice);
   const speechSynthesizeLoading = useVoicesStore((s) => s.speechSynthesizeLoading);
-
-  const hasInworldVoice = Boolean(inworldVoiceId?.trim());
+  const isMobile = useAppStore((s) => s.isMobile);
+  const hasInworldVoice = Boolean(
+    selectedVoice ? inworldProviderVoiceId(selectedVoice)?.trim() : ""
+  );
 
   const handleClose = () => {
     if (speechSynthesizeLoading) return;
@@ -50,19 +49,15 @@ export function GenerateSpeechModal({
         size="lg"
         closeOnClickOutside={!speechSynthesizeLoading}
         closeOnEscape={!speechSynthesizeLoading}
+        fullScreen={isMobile}
       >
         {opened ? (
           <GenerateSpeechForm
             key="generate-speech-modal-form"
-            voiceId={voiceId}
-            inworldVoiceId={inworldVoiceId}
             showCancel
             submitLabel="Generate"
             onCancel={handleClose}
-            onGenerated={(speech) => {
-              onGenerated?.(speech);
-              close();
-            }}
+            onGenerated={() => close()}
           />
         ) : null}
       </Modal>

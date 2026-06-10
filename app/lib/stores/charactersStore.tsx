@@ -1,7 +1,14 @@
 import { create } from "zustand";
+import { looksVisualSignature, type CharacterLook } from "~/pages/characters/characterLookTypes";
 import { showNotification } from "../notificationUtils";
 import { authFetchJson } from "./authFetch";
 import { endpoint } from "../utils";
+
+export type {
+  CharacterLook,
+  CharacterLookItem,
+  CharacterLookItemFile,
+} from "~/pages/characters/characterLookTypes";
 
 export type UserCharacter = {
   id: string;
@@ -58,23 +65,53 @@ export type CharacterDesignAssistResult = {
   ethnicity: string | null;
 };
 
+export const USER_CHARACTERS_PAGE_SIZE = 9;
+
+export type LoadCharactersOptions = {
+  page?: number;
+  search?: string;
+  /** When false, loads every character (e.g. pickers). Default: last used mode. */
+  paginate?: boolean;
+};
+
 type CharactersState = {
   characters: UserCharacter[];
+  charactersTotal: number;
+  charactersPage: number;
+  charactersSearch: string;
+  charactersPaginated: boolean;
   charactersLoading: boolean;
   selectedCharacter: UserCharacter | null;
   setSelectedCharacter: (character: UserCharacter | null) => void;
+  selectedCharacterLoading: boolean;
   assistLoading: boolean;
   createLoading: boolean;
   updateLoading: boolean;
   deleteLoading: boolean;
   generateLookLoading: boolean;
   generateSceneLoading: boolean;
+  generateVideoLoading: boolean;
   lookModelOptions: CharacterLookModelOption[];
   lookModelOptionsLoading: boolean;
+  videoModelOptions: CharacterLookModelOption[];
+  videoModelOptionsLoading: boolean;
+  characterLooksById: Record<string, CharacterLook[]>;
+  characterLooksLoadingById: Record<string, boolean>;
+  characterLooksErrorById: Record<string, string | null>;
   error: string | null;
-  loadCharacters: () => Promise<void>;
+  loadCharacters: (opts?: LoadCharactersOptions) => Promise<void>;
   loadLookModelOptions: () => Promise<CharacterLookModelOption[]>;
-  fetchCharacterById: (characterId: string) => Promise<UserCharacter | null>;
+  loadVideoModelOptions: () => Promise<CharacterLookModelOption[]>;
+  fetchCharacterById: (
+    characterId: string,
+    opts?: { silent?: boolean }
+  ) => Promise<UserCharacter | null>;
+  refreshCharacterInStore: (characterId: string) => Promise<UserCharacter | null>;
+  fetchCharacterLooks: (
+    characterId: string,
+    opts?: { silent?: boolean }
+  ) => Promise<CharacterLook[]>;
+  clearCharacterLooks: (characterId: string) => void;
   assistCharacterDesign: (payload: {
     description?: string;
     name?: string;
@@ -101,9 +138,23 @@ type CharactersState = {
       name: string;
     }
   ) => Promise<boolean>;
+  generateCharacterVideo: (
+    characterId: string,
+    values: {
+      modelId: string;
+      payload: Record<string, unknown>;
+      name: string;
+    }
+  ) => Promise<boolean>;
   deleteCharacterScene: (sceneId: string, characterId: string) => Promise<boolean>;
   updateCharacterSceneName: (
     sceneId: string,
+    characterId: string,
+    name: string
+  ) => Promise<boolean>;
+  deleteCharacterVideo: (videoId: string, characterId: string) => Promise<boolean>;
+  updateCharacterVideoName: (
+    videoId: string,
     characterId: string,
     name: string
   ) => Promise<boolean>;
@@ -118,31 +169,84 @@ type CharactersState = {
 };
 
 let lookModelOptionsInFlight: Promise<CharacterLookModelOption[]> | null = null;
+let videoModelOptionsInFlight: Promise<CharacterLookModelOption[]> | null = null;
+const characterLooksVisualSignatures = new Map<string, string>();
+
+function applyCharacterToStore(
+  set: (
+    partial: Partial<CharactersState> | ((state: CharactersState) => Partial<CharactersState>)
+  ) => void,
+  get: () => CharactersState,
+  character: UserCharacter
+) {
+  const { characters, selectedCharacter } = get();
+  set({
+    characters: characters.some((row) => row.id === character.id)
+      ? characters.map((row) => (row.id === character.id ? character : row))
+      : characters,
+    selectedCharacter: selectedCharacter?.id === character.id ? character : selectedCharacter,
+  });
+}
 
 const useCharactersStore = create<CharactersState>((set, get) => ({
   characters: [],
+  charactersTotal: 0,
+  charactersPage: 1,
+  charactersSearch: "",
+  charactersPaginated: true,
   charactersLoading: false,
   selectedCharacter: null,
+  selectedCharacterLoading: false,
   assistLoading: false,
   createLoading: false,
   updateLoading: false,
   deleteLoading: false,
   generateLookLoading: false,
   generateSceneLoading: false,
+  generateVideoLoading: false,
   lookModelOptions: [],
   lookModelOptionsLoading: false,
+  videoModelOptions: [],
+  videoModelOptionsLoading: false,
+  characterLooksById: {},
+  characterLooksLoadingById: {},
+  characterLooksErrorById: {},
   error: null,
 
   setSelectedCharacter: (character) => set({ selectedCharacter: character }),
-  loadCharacters: async () => {
+  loadCharacters: async (opts) => {
+    const state = get();
+    const paginate = opts?.paginate ?? state.charactersPaginated;
+    const page = opts?.page ?? (paginate ? state.charactersPage : 1);
+    const search = opts?.search ?? state.charactersSearch;
+
     set({ charactersLoading: true, error: null });
     try {
-      const data = await authFetchJson<{ characters?: UserCharacter[] }>(
-        `${endpoint}/characters`,
+      const params = new URLSearchParams();
+      if (paginate) {
+        params.set("limit", String(USER_CHARACTERS_PAGE_SIZE));
+        params.set("page", String(Math.max(0, page - 1)));
+      }
+      const trimmedSearch = search.trim();
+      if (trimmedSearch) params.set("search", trimmedSearch);
+
+      const query = params.toString();
+      const url = query ? `${endpoint}/characters?${query}` : `${endpoint}/characters`;
+      const data = await authFetchJson<{ characters?: UserCharacter[]; total?: number }>(
+        url,
         undefined,
         { errorMessage: "Failed to load characters" }
       );
-      set({ characters: data.characters ?? [], charactersLoading: false });
+      const characters = data.characters ?? [];
+      const total = typeof data.total === "number" ? data.total : characters.length;
+      set({
+        characters,
+        charactersTotal: total,
+        charactersPage: page,
+        charactersSearch: search,
+        charactersPaginated: paginate,
+        charactersLoading: false,
+      });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to load characters";
       set({ charactersLoading: false, error: message });
@@ -179,6 +283,35 @@ const useCharactersStore = create<CharactersState>((set, get) => ({
     return lookModelOptionsInFlight;
   },
 
+  loadVideoModelOptions: async () => {
+    if (videoModelOptionsInFlight) {
+      return videoModelOptionsInFlight;
+    }
+
+    set({ videoModelOptionsLoading: true });
+    videoModelOptionsInFlight = (async () => {
+      try {
+        const data = await authFetchJson<{ options?: CharacterLookModelOption[] }>(
+          `${endpoint}/characters/video-model-options`,
+          undefined,
+          { errorMessage: "Failed to load video models" }
+        );
+        const options = data.options ?? [];
+        set({ videoModelOptions: options, videoModelOptionsLoading: false });
+        return options;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Failed to load video models";
+        set({ videoModelOptions: [], videoModelOptionsLoading: false });
+        showNotification({ title: "Could not load video models", message, type: "error" });
+        return [];
+      } finally {
+        videoModelOptionsInFlight = null;
+      }
+    })();
+
+    return videoModelOptionsInFlight;
+  },
+
   assistCharacterDesign: async (payload) => {
     set({ assistLoading: true, error: null });
     try {
@@ -211,7 +344,37 @@ const useCharactersStore = create<CharactersState>((set, get) => ({
     }
   },
 
-  fetchCharacterById: async (characterId) => {
+  fetchCharacterById: async (characterId, opts) => {
+    const silent = Boolean(opts?.silent);
+    if (!silent) {
+      set({ selectedCharacterLoading: true, error: null });
+    }
+    const id = characterId.trim();
+    if (!id) {
+      if (!silent) set({ selectedCharacterLoading: false });
+      return null;
+    }
+    try {
+      const data = await authFetchJson<{ character?: UserCharacter }>(
+        `${endpoint}/characters/${encodeURIComponent(id)}`,
+        undefined,
+        { errorMessage: "Failed to load character" }
+      );
+      const character = data.character ?? null;
+      if (!silent) set({ selectedCharacterLoading: false });
+      if (character?.id) {
+        applyCharacterToStore(set, get, character);
+      }
+      return character;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to load character";
+      if (!silent) set({ selectedCharacterLoading: false });
+      showNotification({ title: "Could not load character", message, type: "error" });
+      return null;
+    }
+  },
+
+  refreshCharacterInStore: async (characterId) => {
     const id = characterId.trim();
     if (!id) return null;
     try {
@@ -220,12 +383,70 @@ const useCharactersStore = create<CharactersState>((set, get) => ({
         undefined,
         { errorMessage: "Failed to load character" }
       );
-      return data.character ?? null;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to load character";
-      showNotification({ title: "Could not load character", message, type: "error" });
+      const character = data.character ?? null;
+      if (character?.id) {
+        applyCharacterToStore(set, get, character);
+      }
+      return character;
+    } catch {
       return null;
     }
+  },
+
+  fetchCharacterLooks: async (characterId, opts) => {
+    const id = characterId.trim();
+    if (!id) return [];
+
+    if (!opts?.silent) {
+      set((state) => ({
+        characterLooksLoadingById: { ...state.characterLooksLoadingById, [id]: true },
+        characterLooksErrorById: { ...state.characterLooksErrorById, [id]: null },
+      }));
+    }
+
+    try {
+      const data = await authFetchJson<{ looks?: CharacterLook[] }>(
+        `${endpoint}/characters/${encodeURIComponent(id)}/looks`,
+        undefined,
+        { errorMessage: "Failed to load character looks" }
+      );
+      const nextLooks = data.looks ?? [];
+      const signature = looksVisualSignature(nextLooks);
+      const previousSignature = characterLooksVisualSignatures.get(id) ?? "";
+
+      set((state) => ({
+        characterLooksById: { ...state.characterLooksById, [id]: nextLooks },
+        characterLooksLoadingById: { ...state.characterLooksLoadingById, [id]: false },
+        characterLooksErrorById: { ...state.characterLooksErrorById, [id]: null },
+      }));
+
+      if (previousSignature !== "" && signature !== previousSignature) {
+        await get().refreshCharacterInStore(id);
+      }
+      characterLooksVisualSignatures.set(id, signature);
+
+      return nextLooks;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to load character looks";
+      set((state) => ({
+        characterLooksById: { ...state.characterLooksById, [id]: [] },
+        characterLooksLoadingById: { ...state.characterLooksLoadingById, [id]: false },
+        characterLooksErrorById: { ...state.characterLooksErrorById, [id]: message },
+      }));
+      return [];
+    }
+  },
+
+  clearCharacterLooks: (characterId) => {
+    const id = characterId.trim();
+    if (!id) return;
+    characterLooksVisualSignatures.delete(id);
+    set((state) => {
+      const { [id]: _looks, ...characterLooksById } = state.characterLooksById;
+      const { [id]: _loading, ...characterLooksLoadingById } = state.characterLooksLoadingById;
+      const { [id]: _error, ...characterLooksErrorById } = state.characterLooksErrorById;
+      return { characterLooksById, characterLooksLoadingById, characterLooksErrorById };
+    });
   },
 
   createCharacter: async (values) => {
@@ -255,7 +476,8 @@ const useCharactersStore = create<CharactersState>((set, get) => ({
           message: `"${character.name}" was saved.`,
           type: "success",
         });
-        await get().loadCharacters();
+        const { charactersPaginated, charactersSearch } = get();
+        await get().loadCharacters({ page: 1, paginate: charactersPaginated, search: charactersSearch });
       }
       return character;
     } catch (err) {
@@ -419,6 +641,83 @@ const useCharactersStore = create<CharactersState>((set, get) => ({
     }
   },
 
+  generateCharacterVideo: async (characterId, values) => {
+    set({ generateVideoLoading: true, error: null });
+    try {
+      await authFetchJson(
+        `${endpoint}/characters/${encodeURIComponent(characterId)}/generate-video`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            modelId: values.modelId,
+            payload: values.payload,
+            name: values.name.trim(),
+          }),
+        },
+        { errorMessage: "Failed to start video generation" }
+      );
+      set({ generateVideoLoading: false });
+      showNotification({
+        title: "Generating video",
+        message: "Your video is being generated.",
+        type: "success",
+      });
+      return true;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to start video generation";
+      set({ generateVideoLoading: false, error: message });
+      showNotification({
+        title: "Could not generate video",
+        message,
+        type: "error",
+      });
+      return false;
+    }
+  },
+
+  deleteCharacterVideo: async (videoId, characterId) => {
+    try {
+      await authFetchJson(
+        `${endpoint}/characters/${encodeURIComponent(characterId)}/videos/${encodeURIComponent(videoId)}`,
+        { method: "DELETE" },
+        { errorMessage: "Failed to delete video" }
+      );
+      showNotification({
+        title: "Video deleted",
+        message: "The video was removed.",
+        type: "success",
+      });
+      return true;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to delete video";
+      showNotification({ title: "Could not delete video", message, type: "error" });
+      return false;
+    }
+  },
+
+  updateCharacterVideoName: async (videoId, characterId, name) => {
+    try {
+      await authFetchJson(
+        `${endpoint}/characters/${encodeURIComponent(characterId)}/videos/${encodeURIComponent(videoId)}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ name: name.trim() }),
+        },
+        { errorMessage: "Failed to update video name" }
+      );
+      showNotification({
+        title: "Video updated",
+        message: "Video name was saved.",
+        type: "success",
+      });
+      return true;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to update video name";
+      showNotification({ title: "Could not update video", message, type: "error" });
+      return false;
+    }
+  },
+
   switchCharacterBaseLook: async (lookId, characterId) => {
     set({ updateLoading: true, error: null });
     try {
@@ -527,9 +826,9 @@ const useCharactersStore = create<CharactersState>((set, get) => ({
         { method: "DELETE" },
         { errorMessage: "Failed to delete character" }
       );
+      const { charactersPage, charactersPaginated, charactersSearch } = get();
       set({
         deleteLoading: false,
-        characters: get().characters.filter((c) => c.id !== characterId),
         selectedCharacter:
           get().selectedCharacter?.id === characterId ? null : get().selectedCharacter,
       });
@@ -538,6 +837,18 @@ const useCharactersStore = create<CharactersState>((set, get) => ({
         message: "The character was removed.",
         type: "success",
       });
+      await get().loadCharacters({
+        page: charactersPage,
+        paginate: charactersPaginated,
+        search: charactersSearch,
+      });
+      if (get().characters.length === 0 && charactersPage > 1 && charactersPaginated) {
+        await get().loadCharacters({
+          page: charactersPage - 1,
+          paginate: true,
+          search: charactersSearch,
+        });
+      }
       return true;
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to delete character";

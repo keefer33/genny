@@ -41,6 +41,7 @@ export type UserVoice = {
   metadata?: unknown;
   created_at?: string | null;
   files?: UserVoiceFile[];
+  source?: string | null;
 };
 
 export type DesignPreviewVoice = {
@@ -54,6 +55,15 @@ export type DesignVoiceResult = {
   previewVoices: DesignPreviewVoice[];
 };
 
+export const USER_VOICES_PAGE_SIZE = 9;
+
+export type LoadUserVoicesOptions = {
+  page?: number;
+  search?: string;
+  /** When false, loads every voice (e.g. pickers). Default: last used mode. */
+  paginate?: boolean;
+};
+
 export type VoiceDesignAssistResult = {
   designPrompt: string;
   previewText: string;
@@ -65,6 +75,17 @@ export type VoiceDesignAssistResult = {
 
 type VoicesState = {
   userVoices: UserVoice[];
+  userVoicesTotal: number;
+  userVoicesPage: number;
+  userVoicesSearch: string;
+  userVoicesPaginated: boolean;
+  selectedVoice: UserVoice | null;
+  setSelectedVoice: (voice: UserVoice | null) => void;
+  voiceSpeeches: UserVoiceSpeech[];
+  loadVoiceSpeeches: () => Promise<void>;
+  prependVoiceSpeech: (speech: UserVoiceSpeech) => void;
+  patchVoiceSpeech: (speech: UserVoiceSpeech) => void;
+  removeVoiceSpeech: (speechId: string) => void;
   libraryVoices: UserVoice[];
   userVoicesLoading: boolean;
   libraryVoicesLoading: boolean;
@@ -80,7 +101,7 @@ type VoicesState = {
   updateLoading: boolean;
   deleteLoading: boolean;
   error: string | null;
-  loadUserVoices: (userId: string) => Promise<void>;
+  loadUserVoices: (opts?: LoadUserVoicesOptions) => Promise<void>;
   loadLibraryVoices: () => Promise<void>;
   getVoiceById: (voiceId: string) => Promise<UserVoice | null>;
   getVoiceSpeeches: (voiceId: string) => Promise<UserVoiceSpeech[]>;
@@ -140,6 +161,21 @@ type VoicesState = {
     }
   ) => Promise<boolean>;
   deleteVoice: (voiceId: string) => Promise<boolean>;
+  editVoiceOpened: boolean;
+  openEditVoice: () => void;
+  closeEditVoice: () => void;
+  cloneVoiceOpened: boolean;
+  openCloneVoice: () => void;
+  closeCloneVoice: () => void;
+  deleteVoiceOpened: boolean;
+  openDeleteVoice: () => void;
+  closeDeleteVoice: () => void;
+  libraryVoiceOpened: boolean;
+  openLibraryVoice: () => void;
+  closeLibraryVoice: () => void;
+  designVoiceOpened: boolean;
+  openDesignVoice: () => void;
+  closeDesignVoice: () => void;
 };
 
 function voicePreviewUrl(voice: UserVoice): string | null {
@@ -158,8 +194,14 @@ export function previewAudioDataUrl(base64: string, mime = "audio/mpeg"): string
   return `data:${mime};base64,${trimmed.replace(/\s/g, "")}`;
 }
 
-const useVoicesStore = create<VoicesState>((set) => ({
+const useVoicesStore = create<VoicesState>((set, get) => ({
   userVoices: [],
+  userVoicesTotal: 0,
+  userVoicesPage: 1,
+  userVoicesSearch: "",
+  userVoicesPaginated: true,
+  selectedVoice: null,
+  voiceSpeeches: [],
   libraryVoices: [],
   userVoicesLoading: false,
   libraryVoicesLoading: false,
@@ -175,14 +217,92 @@ const useVoicesStore = create<VoicesState>((set) => ({
   updateLoading: false,
   deleteLoading: false,
   error: null,
+  editVoiceOpened: false,
+  openEditVoice: () => set({ editVoiceOpened: true }),
+  closeEditVoice: () => set({ editVoiceOpened: false }),
+  cloneVoiceOpened: false,
+  openCloneVoice: () => set({ cloneVoiceOpened: true }),
+  closeCloneVoice: () => set({ cloneVoiceOpened: false }),
+  deleteVoiceOpened: false,
+  openDeleteVoice: () => set({ deleteVoiceOpened: true }),
+  closeDeleteVoice: () => set({ deleteVoiceOpened: false }),
+  libraryVoiceOpened: false,
+  openLibraryVoice: () => set({ libraryVoiceOpened: true }),
+  closeLibraryVoice: () => set({ libraryVoiceOpened: false }),
+  designVoiceOpened: false,
+  openDesignVoice: () => set({ designVoiceOpened: true }),
+  closeDesignVoice: () => set({ designVoiceOpened: false }),
 
-  loadUserVoices: async (_userId: string) => {
+  setSelectedVoice: (voice: UserVoice | null) => {
+    set({ selectedVoice: voice });
+  },
+
+  loadVoiceSpeeches: async () => {
+    const voiceId = get().selectedVoice?.id?.trim();
+    if (!voiceId) {
+      set({ voiceSpeeches: [] });
+      return;
+    }
+    const speeches = await get().getVoiceSpeeches(voiceId);
+    if (get().selectedVoice?.id?.trim() === voiceId) {
+      set({ voiceSpeeches: speeches });
+    }
+  },
+
+  prependVoiceSpeech: (speech) => {
+    const voiceId = get().selectedVoice?.id?.trim();
+    const speechVoiceId = speech.voice_id?.trim();
+    if (voiceId && speechVoiceId && voiceId !== speechVoiceId) return;
+    set({ voiceSpeeches: [speech, ...get().voiceSpeeches] });
+  },
+
+  patchVoiceSpeech: (speech) => {
+    const id = speech.id?.trim();
+    if (!id) return;
+    set({
+      voiceSpeeches: get().voiceSpeeches.map((row) =>
+        row.id === id ? { ...row, ...speech, file: speech.file ?? row.file } : row
+      ),
+    });
+  },
+
+  removeVoiceSpeech: (speechId) => {
+    const id = speechId.trim();
+    if (!id) return;
+    set({ voiceSpeeches: get().voiceSpeeches.filter((row) => row.id !== id) });
+  },
+
+  loadUserVoices: async (opts) => {
+    const state = get();
+    const paginate = opts?.paginate ?? state.userVoicesPaginated;
+    const page = opts?.page ?? (paginate ? state.userVoicesPage : 1);
+    const search = opts?.search ?? state.userVoicesSearch;
+
     set({ userVoicesLoading: true, error: null });
     try {
-      const data = await authFetchJson<{ voices?: UserVoice[] }>(`${endpoint}/voices`, undefined, {
+      const params = new URLSearchParams();
+      if (paginate) {
+        params.set("limit", String(USER_VOICES_PAGE_SIZE));
+        params.set("page", String(Math.max(0, page - 1)));
+      }
+      const trimmedSearch = search.trim();
+      if (trimmedSearch) params.set("search", trimmedSearch);
+
+      const query = params.toString();
+      const url = query ? `${endpoint}/voices?${query}` : `${endpoint}/voices`;
+      const data = await authFetchJson<{ voices?: UserVoice[]; total?: number }>(url, undefined, {
         errorMessage: "Failed to load your voices",
       });
-      set({ userVoices: data.voices ?? [], userVoicesLoading: false });
+      const voices = data.voices ?? [];
+      const total = typeof data.total === "number" ? data.total : voices.length;
+      set({
+        userVoices: voices,
+        userVoicesTotal: total,
+        userVoicesPage: page,
+        userVoicesSearch: search,
+        userVoicesPaginated: paginate,
+        userVoicesLoading: false,
+      });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to load your voices";
       set({ userVoicesLoading: false, error: message });

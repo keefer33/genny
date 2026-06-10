@@ -1,147 +1,205 @@
-import { Box, Button, Group, Loader, Menu, ScrollArea, Stack, Text, Title } from "@mantine/core";
-import { RiAddLine, RiArrowDownSLine, RiCheckLine, RiMicLine } from "@remixicon/react";
-import { useEffect } from "react";
-import { Link, useNavigate } from "react-router";
-import useAppStore from "~/lib/stores/appStore";
-import useVoicesStore from "~/lib/stores/voicesStore";
+import {
+  Box,
+  Button,
+  CloseButton,
+  Container,
+  Group,
+  Loader,
+  Modal,
+  Stack,
+  Text,
+  type ButtonProps,
+} from "@mantine/core";
+import { useDisclosure } from "@mantine/hooks";
+import { RiMicLine } from "@remixicon/react";
+import { useEffect, useState, type MouseEvent } from "react";
+import useVoicesStore, { type UserVoice } from "~/lib/stores/voicesStore";
 import { voiceMetaLine } from "~/pages/voices/voiceUtils";
+import { UserVoicesList } from "~/pages/voices/components/UserVoicesList";
+import { VoiceCard } from "~/pages/voices/components/VoiceCard";
 
-type VoicePickerProps = {
-  selectedVoiceId?: string;
+const modalStyles = {
+  content: { display: "flex", flexDirection: "column" as const },
+  body: {
+    flex: 1,
+    minHeight: 0,
+    display: "flex",
+    flexDirection: "column" as const,
+    overflow: "hidden",
+  },
 };
 
-export default function VoicePicker({ selectedVoiceId }: VoicePickerProps) {
-  const navigate = useNavigate();
-  const userId = useAppStore((s) => s.getUser()?.user?.id ?? "");
-  const userVoices = useVoicesStore((s) => s.userVoices);
-  const userVoicesLoading = useVoicesStore((s) => s.userVoicesLoading);
-  const loadUserVoices = useVoicesStore((s) => s.loadUserVoices);
+const bodyBoxStyle = {
+  flex: 1,
+  minHeight: 0,
+  width: "100%",
+  overflow: "hidden",
+  display: "flex",
+  flexDirection: "column" as const,
+};
 
-  const selectedVoice = userVoices.find((v) => v.id === selectedVoiceId) ?? null;
+export type VoicePickerProps = {
+  value: string | null;
+  onChange: (voiceId: string | null) => void;
+  disabled?: boolean;
+  placeholder?: string;
+  modalTitle?: string;
+  triggerVariant?: ButtonProps["variant"];
+  triggerSize?: ButtonProps["size"];
+  clearable?: boolean;
+  selecting?: boolean;
+};
+
+export default function VoicePicker({
+  value,
+  onChange,
+  disabled = false,
+  placeholder = "Select voice",
+  modalTitle = "Choose voice",
+  triggerVariant = "default",
+  triggerSize = "sm",
+  clearable = true,
+  selecting = false,
+}: VoicePickerProps) {
+  const [opened, { open, close }] = useDisclosure(false);
+  const userVoices = useVoicesStore((s) => s.userVoices);
+  const getVoiceById = useVoicesStore((s) => s.getVoiceById);
+  const loadUserVoices = useVoicesStore((s) => s.loadUserVoices);
+  const [resolvedVoice, setResolvedVoice] = useState<UserVoice | null>(null);
+  const [voiceLoading, setVoiceLoading] = useState(false);
+
+  const voiceId = value?.trim() ?? "";
 
   useEffect(() => {
-    if (!userId) return;
-    void loadUserVoices(userId);
-  }, [userId, loadUserVoices]);
+    if (!opened) return;
+    void loadUserVoices({ page: 1, search: "", paginate: true });
+  }, [opened, loadUserVoices]);
+
+  useEffect(() => {
+    if (!voiceId) {
+      setResolvedVoice(null);
+      setVoiceLoading(false);
+      return;
+    }
+
+    const fromList = userVoices.find((voice) => voice.id === voiceId);
+    if (fromList) {
+      setResolvedVoice(fromList);
+      setVoiceLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setVoiceLoading(true);
+    void getVoiceById(voiceId).then((voice) => {
+      if (cancelled) return;
+      setResolvedVoice(voice?.id === voiceId ? voice : null);
+      setVoiceLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [voiceId, userVoices, getVoiceById]);
+
+  const handleSelect = (voice: UserVoice) => {
+    onChange(voice.id);
+    close();
+  };
+
+  const handleClear = (event: MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    onChange(null);
+  };
+
+  const triggerLabel = resolvedVoice?.name?.trim() || placeholder;
+  const triggerMeta = resolvedVoice ? voiceMetaLine(resolvedVoice) : null;
 
   return (
-    <Stack gap="sm">
-      <Group justify="space-between" align="center">
-        <Group gap="xs">
-          <RiMicLine size={18} />
-          <Title order={5}>Voices</Title>
-        </Group>
-        <Button
-          component={Link}
-          to="/voices"
-          size="xs"
-          variant="light"
-          leftSection={<RiAddLine size={14} />}
-        >
-          Manage
-        </Button>
-      </Group>
+    <>
+      <Button
+        variant={triggerVariant}
+        size={triggerSize}
+        leftSection={<RiMicLine size={18} />}
+        rightSection={
+          clearable && voiceId ? (
+            <CloseButton
+              size="sm"
+              aria-label="Remove voice"
+              disabled={selecting}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={handleClear}
+            />
+          ) : null
+        }
+        onClick={open}
+        disabled={disabled || selecting}
+        loading={selecting}
+        fullWidth
+        styles={{ label: { width: "100%" } }}
+        h={triggerSize === "xs" ? undefined : 50}
+      >
+        <Stack gap={0} align="flex-start" style={{ minWidth: 0, width: "100%" }}>
+          <Text size="sm" fw={600} truncate>
+            {triggerLabel}
+          </Text>
+          {triggerMeta ? (
+            <Text size="xs" c="dimmed" truncate>
+              {triggerMeta}
+            </Text>
+          ) : null}
+        </Stack>
+      </Button>
 
-      <Box>
-        <Menu position="bottom-start" withinPortal shadow="md" width="target">
-          <Menu.Target>
-            <Button
-              variant="default"
-              fullWidth
-              rightSection={<RiArrowDownSLine size={26} />}
-              aria-label="Select voice"
-              styles={{ label: { width: "100%" } }}
-              h={50}
+      <Modal
+        opened={opened}
+        onClose={close}
+        title={modalTitle}
+        fullScreen
+        centered
+        styles={modalStyles}
+      >
+        <Container size="lg" p="0" style={bodyBoxStyle}>
+          <Stack
+            gap="md"
+            style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}
+          >
+            {voiceId ? (
+              <Box px="xs" pt="xs">
+                {voiceLoading && !resolvedVoice ? (
+                  <Group justify="center" py="md">
+                    <Loader size="sm" />
+                  </Group>
+                ) : resolvedVoice ? (
+                  <VoiceCard voice={resolvedVoice} isEditable={false} />
+                ) : (
+                  <Text size="sm" c="dimmed">
+                    Assigned voice could not be loaded.
+                  </Text>
+                )}
+              </Box>
+            ) : null}
+            <Box
+              style={{
+                flex: 1,
+                minHeight: 0,
+                minWidth: 0,
+                display: "flex",
+                flexDirection: "column",
+              }}
             >
-              {selectedVoice ? (
-                <Group
-                  gap="sm"
-                  wrap="nowrap"
-                  justify="start"
-                  align="center"
-                  style={{ minWidth: 0 }}
-                >
-                  <Box
-                    style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 6,
-                      overflow: "hidden",
-                      flexShrink: 0,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "left",
-                      padding: 4,
-                    }}
-                  >
-                    <RiMicLine size={22} style={{ opacity: 0.5 }} />
-                  </Box>
-                  <Stack gap={0} style={{ minWidth: 0, flex: 1 }}>
-                    <Text size="sm" fw={600} truncate>
-                      {selectedVoice.name || "Untitled voice"}
-                    </Text>
-                    <Text size="xs" c="dimmed" truncate>
-                      {voiceMetaLine(selectedVoice) || "No details"}
-                    </Text>
-                  </Stack>
-                </Group>
-              ) : (
-                "Select voice"
-              )}
-            </Button>
-          </Menu.Target>
-          <Menu.Dropdown>
-            {userVoicesLoading && userVoices.length === 0 ? (
-              <Group justify="center" py="sm">
-                <Loader size="sm" />
-              </Group>
-            ) : userVoices.length === 0 ? (
-              <Menu.Item component={Link} to="/voices">
-                No voices yet — create one
-              </Menu.Item>
-            ) : (
-              <ScrollArea.Autosize mah={280} type="auto" offsetScrollbars="y">
-                <Stack gap={0}>
-                  {userVoices.map((voice) => {
-                    const selected = voice.id === selectedVoiceId;
-                    return (
-                      <Menu.Item
-                        key={voice.id}
-                        onClick={() => navigate(`/voices/${encodeURIComponent(voice.id)}`)}
-                        leftSection={
-                          <Box
-                            style={{
-                              width: 40,
-                              height: 40,
-                              borderRadius: 6,
-                              flexShrink: 0,
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                            }}
-                          >
-                            <RiMicLine size={14} style={{ opacity: 0.5 }} />
-                          </Box>
-                        }
-                        rightSection={selected ? <RiCheckLine size={16} aria-hidden /> : undefined}
-                      >
-                        <Stack gap={0}>
-                          <Text size="sm" fw={600} lineClamp={1}>
-                            {voice.name || "Untitled voice"}
-                          </Text>
-                          <Text size="xs" c="dimmed" lineClamp={1}>
-                            {voiceMetaLine(voice) || "No details"}
-                          </Text>
-                        </Stack>
-                      </Menu.Item>
-                    );
-                  })}
-                </Stack>
-              </ScrollArea.Autosize>
-            )}
-          </Menu.Dropdown>
-        </Menu>
-      </Box>
-    </Stack>
+              <UserVoicesList
+                mode="pick"
+                selectedVoiceId={voiceId || null}
+                onSelectVoice={handleSelect}
+                selectLoading={selecting}
+                fillContainer
+                autoLoad={false}
+              />
+            </Box>
+          </Stack>
+        </Container>
+      </Modal>
+    </>
   );
 }

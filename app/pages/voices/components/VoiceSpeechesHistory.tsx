@@ -22,9 +22,8 @@ import {
 } from "@remixicon/react";
 import { useEffect, useState } from "react";
 import { showNotification } from "~/lib/notificationUtils";
-import useVoicesStore, { type UserVoice, type UserVoiceSpeech } from "~/lib/stores/voicesStore";
+import useVoicesStore, { type UserVoiceSpeech } from "~/lib/stores/voicesStore";
 import { GennyAudioPlayer } from "~/shared/GennyAudioPlayer";
-import { GenerateSpeechModal } from "~/shared/GenerateSpeechModal";
 import { speechAudioUrl } from "~/pages/voices/voiceUtils";
 
 function formatSpeechDate(value: string | null | undefined): string | null {
@@ -35,45 +34,22 @@ function formatSpeechDate(value: string | null | undefined): string | null {
 }
 
 type VoiceSpeechesHistoryProps = {
-  speeches: UserVoiceSpeech[];
-  /** Used to resolve audio when the speech list omits embedded `file`. */
-  voice?: UserVoice | null;
-  loading: boolean;
-  voiceSelected: boolean;
-  speechDeleteLoading?: boolean;
-  onDeleteSpeech?: (speechId: string) => Promise<boolean>;
-  /** Called after the speech title is saved so parents can refresh local list state. */
-  onSpeechUpdated?: (speech: UserVoiceSpeech) => void;
-  /** Inline in a parent scroll area (e.g. character detail) instead of a full-height panel */
-  embedded?: boolean;
-  description?: string;
-  emptyMessage?: string;
-  /** When set, shows a Generate speech button in the section header (right-aligned). */
-  generateSpeech?: {
-    voiceId: string;
-    inworldVoiceId?: string | null;
-    buttonLabel?: string;
-    onGenerated?: (speech: UserVoiceSpeech) => void;
-  };
+  emptyHint?: string;
 };
 
 export function VoiceSpeechesHistory({
-  speeches,
-  voice = null,
-  loading,
-  voiceSelected,
-  speechDeleteLoading = false,
-  onDeleteSpeech,
-  onSpeechUpdated,
-  embedded = false,
-  description = "Past generations for the selected voice.",
-  emptyMessage = "No speeches yet. Generate one from the panel on the left.",
-  generateSpeech,
+  emptyHint = "No speeches yet. Generate one from the panel on the left.",
 }: VoiceSpeechesHistoryProps) {
-  const inworldVoiceId = generateSpeech?.inworldVoiceId?.trim() || null;
-  const showInworldWarning = Boolean(generateSpeech && voiceSelected && !inworldVoiceId);
-  const updateVoiceSpeech = useVoicesStore((s) => s.updateVoiceSpeech);
+  const selectedVoice = useVoicesStore((s) => s.selectedVoice);
+  const voiceSpeeches = useVoicesStore((s) => s.voiceSpeeches);
+  const speechesLoading = useVoicesStore((s) => s.speechesLoading);
+  const speechDeleteLoading = useVoicesStore((s) => s.speechDeleteLoading);
   const speechUpdateLoading = useVoicesStore((s) => s.speechUpdateLoading);
+  const loadVoiceSpeeches = useVoicesStore((s) => s.loadVoiceSpeeches);
+  const deleteVoiceSpeech = useVoicesStore((s) => s.deleteVoiceSpeech);
+  const updateVoiceSpeech = useVoicesStore((s) => s.updateVoiceSpeech);
+  const patchVoiceSpeech = useVoicesStore((s) => s.patchVoiceSpeech);
+  const removeVoiceSpeech = useVoicesStore((s) => s.removeVoiceSpeech);
 
   const [deleteOpened, { open: openDelete, close: closeDelete }] = useDisclosure(false);
   const [deletingSpeech, setDeletingSpeech] = useState<UserVoiceSpeech | null>(null);
@@ -81,6 +57,12 @@ export function VoiceSpeechesHistory({
   const [detailSpeech, setDetailSpeech] = useState<UserVoiceSpeech | null>(null);
   const [titleInput, setTitleInput] = useState("");
   const [transcriptCopied, setTranscriptCopied] = useState(false);
+
+  const voiceSelected = Boolean(selectedVoice?.id?.trim());
+
+  useEffect(() => {
+    void loadVoiceSpeeches();
+  }, [selectedVoice?.id, loadVoiceSpeeches]);
 
   useEffect(() => {
     if (!detailOpened) return;
@@ -105,7 +87,7 @@ export function VoiceSpeechesHistory({
     if (!speechId || !title) return;
     const updated = await updateVoiceSpeech(speechId, title);
     if (!updated) return;
-    onSpeechUpdated?.(updated);
+    patchVoiceSpeech(updated);
     closeDetail();
     setDetailSpeech(null);
   };
@@ -133,9 +115,10 @@ export function VoiceSpeechesHistory({
 
   const handleConfirmDelete = async () => {
     const speechId = deletingSpeech?.id?.trim();
-    if (!speechId || !onDeleteSpeech) return;
-    const ok = await onDeleteSpeech(speechId);
+    if (!speechId) return;
+    const ok = await deleteVoiceSpeech(speechId);
     if (ok) {
+      removeVoiceSpeech(speechId);
       closeDelete();
       setDeletingSpeech(null);
     }
@@ -145,18 +128,18 @@ export function VoiceSpeechesHistory({
     <Text size="sm" c="dimmed">
       Select a voice to view speech history.
     </Text>
-  ) : loading ? (
+  ) : speechesLoading ? (
     <Group justify="center" py="xl">
       <Loader size="sm" />
     </Group>
-  ) : speeches.length === 0 ? (
+  ) : voiceSpeeches.length === 0 ? (
     <Text size="sm" c="dimmed">
-      {emptyMessage}
+      {emptyHint}
     </Text>
   ) : (
-    <Stack gap="sm" pb={embedded ? 0 : "md"}>
-      {speeches.map((speech) => {
-        const audioUrl = speechAudioUrl(speech, voice);
+    <Stack gap="sm" pb="md">
+      {voiceSpeeches.map((speech) => {
+        const audioUrl = speechAudioUrl(speech, selectedVoice);
         const created = formatSpeechDate(speech.created_at);
         const isDeleting = speechDeleteLoading && deletingSpeech?.id === speech.id;
         return (
@@ -181,23 +164,21 @@ export function VoiceSpeechesHistory({
                       <RiPencilLine size={18} />
                     </ActionIcon>
                   </Tooltip>
-                  {onDeleteSpeech ? (
-                    <Tooltip label="Delete speech">
-                      <ActionIcon
-                        variant="subtle"
-                        color="red"
-                        aria-label="Delete speech"
-                        loading={isDeleting}
-                        disabled={speechDeleteLoading && !isDeleting}
-                        onClick={() => {
-                          setDeletingSpeech(speech);
-                          openDelete();
-                        }}
-                      >
-                        <RiDeleteBinLine size={18} />
-                      </ActionIcon>
-                    </Tooltip>
-                  ) : null}
+                  <Tooltip label="Delete speech">
+                    <ActionIcon
+                      variant="subtle"
+                      color="red"
+                      aria-label="Delete speech"
+                      loading={isDeleting}
+                      disabled={speechDeleteLoading && !isDeleting}
+                      onClick={() => {
+                        setDeletingSpeech(speech);
+                        openDelete();
+                      }}
+                    >
+                      <RiDeleteBinLine size={18} />
+                    </ActionIcon>
+                  </Tooltip>
                 </Group>
               </Group>
               {audioUrl ? (
@@ -215,41 +196,14 @@ export function VoiceSpeechesHistory({
   );
 
   return (
-    <Stack
-      gap="sm"
-      h={embedded ? undefined : "100%"}
-      style={embedded ? undefined : { minHeight: 0 }}
-    >
-      <Group justify="space-between" align="center" wrap="wrap" gap="xs">
-        <Group gap="xs" wrap="nowrap">
-          <RiSoundModuleLine size={embedded ? 18 : 20} />
-          <Title order={embedded ? 4 : 3}>Speech history</Title>
-        </Group>
-        {generateSpeech ? (
-          <GenerateSpeechModal
-            voiceId={generateSpeech.voiceId}
-            inworldVoiceId={generateSpeech.inworldVoiceId}
-            buttonLabel={generateSpeech.buttonLabel ?? "Generate"}
-            disabled={!voiceSelected}
-            onGenerated={generateSpeech.onGenerated}
-          />
-        ) : null}
+    <Stack gap="sm" h="100%" style={{ minHeight: 0 }}>
+      <Group gap="xs" wrap="nowrap">
+        <RiSoundModuleLine size={20} />
+        <Title order={3}>Speech history</Title>
       </Group>
-      {showInworldWarning ? (
-        <Text size="xs" c="dimmed">
-          This voice is not linked to Inworld, so speech cannot be generated.
-        </Text>
-      ) : null}
-      <Text size="sm" c="dimmed">
-        {description}
-      </Text>
-      {embedded ? (
-        historyContent
-      ) : (
-        <ScrollArea style={{ flex: 1, minHeight: 0 }} type="auto" offsetScrollbars="y">
-          {historyContent}
-        </ScrollArea>
-      )}
+      <ScrollArea style={{ flex: 1, minHeight: 0 }} type="auto" offsetScrollbars="y">
+        {historyContent}
+      </ScrollArea>
 
       <Modal
         opened={detailOpened}
