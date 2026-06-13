@@ -129,8 +129,8 @@ export function CreateCharacterFromLibraryModal() {
   return (
     <>
       <Button
-        size="xs"
-        variant="light"
+        size="compact-sm"
+        variant="filled"
         leftSection={<RiBookOpenLine size={18} />}
         onClick={handleOpen}
       >

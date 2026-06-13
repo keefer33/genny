@@ -87,12 +87,11 @@ export function SpeechScriptEditor({
       const el = textareaRef.current;
       const start = el?.selectionStart ?? value.length;
       const end = el?.selectionEnd ?? value.length;
-      const { value: next, selectionStart, selectionEnd } = insertAtSelection(
-        value,
-        start,
-        end,
-        snippet
-      );
+      const {
+        value: next,
+        selectionStart,
+        selectionEnd,
+      } = insertAtSelection(value, start, end, snippet);
       applyValue(next, selectionStart, selectionEnd);
     },
     [applyValue, value]

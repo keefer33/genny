@@ -6,6 +6,20 @@ import { endpoint, formatDate } from "~/lib/utils";
 
 const LS_SELECTED_CHAT_ID = "genny:selectedChatId";
 
+export type ChatTextContentPart = {
+  type: "text";
+  text?: string;
+};
+
+export type ChatAttachmentContentPart = {
+  type: string;
+  url: string;
+  thumbnail_url?: string | null;
+  name?: string;
+};
+
+export type ChatContentPart = ChatTextContentPart | ChatAttachmentContentPart;
+
 /** Catalog rows from GET /agents (models available for user agents / chats). */
 export interface AgentModel {
   id: string;
@@ -69,19 +83,7 @@ export interface ChatMessageRow {
     | {
         id?: string;
         role: "user" | "assistant";
-        content: Array<{
-          type: string;
-          text?: string;
-          image?: string;
-          imageUrl?: string;
-          videoUrl?: string;
-          fileUrl?: string;
-          fileName?: string;
-          mediaType?: string;
-          url?: string;
-          name?: string;
-          thumbnail_url?: string | null;
-        }>;
+        content: ChatContentPart[];
       };
   /** Stored as json/jsonb in DB; API may return object or JSON string. */
   usage:
@@ -94,20 +96,7 @@ export interface ChatMessageRow {
 export interface ChatUIMessage {
   id: string;
   role: "user" | "assistant";
-  content: Array<{
-    type: string;
-    text?: string;
-    /** AI SDK user image part URL */
-    image?: string;
-    imageUrl?: string;
-    videoUrl?: string;
-    fileUrl?: string;
-    fileName?: string;
-    mediaType?: string;
-    url?: string;
-    name?: string;
-    thumbnail_url?: string | null;
-  }>;
+  content: ChatContentPart[];
   usage?: {
     input_tokens?: number;
     output_tokens?: number;
@@ -149,28 +138,47 @@ function safeJsonParse(value: unknown): unknown {
   }
 }
 
+function normalizeStoredContent(content: unknown): ChatContentPart[] {
+  if (!Array.isArray(content)) return [];
+  const parts: ChatContentPart[] = [];
+  for (const raw of content) {
+    if (!raw || typeof raw !== "object") continue;
+    const part = raw as Record<string, unknown>;
+    const partType = typeof part.type === "string" ? part.type : undefined;
+    if (partType === "text") {
+      parts.push({
+        type: "text",
+        text: typeof part.text === "string" ? part.text : "",
+      });
+      continue;
+    }
+    if (partType === "media") continue;
+    const url = typeof part.url === "string" ? part.url.trim() : "";
+    if (url) {
+      parts.push({
+        type: partType ?? "file",
+        url,
+        ...(typeof part.thumbnail_url === "string" ? { thumbnail_url: part.thumbnail_url } : {}),
+        ...(typeof part.name === "string" ? { name: part.name } : {}),
+      });
+    }
+  }
+  return parts;
+}
+
 function chatMessageRowToUIMessage(row: ChatMessageRow): ChatUIMessage {
   const parsedMessage = safeJsonParse(row.message) as
     | {
         id?: string;
         role?: "user" | "assistant";
-        content?: Array<{
-          type: string;
-          text?: string;
-          image?: string;
-          imageUrl?: string;
-          videoUrl?: string;
-          fileUrl?: string;
-          fileName?: string;
-          mediaType?: string;
-        }>;
+        content?: unknown[];
       }
     | string
     | null
     | undefined;
 
   const messageObj =
-    parsedMessage && typeof parsedMessage === "object" ? (parsedMessage as any) : null;
+    parsedMessage && typeof parsedMessage === "object" ? parsedMessage : null;
 
   const parsedUsage = safeJsonParse(row.usage) as
     | {
@@ -190,7 +198,7 @@ function chatMessageRowToUIMessage(row: ChatMessageRow): ChatUIMessage {
   return {
     id: row.id,
     role: messageObj?.role === "user" ? "user" : "assistant",
-    content: Array.isArray(messageObj?.content) ? messageObj.content : [],
+    content: normalizeStoredContent(messageObj?.content),
     usage:
       parsedUsage?.totalTokens != null
         ? {
@@ -224,8 +232,6 @@ interface ChatsState {
   goToLatestInteraction: () => void;
   streamingContent: string;
   streamingReasoning: string;
-  /** File URLs received during current stream (so streaming bubble can show images). Cleared when stream ends. */
-  streamedFileUrls: string[];
   /** Current stream phase for UI: start, reasoning-start, tool-input-start, start-step, etc. */
   streamStatus: { status: string; tool_name?: string } | null;
   runChatLoading: boolean;
@@ -280,7 +286,7 @@ interface ChatsState {
     message: {
       id: string;
       role: "user" | "assistant";
-      content: Array<{ type: string; text?: string }>;
+      content: ChatContentPart[];
     },
     usage?: Record<string, unknown>
   ) => Promise<ChatMessageRow | null>;
@@ -344,7 +350,6 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
     set((state) => ({ selectedInteractionIndex: latestInteractionIndex(state.messages) })),
   streamingContent: "",
   streamingReasoning: "",
-  streamedFileUrls: [],
   streamStatus: null,
   runChatLoading: false,
 
@@ -435,7 +440,6 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
       selectedModelName: null,
       streamingContent: "",
       streamingReasoning: "",
-      streamedFileUrls: [],
       streamStatus: null,
       chatsListModalOpen: false,
     }),
@@ -458,7 +462,6 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
       runChatLoading: true,
       streamingContent: "",
       streamingReasoning: "",
-      streamedFileUrls: [],
       streamStatus: null,
     });
     const userMessage: ChatUIMessage = {
@@ -466,31 +469,12 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
       role: "user",
       content: [
         { type: "text", text: prompt },
-        ...((attachments ?? []).map((a) => {
-          const mediaType = (a.type ?? "").toLowerCase();
-          const looksLikeImage =
-            mediaType.startsWith("image/") || /\.(jpe?g|png|gif|webp|bmp|svg)(\?|$)/i.test(a.url);
-          if (looksLikeImage) {
-            return { type: "image", image: a.thumbnail_url || a.url };
-          }
-          if (mediaType.startsWith("video/")) {
-            return { type: "video", videoUrl: a.url, mediaType, fileName: a.name };
-          }
-          return {
-            type: "file",
-            fileUrl: a.url,
-            mediaType: mediaType || undefined,
-            fileName: a.name,
-          };
-        }) as Array<{
-          type: string;
-          image?: string;
-          imageUrl?: string;
-          videoUrl?: string;
-          fileUrl?: string;
-          mediaType?: string;
-          fileName?: string;
-        }>),
+        ...(attachments ?? []).map((attachment) => ({
+          type: attachment.type ?? "file",
+          url: attachment.url,
+          ...(attachment.thumbnail_url ? { thumbnail_url: attachment.thumbnail_url } : {}),
+          ...(attachment.name ? { name: attachment.name } : {}),
+        })),
       ],
     };
     set((s) => {
@@ -504,7 +488,8 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
     type StreamEvent = {
       type: string;
       content?: string;
-      url?: string;
+      items?: unknown[];
+      output?: unknown;
       error?: string;
       status?: string;
       tool_name?: string;
@@ -518,7 +503,6 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
         runChatLoading: false,
         streamingContent: "",
         streamingReasoning: "",
-        streamedFileUrls: [],
         streamStatus: null,
       });
     const getRunChatErrorMessage = (err: unknown) => {
@@ -561,7 +545,6 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
       const decoder = new TextDecoder();
       let buffer = "";
       let assistantText = "";
-      const streamedFileUrls: string[] = [];
       let lastUsage: {
         input_tokens?: number;
         output_tokens?: number;
@@ -577,11 +560,6 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
         }
         if (data.type === "reasoning" && data.content) {
           set((s) => ({ streamingReasoning: `${s.streamingReasoning}${data.content}` }));
-          return;
-        }
-        if (data.type === "file" && data.url) {
-          streamedFileUrls.push(data.url);
-          set((s) => ({ streamedFileUrls: [...s.streamedFileUrls, data.url] }));
           return;
         }
         if (data.type === "stream_status" && data.status != null) {
@@ -641,10 +619,7 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
       }
 
       const usage = lastUsage;
-      const content: ChatUIMessage["content"] = [
-        { type: "text", text: assistantText },
-        ...streamedFileUrls.map((url) => ({ type: "image" as const, imageUrl: url })),
-      ];
+      const content: ChatUIMessage["content"] = [{ type: "text", text: assistantText }];
       const assistantMessage: ChatUIMessage = {
         id: `assistant-${Date.now()}`,
         role: "assistant",
@@ -664,12 +639,12 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
         selectedInteractionIndex: latestInteractionIndex([...s.messages, assistantMessage]),
         streamingContent: "",
         streamingReasoning: "",
-        streamedFileUrls: [],
         streamStatus: null,
         runChatLoading: false,
       }));
       if (chatId) {
         void get().listChats();
+        await get().loadMessagesForChat(chatId);
       }
     } catch (err) {
       clearStreamingState();

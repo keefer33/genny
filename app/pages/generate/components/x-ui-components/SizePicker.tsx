@@ -134,6 +134,7 @@ export function SizePicker({
               description="Show sliders and manual width × height"
               checked={customize}
               onChange={(e) => setCustomize(e.currentTarget.checked)}
+              variant="light"
             />
           )}
           <Collapse expanded={showCustomControls}>
@@ -151,6 +152,7 @@ export function SizePicker({
                   disabled={readOnly}
                   label={null}
                   showLabelOnHover={false}
+                  variant="light"
                 />
               </div>
               <div>
@@ -166,6 +168,7 @@ export function SizePicker({
                   disabled={readOnly}
                   label={null}
                   showLabelOnHover={false}
+                  variant="light"
                 />
               </div>
               <Group gap="xs" align="flex-end" wrap="nowrap">

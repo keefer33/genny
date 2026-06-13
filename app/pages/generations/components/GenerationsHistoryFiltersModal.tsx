@@ -113,7 +113,9 @@ export function PlayGroundRunHistoryFiltersModal() {
           />
           <Group justify="flex-end">
             <GenerationsHistoryClearFiltersButton />
-            <Button onClick={close}>Apply filters</Button>
+            <Button size="xs" onClick={close}>
+              Apply filters
+            </Button>
           </Group>
         </Stack>
       </Modal>

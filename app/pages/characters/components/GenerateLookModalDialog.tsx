@@ -39,7 +39,7 @@ export default function GenerateLookModalDialog({
     kind === "video"
       ? "Videos animate your character. Select a base look and speech clip, then describe the video you want."
       : kind === "scene"
-        ? "Scenes place your character in a setting. You can add optional images or describe the scene in detail."
+        ? "Scenes place your character in a setting. Pick a look or previous scene as reference, or describe the scene in detail."
         : "Looks generate a front, back, right, and left view of the character. You can add optional images of outfits and accessories.";
   const { isMobile } = useAppStore();
 
@@ -154,6 +154,7 @@ export default function GenerateLookModalDialog({
                     <CharacterBaseLookPicker
                       options={dialogProps.baseLookOptions}
                       disabled={submitting}
+                      includesScenes={kind === "video" || kind === "scene"}
                     />
                   ) : null}
 

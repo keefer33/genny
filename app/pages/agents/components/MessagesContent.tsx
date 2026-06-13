@@ -22,7 +22,6 @@ export default function MessagesContent({
     runChatLoading,
     streamingContent,
     streamingReasoning,
-    streamedFileUrls,
     streamStatus,
   } = useChatsStore();
 
@@ -31,14 +30,7 @@ export default function MessagesContent({
     if (shouldScrollToBottom && streamStatus !== null) {
       scrollToBottom();
     }
-  }, [
-    messages,
-    runChatLoading,
-    streamingContent,
-    streamingReasoning,
-    streamedFileUrls.length,
-    scrollToBottom,
-  ]);
+  }, [messages, runChatLoading, streamingContent, streamingReasoning, scrollToBottom]);
 
   const interactions = useMemo(() => buildChatInteractions(messages), [messages]);
   const selectedInteraction =
@@ -72,13 +64,7 @@ export default function MessagesContent({
           message={{
             id: "streaming",
             role: "assistant",
-            content: [
-              { type: "text", text: streamingContent },
-              ...streamedFileUrls.map((url) => ({
-                type: "image" as const,
-                imageUrl: url,
-              })),
-            ],
+            content: [{ type: "text", text: streamingContent }],
           }}
           streaming
           streamStatus={streamStatus}

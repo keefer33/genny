@@ -4,10 +4,9 @@ import {
   RiDashboardLine,
   RiHistoryLine,
   RiHomeLine,
-  RiImageAiLine,
   RiLoginBoxLine,
-  RiVideoAiLine,
-  RiVoiceAiLine,
+  RiAiGenerate2,
+  RiTeamLine,
 } from "@remixicon/react";
 import { useLocation, useNavigate } from "react-router";
 import type { ComponentType } from "react";
@@ -16,14 +15,7 @@ import useAppStore from "~/lib/stores/appStore";
 export const MOBILE_GLOBAL_NAV_HEIGHT = 55;
 
 type GlobalNavItem = {
-  key:
-    | "agents"
-    | "playground"
-    | "generations"
-    | "dashboard"
-    | "image-generator"
-    | "video-generator"
-    | "audio-generator";
+  key: "agents" | "playground" | "generations" | "dashboard" | "playground" | "characters";
   label: string;
   icon: ComponentType<{ size?: string | number }>;
   to: string;
@@ -53,25 +45,18 @@ export function MobileFooterGlobalNav() {
       isActive: location.pathname.startsWith("/agents"),
     },
     {
-      key: "image-generator",
-      label: "Images",
-      icon: RiImageAiLine,
-      to: "/generate/image",
-      isActive: location.pathname.startsWith("/generate/image"),
+      key: "playground",
+      label: "Playground",
+      icon: RiAiGenerate2,
+      to: "/generate",
+      isActive: location.pathname.startsWith("/generate"),
     },
     {
-      key: "video-generator",
-      label: "Videos",
-      icon: RiVideoAiLine,
-      to: "/generate/video",
-      isActive: location.pathname.startsWith("/generate/video"),
-    },
-    {
-      key: "audio-generator",
-      label: "Audio",
-      icon: RiVoiceAiLine,
-      to: "/generate/audio",
-      isActive: location.pathname.startsWith("/generate/audio"),
+      key: "characters",
+      label: "Characters",
+      icon: RiTeamLine,
+      to: "/characters",
+      isActive: location.pathname.startsWith("/characters"),
     },
     {
       key: "generations",
@@ -91,9 +76,7 @@ export function MobileFooterGlobalNav() {
     {
       dashboard: "/dashboard",
       agents: "/agents",
-      "image-generator": "/image-generator",
-      "video-generator": "/video-generator",
-      generations: "/generations",
+      characters: "/characters",
     } as Record<GlobalNavItem["key"], string>
   );
 

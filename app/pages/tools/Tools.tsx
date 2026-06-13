@@ -13,7 +13,13 @@ import {
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
-import { RiToolsLine, RiDeleteBinLine, RiLinkM, RiLinkUnlinkM } from "@remixicon/react";
+import {
+  RiToolsLine,
+  RiDeleteBinLine,
+  RiLinkM,
+  RiLinkUnlinkM,
+  RiArrowLeftLine,
+} from "@remixicon/react";
 import { useEffect, useState, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import Mounted from "~/shared/Mounted";
@@ -49,9 +55,11 @@ export default function Tools() {
     loadToolkits,
     loadCategories,
     loadConnectedAccounts,
+    loadToolkitSummariesForSlugs,
     connectedAccounts,
     connectedAccountsLoading,
     connectedAccountsError,
+    toolkitSummariesBySlug,
     deleteConnectedAccount,
     getConnectionForToolkit,
     createConnectLink,
@@ -143,6 +151,14 @@ export default function Tools() {
     loadConnectedAccounts();
   }, [loadConnectedAccounts]);
 
+  useEffect(() => {
+    if (connectedFilter !== "connected" || connectedAccounts.length === 0) return;
+    const slugs = connectedAccounts
+      .map((account) => account.toolkit?.slug?.trim())
+      .filter((slug): slug is string => Boolean(slug));
+    void loadToolkitSummariesForSlugs(slugs);
+  }, [connectedFilter, connectedAccounts, loadToolkitSummariesForSlugs]);
+
   const items: ToolkitItem[] = toolkitsData?.items ?? [];
   const nextCursor = toolkitsData?.next_cursor;
   const totalItems = toolkitsData?.total_items ?? 0;
@@ -215,14 +231,26 @@ export default function Tools() {
 
   return (
     <Mounted>
-      <Stack gap="xl">
+      <Stack gap="sm">
         <Stack gap="xs">
-          <Text size="xl" fw={700}>
-            Tools & integrations
-          </Text>
+          <Group gap="xs">
+            <Button
+              component={Link}
+              to="/agents"
+              size="compact-sm"
+              variant="filled"
+              leftSection={<RiArrowLeftLine size={18} />}
+            >
+              Agents
+            </Button>
+
+            <Text size="xl" fw={700}>
+              Tools & integrations
+            </Text>
+          </Group>
         </Stack>
 
-        <Stack gap="md">
+        <Stack gap="sm">
           <ToolsFilters
             isMobile={isMobile}
             searchInput={searchInput}
@@ -315,7 +343,8 @@ export default function Tools() {
                       const slug = acc.toolkit?.slug ?? "unknown";
                       const isActive = acc.status === "ACTIVE";
                       const createdAt = acc.created_at ? new Date(acc.created_at) : null;
-                      const toolkitInfo = items.find((tk) => tk.slug === slug);
+                      const toolkitInfo =
+                        toolkitSummariesBySlug[slug] ?? items.find((tk) => tk.slug === slug);
                       const displayName = toolkitInfo?.name ?? slug;
                       const noAuth = toolkitInfo?.no_auth;
                       return (

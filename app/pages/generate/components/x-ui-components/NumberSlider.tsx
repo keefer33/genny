@@ -2,6 +2,7 @@ import { Group, Input, NumberInput, Slider } from "@mantine/core";
 import { useFormContext } from "~/lib/ContextForm";
 import type { NumberSliderProps } from "~/types/generations";
 import { getFormValueAtPath } from "../ModelSchemaForm.utils";
+import { useMantineTheme } from "@mantine/core";
 
 export function NumberSlider({
   fieldName,
@@ -21,7 +22,7 @@ export function NumberSlider({
   if (hi <= min) {
     hi = min + (step > 0 ? step : 1);
   }
-
+  const theme = useMantineTheme();
   const raw = getFormValueAtPath(form.values, fieldName);
   const fromForm = typeof raw === "number" && !Number.isNaN(raw) ? raw : null;
   const fallback =
@@ -46,6 +47,11 @@ export function NumberSlider({
           onChange={(v) => form.setFieldValue(fieldName, v)}
           disabled={readOnly}
           style={{ flex: 1, minWidth: 180 }}
+          styles={{
+            bar: {
+              backgroundColor: `var(--mantine-primary-color-light)`,
+            },
+          }}
         />
         <NumberInput
           value={sliderValue}

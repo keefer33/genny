@@ -65,7 +65,7 @@ export function BoxPicker({
               key={`${fieldName}-${String(option)}`}
               bd={0}
               type="button"
-              variant={isSelected ? "filled" : "default"}
+              variant={isSelected ? "light" : "default"}
               onClick={() => form.setFieldValue(fieldName, boxPickerStoredValue(option, valueType))}
               disabled={readOnly}
               size="xs"

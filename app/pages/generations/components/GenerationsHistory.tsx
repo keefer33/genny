@@ -511,9 +511,6 @@ export default function GenerationsHistory({
         <Group justify="center" py="xs">
           <AppPagination
             mobileVisibleItems={isMobile ? 4 : 7}
-            siblings={2}
-            boundaries={1}
-            withEdges={false}
             total={generationsHistoryTotalPages}
             value={historyPage}
             onChange={(page) => {

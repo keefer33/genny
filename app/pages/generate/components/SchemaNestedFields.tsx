@@ -217,6 +217,11 @@ export function SchemaNestedFields({
               disabled={isFieldReadOnly || hasSingleEnumValue}
               error={err}
               required={isRequired}
+              styles={{
+                track: {
+                  backgroundColor: `var(--mantine-primary-color-light)`,
+                },
+              }}
             />
           );
         }

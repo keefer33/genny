@@ -92,15 +92,39 @@ export default function ToolkitDetail() {
   const tools: ToolItem[] = toolsData?.items ?? [];
   const authGuideUrl = (toolkit as ToolkitDetailType | null)?.auth_guide_url;
 
+  const topButtons = (
+    <Group gap="xs">
+      <Button
+        variant="filled"
+        component={Link}
+        to="/tools"
+        size="compact-sm"
+        leftSection={<RiArrowLeftLine size={16} />}
+        justify="flex-start"
+        w="fit-content"
+      >
+        Tools
+      </Button>
+      <Button
+        variant="filled"
+        component={Link}
+        to="/agents"
+        size="compact-sm"
+        justify="flex-start"
+        w="fit-content"
+      >
+        Agents
+      </Button>
+    </Group>
+  );
+
   if (!slug) {
     return (
       <Mounted>
         <PageTitle title="Toolkit" />
         <Card padding="md" withBorder>
           <Text c="red">Toolkit slug is required.</Text>
-          <Button component={Link} to="/tools" variant="light" mt="md">
-            Back to Tools
-          </Button>
+          {topButtons}
         </Card>
       </Mounted>
     );
@@ -134,17 +158,7 @@ export default function ToolkitDetail() {
               </Text>
             )}
           </Card>
-          <Group>
-            <Button
-              variant="light"
-              color="gray"
-              component={Link}
-              to="/tools"
-              leftSection={<RiArrowLeftLine size={16} />}
-            >
-              Back to Tools
-            </Button>
-          </Group>
+          {topButtons}
         </Stack>
       </Mounted>
     );
@@ -171,16 +185,7 @@ export default function ToolkitDetail() {
 
   return (
     <Mounted>
-      <Button
-        variant="light"
-        component={Link}
-        to="/tools"
-        leftSection={<RiArrowLeftLine size={16} />}
-        justify="flex-start"
-        w="fit-content"
-      >
-        Back to Tools
-      </Button>
+      {topButtons}
       <Stack gap="xl" pt="sm">
         <Stack gap="xs">
           <Group gap="md" wrap="nowrap">

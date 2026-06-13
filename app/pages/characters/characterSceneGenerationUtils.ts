@@ -13,6 +13,7 @@ export type CharacterSceneFile = {
   thumbnail_url?: string | null;
   upload_type?: string | null;
   status?: string | null;
+  generated_info?: unknown;
 };
 
 export type CharacterScene = {

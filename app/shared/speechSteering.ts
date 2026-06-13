@@ -81,9 +81,7 @@ export const PAUSE_PRESETS = [
   { id: "5s", label: "5 seconds", tag: '<break time="5s" />' },
 ] as const;
 
-const NON_VERBAL_INNER = new Set(
-  NON_VERBAL_TAGS.map((t) => t.tag.slice(1, -1).toLowerCase())
-);
+const NON_VERBAL_INNER = new Set(NON_VERBAL_TAGS.map((t) => t.tag.slice(1, -1).toLowerCase()));
 
 export const DELIVERY_PRESET_GROUPS: SteeringPresetGroup[] = [
   {
@@ -103,7 +101,8 @@ export const DELIVERY_PRESET_GROUPS: SteeringPresetGroup[] = [
       {
         id: "rage",
         label: "Controlled rage",
-        instruction: "speak as if barely holding back rage forcing every word through gritted teeth",
+        instruction:
+          "speak as if barely holding back rage forcing every word through gritted teeth",
       },
       {
         id: "amused",
@@ -258,6 +257,36 @@ export type SteeringWarning = {
   id: string;
   message: string;
 };
+
+/** Max characters for a single TTS script (matches `GenerateSpeechForm` / synthesize API). */
+export const SPEECH_SCRIPT_ASSIST_MAX_CHARS = 2000;
+
+/** Builds steering rules text for AI assist system prompts (keep in sync with gennyapi `assistSpeechScript`). */
+export function buildSpeechSteeringAssistInstructions(): string {
+  const guideSections = SPEECH_SCRIPT_GUIDE.sections
+    .map((section) => {
+      const example = section.example ? `\nExample: ${section.example}` : "";
+      return `- ${section.title}: ${section.description}${example}`;
+    })
+    .join("\n");
+
+  const nonVerbals = NON_VERBAL_TAGS.map((tag) => tag.tag).join(", ");
+  const deliverySamples = DELIVERY_PRESET_GROUPS.flatMap((group) =>
+    group.presets.slice(0, 2).map((preset) => formatDeliveryTag(preset.instruction))
+  )
+    .slice(0, 8)
+    .join(", ");
+  const pauseSamples = PAUSE_PRESETS.map((preset) => preset.tag).join(", ");
+
+  return `Inworld TTS steering rules:
+${guideSections}
+
+Available non-verbal tags: ${nonVerbals}
+Delivery tag examples: ${deliverySamples}
+Pause tag examples: ${pauseSamples}
+Limits: at most ${MAX_PAUSE_TAGS_PER_SCRIPT} pause tags per script; each pause up to ${MAX_PAUSE_DURATION_MS / 1000}s.
+Opening delivery tags must be lowercase English without trailing punctuation.`;
+}
 
 export function getSteeringWarnings(text: string): SteeringWarning[] {
   const warnings: SteeringWarning[] = [];

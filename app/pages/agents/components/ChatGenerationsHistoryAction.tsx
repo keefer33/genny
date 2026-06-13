@@ -1,6 +1,6 @@
 import { useChatsStore } from "~/lib/stores/chatsStore";
 import useGenerationsStore from "~/lib/stores/generateStore";
-import PlayGroundRunHistoryModalAction from "~/pages/generations/components/GenerationsHistoryModalAction";
+import PlayGroundRunHistoryModalAction from "~/pages/generations/components/PlayGroundRunHistoryModalAction";
 
 export default function ChatGenerationsHistoryAction() {
   const { chats, selectedChat } = useChatsStore();

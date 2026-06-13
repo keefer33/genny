@@ -277,7 +277,6 @@ export default function MemberFiles() {
             value={paginationData.currentPage}
             onChange={handleFilesPageChange}
             size="md"
-            withEdges
           />
         </Group>
       )}

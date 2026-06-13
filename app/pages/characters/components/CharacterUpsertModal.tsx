@@ -6,6 +6,7 @@ import useGenerationsStore from "~/lib/stores/generateStore";
 import useVoicesStore from "~/lib/stores/voicesStore";
 import { CharacterAiAssistBar } from "~/pages/characters/components/CharacterAiAssistBar";
 import { CharacterFormFields } from "~/pages/characters/components/CharacterFormFields";
+import { CharacterReferenceImagePicker } from "~/pages/characters/components/CharacterReferenceImagePicker";
 import VoicePicker from "~/pages/voices/components/VoicePicker";
 import {
   CharacterLookModelFields,
@@ -65,6 +66,7 @@ export function CharacterUpsertModal({
   const [ethnicity, setEthnicity] = useState("");
   const [selectedCreateModelId, setSelectedCreateModelId] = useState<string | null>(null);
   const [lookModelPayload, setLookModelPayload] = useState<Record<string, unknown>>({});
+  const [referenceImageUrl, setReferenceImageUrl] = useState("");
   const [createCost, setCreateCost] = useState<number | null>(null);
   const [createCostLoading, setCreateCostLoading] = useState(false);
 
@@ -91,6 +93,7 @@ export function CharacterUpsertModal({
       setEthnicity(next.ethnicity ?? "");
       setSelectedCreateModelId(null);
       setLookModelPayload({});
+      setReferenceImageUrl("");
       setCreateCost(null);
       setCreateCostLoading(false);
       return;
@@ -180,6 +183,7 @@ export function CharacterUpsertModal({
       gender,
       age,
       ethnicity: ethnicity.trim() || null,
+      referenceImageUrl: referenceImageUrl.trim() || null,
     });
     if (!result) return;
     setDescription(result.description);
@@ -199,15 +203,32 @@ export function CharacterUpsertModal({
     return { ...selectedLookModel.fields.default, ...lookModelPayload };
   }, [selectedLookModel, lookModelPayload]);
 
+  const trimmedReferenceImageUrl = referenceImageUrl.trim();
+  const usesReferenceImage = Boolean(trimmedReferenceImageUrl);
+
   const lookCostDriverSnapshot = useMemo(() => {
     if (!showLookModelPicker || !selectedLookModel || !mergedLookPayload || !trimmedDescription) {
       return "";
     }
-    return JSON.stringify({
-      modelId: selectedLookModel.create_model_id,
-      payload: { ...mergedLookPayload, prompt: trimmedDescription },
-    });
-  }, [showLookModelPicker, selectedLookModel, mergedLookPayload, trimmedDescription]);
+    const modelId = usesReferenceImage
+      ? selectedLookModel.edit_model_id
+      : selectedLookModel.create_model_id;
+    const payload = usesReferenceImage
+      ? {
+          ...mergedLookPayload,
+          prompt: trimmedDescription,
+          images: [trimmedReferenceImageUrl],
+        }
+      : { ...mergedLookPayload, prompt: trimmedDescription };
+    return JSON.stringify({ modelId, payload });
+  }, [
+    showLookModelPicker,
+    selectedLookModel,
+    mergedLookPayload,
+    trimmedDescription,
+    usesReferenceImage,
+    trimmedReferenceImageUrl,
+  ]);
 
   useEffect(() => {
     if (
@@ -226,8 +247,16 @@ export function CharacterUpsertModal({
     const timeoutId = setTimeout(() => {
       setCreateCostLoading(true);
       void calculateGenerateCost({
-        modelId: selectedLookModel.create_model_id,
-        payload: { ...mergedLookPayload, prompt: trimmedDescription },
+        modelId: usesReferenceImage
+          ? selectedLookModel.edit_model_id
+          : selectedLookModel.create_model_id,
+        payload: usesReferenceImage
+          ? {
+              ...mergedLookPayload,
+              prompt: trimmedDescription,
+              images: [trimmedReferenceImageUrl],
+            }
+          : { ...mergedLookPayload, prompt: trimmedDescription },
       })
         .then((singleImageCost) => {
           if (!cancelled) setCreateCost(singleImageCost * 4);
@@ -251,6 +280,8 @@ export function CharacterUpsertModal({
     selectedLookModel,
     mergedLookPayload,
     trimmedDescription,
+    usesReferenceImage,
+    trimmedReferenceImageUrl,
     calculateGenerateCost,
   ]);
 
@@ -269,6 +300,8 @@ export function CharacterUpsertModal({
             payload: lookModelPayload,
           }
         : undefined,
+    referenceImageUrl:
+      showLookModelPicker && trimmedReferenceImageUrl ? trimmedReferenceImageUrl : null,
   };
 
   return (
@@ -307,6 +340,11 @@ export function CharacterUpsertModal({
         />
         {showLookModelPicker ? (
           <>
+            <CharacterReferenceImagePicker
+              value={referenceImageUrl}
+              disabled={busy}
+              onChange={setReferenceImageUrl}
+            />
             <Select
               label="Look generation model"
               placeholder="Choose a model"

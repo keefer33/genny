@@ -1,7 +1,7 @@
 import {
+  ActionIcon,
   Box,
   Button,
-  Checkbox,
   Group,
   Loader,
   Modal,
@@ -13,12 +13,9 @@ import {
   TextInput,
   Title,
 } from "@mantine/core";
-import { RiAddLine, RiSparklingLine } from "@remixicon/react";
-import { useEffect, useMemo, useState } from "react";
-import useVoicesStore, {
-  type DesignPreviewVoice,
-  previewAudioDataUrl,
-} from "~/lib/stores/voicesStore";
+import { RiAddLine, RiDeleteBinLine, RiSparklingLine } from "@remixicon/react";
+import { useEffect, useState } from "react";
+import useVoicesStore, { getVoicePreviewUrl, type UserVoice } from "~/lib/stores/voicesStore";
 import { showNotification } from "~/lib/notificationUtils";
 import { GennyAudioPlayer } from "~/shared/GennyAudioPlayer";
 import {
@@ -31,20 +28,32 @@ import {
   VOICE_GENDER_OPTIONS,
 } from "~/pages/voices/voiceFormOptions";
 import useAppStore from "~/lib/stores/appStore";
-type PreviewSelection = DesignPreviewVoice & {
-  selected: boolean;
-  displayName: string;
+
+type DesignedVoiceDraft = {
+  voice: UserVoice;
+  name: string;
+  saving: boolean;
+  deleting: boolean;
 };
+
+function voiceDraftFromUserVoice(voice: UserVoice): DesignedVoiceDraft {
+  return {
+    voice,
+    name: voice.name?.trim() || "My voice",
+    saving: false,
+    deleting: false,
+  };
+}
 
 export function ModalVoiceDesign() {
   const {
     designVoice,
     assistVoiceDesign,
-    publishVoices,
+    updateVoice,
+    deleteVoice,
     loadUserVoices,
     designLoading,
     assistLoading,
-    publishLoading,
     designVoiceOpened,
     openDesignVoice,
     closeDesignVoice,
@@ -56,10 +65,11 @@ export function ModalVoiceDesign() {
   const [gender, setGender] = useState<string | null>(null);
   const [age, setAge] = useState<string | null>(null);
   const [accent, setAccent] = useState<string | null>(null);
-  const [previews, setPreviews] = useState<PreviewSelection[]>([]);
+  const [designedVoices, setDesignedVoices] = useState<DesignedVoiceDraft[]>([]);
   const [designPromptError, setDesignPromptError] = useState<string | null>(null);
   const [previewTextError, setPreviewTextError] = useState<string | null>(null);
   const { isMobile } = useAppStore();
+
   const reset = () => {
     setStep("form");
     setDesignPrompt("");
@@ -68,7 +78,7 @@ export function ModalVoiceDesign() {
     setGender(null);
     setAge(null);
     setAccent(null);
-    setPreviews([]);
+    setDesignedVoices([]);
     setDesignPromptError(null);
     setPreviewTextError(null);
   };
@@ -76,8 +86,6 @@ export function ModalVoiceDesign() {
   useEffect(() => {
     if (!designVoiceOpened) reset();
   }, [designVoiceOpened]);
-
-  const selectedCount = useMemo(() => previews.filter((p) => p.selected).length, [previews]);
 
   const handleAiAssist = async () => {
     const result = await assistVoiceDesign({
@@ -129,51 +137,102 @@ export function ModalVoiceDesign() {
       designPrompt: prompt,
       previewText: text,
       numberOfSamples: 3,
+      baseName: baseName.trim() || undefined,
+      gender,
+      age,
+      accent,
     });
-    if (!result?.previewVoices?.length) {
+    if (!result?.voices?.length) {
       showNotification({
-        title: "No previews returned",
+        title: "No voices saved",
         message:
-          "Voice design finished but no preview audio was returned. Try again or adjust your script.",
+          "Voice design finished but no voices were saved to your library. Try again or adjust your script.",
         type: "error",
       });
       return;
     }
 
-    setPreviews(
-      result.previewVoices.map((preview, index) => ({
-        ...preview,
-        selected: true,
-        displayName:
-          result.previewVoices.length > 1
-            ? `${baseName.trim() || "My voice"} ${index + 1}`
-            : baseName.trim() || "My voice",
-      }))
-    );
+    setDesignedVoices(result.voices.map(voiceDraftFromUserVoice));
     setStep("previews");
   };
 
-  const handlePublish = async () => {
-    const selected = previews.filter((p) => p.selected);
-    if (selected.length === 0) return;
+  const handleSaveVoiceName = async (voiceId: string) => {
+    const draft = designedVoices.find((row) => row.voice.id === voiceId);
+    if (!draft?.voice.id) return;
 
-    const ok = await publishVoices(
-      selected.map((p) => ({
-        voiceId: p.voiceId,
-        displayName: p.displayName.trim() || baseName.trim() || "My voice",
-        previewAudio: p.previewAudio,
-        previewText: p.previewText,
-        designPrompt: designPrompt.trim(),
-        description: designPrompt.trim(),
-        gender: gender ?? undefined,
-        age: age ?? undefined,
-        accent: accent ?? undefined,
-      }))
+    const nextName = draft.name.trim() || baseName.trim() || "My voice";
+    if (nextName === draft.voice.name?.trim()) return;
+
+    setDesignedVoices((rows) =>
+      rows.map((row) => (row.voice.id === voiceId ? { ...row, saving: true } : row))
     );
-    if (ok) {
-      await loadUserVoices({ page: 1, paginate: true });
-      closeDesignVoice();
+
+    const ok = await updateVoice(
+      voiceId,
+      {
+        name: nextName,
+        description: designPrompt.trim(),
+        gender,
+        age,
+        accent,
+      },
+      { quiet: true }
+    );
+
+    setDesignedVoices((rows) =>
+      rows.map((row) =>
+        row.voice.id === voiceId
+          ? {
+              ...row,
+              saving: false,
+              name: ok ? nextName : row.name,
+              voice: ok ? { ...row.voice, name: nextName } : row.voice,
+            }
+          : row
+      )
+    );
+
+    if (!ok) {
+      showNotification({
+        title: "Could not update voice",
+        message: "Please try saving the name again.",
+        type: "error",
+      });
     }
+  };
+
+  const handleDeleteVoice = async (voiceId: string) => {
+    setDesignedVoices((rows) =>
+      rows.map((row) => (row.voice.id === voiceId ? { ...row, deleting: true } : row))
+    );
+
+    const ok = await deleteVoice(voiceId, { quiet: true });
+    if (ok) {
+      setDesignedVoices((rows) => rows.filter((row) => row.voice.id !== voiceId));
+      return;
+    }
+
+    setDesignedVoices((rows) =>
+      rows.map((row) => (row.voice.id === voiceId ? { ...row, deleting: false } : row))
+    );
+    showNotification({
+      title: "Could not delete voice",
+      message: "Please try again.",
+      type: "error",
+    });
+  };
+
+  const handleDone = async () => {
+    await loadUserVoices({ page: 1, paginate: true });
+    closeDesignVoice();
+    showNotification({
+      title: "Voices saved",
+      message:
+        designedVoices.length === 1
+          ? "Your designed voice is in your library."
+          : `${designedVoices.length} designed voices are in your library.`,
+      type: "success",
+    });
   };
 
   return (
@@ -185,7 +244,7 @@ export function ModalVoiceDesign() {
       <Modal
         opened={designVoiceOpened}
         onClose={closeDesignVoice}
-        title={step === "form" ? "Design a new voice" : "Choose previews to publish"}
+        title={step === "form" ? "Design a new voice" : "Your designed voices"}
         size="lg"
         centered
         fullScreen={isMobile}
@@ -195,7 +254,8 @@ export function ModalVoiceDesign() {
             <Group justify="space-between" align="center" wrap="wrap">
               <Text size="sm" c="dimmed" style={{ flex: 1, minWidth: 200 }}>
                 Describe the voice (tone, pace, character). Gender, age, and accent guide AI Assist
-                and are saved on publish. Preview script should be about 5–15 seconds when spoken.
+                and are saved on each generated voice. Preview script should be about 5–15 seconds
+                when spoken.
               </Text>
               <Button
                 variant="light"
@@ -260,7 +320,7 @@ export function ModalVoiceDesign() {
             />
             <TextInput
               label="Default name"
-              description="Used when publishing; each preview can be renamed in the next step."
+              description="Used as a base name for each generated voice; you can rename them next."
               value={baseName}
               onChange={(e) => setBaseName(e.currentTarget.value)}
             />
@@ -278,83 +338,89 @@ export function ModalVoiceDesign() {
                 loading={designLoading}
                 disabled={assistLoading}
               >
-                Generate 3 previews
+                Generate 3 voices
               </Button>
             </Group>
           </Stack>
         ) : (
           <Stack gap="md">
             <Text size="sm" c="dimmed">
-              Listen to each preview, select the ones you want, and publish them to your voice
-              library.
+              Three voices were saved to your library. Listen to each preview, rename the ones you
+              want to keep, and delete any you do not want.
             </Text>
             {designLoading ? (
               <Group justify="center" py="xl">
                 <Loader />
               </Group>
             ) : (
-              previews.map((preview, index) => (
-                <Box
-                  key={preview.voiceId}
-                  p="sm"
-                  style={{
-                    border: "1px solid var(--mantine-color-default-border)",
-                    borderRadius: 8,
-                  }}
-                >
-                  <Stack gap="xs">
-                    <Group justify="space-between" wrap="nowrap">
-                      <Checkbox
-                        label={<Title order={6}>Preview {index + 1}</Title>}
-                        checked={preview.selected}
-                        onChange={(e) => {
-                          const checked = e.currentTarget.checked;
-                          setPreviews((prev) =>
-                            prev.map((p) =>
-                              p.voiceId === preview.voiceId ? { ...p, selected: checked } : p
-                            )
-                          );
-                        }}
-                      />
-                    </Group>
-                    <GennyAudioPlayer
-                      src={previewAudioDataUrl(preview.previewAudio)}
-                      crossOrigin=""
-                      compact
-                    />
-                    <TextInput
-                      label="Display name"
-                      value={preview.displayName}
-                      disabled={!preview.selected}
-                      onChange={(e) => {
-                        const value = e.currentTarget.value;
-                        setPreviews((prev) =>
-                          prev.map((p) =>
-                            p.voiceId === preview.voiceId ? { ...p, displayName: value } : p
-                          )
-                        );
-                      }}
-                    />
-                  </Stack>
-                </Box>
-              ))
+              designedVoices.map((draft, index) => {
+                const previewUrl = getVoicePreviewUrl(draft.voice);
+                return (
+                  <Box
+                    key={draft.voice.id}
+                    p="sm"
+                    style={{
+                      border: "1px solid var(--mantine-color-default-border)",
+                      borderRadius: 8,
+                    }}
+                  >
+                    <Stack gap="xs">
+                      <Group justify="space-between" wrap="nowrap">
+                        <Title order={6}>Voice {index + 1}</Title>
+                        <ActionIcon
+                          variant="subtle"
+                          color="red"
+                          aria-label="Delete voice"
+                          title="Delete voice"
+                          loading={draft.deleting}
+                          onClick={() => void handleDeleteVoice(draft.voice.id)}
+                        >
+                          <RiDeleteBinLine size={16} />
+                        </ActionIcon>
+                      </Group>
+                      {previewUrl ? (
+                        <GennyAudioPlayer src={previewUrl} crossOrigin="" compact />
+                      ) : (
+                        <Text size="sm" c="dimmed">
+                          Preview unavailable
+                        </Text>
+                      )}
+                      <Group align="flex-end" wrap="nowrap" gap="xs">
+                        <TextInput
+                          label="Display name"
+                          style={{ flex: 1 }}
+                          value={draft.name}
+                          disabled={draft.saving || draft.deleting}
+                          onChange={(e) => {
+                            const value = e.currentTarget.value;
+                            setDesignedVoices((rows) =>
+                              rows.map((row) =>
+                                row.voice.id === draft.voice.id ? { ...row, name: value } : row
+                              )
+                            );
+                          }}
+                        />
+                        <Button
+                          variant="light"
+                          loading={draft.saving}
+                          disabled={draft.deleting}
+                          onClick={() => void handleSaveVoiceName(draft.voice.id)}
+                        >
+                          Save
+                        </Button>
+                      </Group>
+                    </Stack>
+                  </Box>
+                );
+              })
             )}
-            <Group justify="space-between">
-              <Button variant="subtle" onClick={() => setStep("form")} disabled={publishLoading}>
-                Back
+            <Group justify="flex-end">
+              <Button variant="default" onClick={closeDesignVoice}>
+                Close
               </Button>
-              <Group gap="xs">
-                <Button variant="default" onClick={closeDesignVoice} disabled={publishLoading}>
-                  Cancel
-                </Button>
-                <Button
-                  onClick={() => void handlePublish()}
-                  loading={publishLoading}
-                  disabled={selectedCount === 0}
-                >
-                  Publish {selectedCount > 0 ? `(${selectedCount})` : ""}
-                </Button>
-              </Group>
+              <Button onClick={() => void handleDone()} disabled={designedVoices.length === 0}>
+                Done
+              </Button>
             </Group>
           </Stack>
         )}

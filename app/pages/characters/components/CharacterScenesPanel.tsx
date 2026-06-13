@@ -51,6 +51,7 @@ function sceneFileToMemberFile(file: NonNullable<CharacterScene["file"]>): Chara
     created_at: file.created_at ?? "",
     thumbnail_url: file.thumbnail_url?.trim() || undefined,
     upload_type: file.upload_type,
+    generated_info: file.generated_info,
   };
 }
 
