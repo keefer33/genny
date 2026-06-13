@@ -16,7 +16,6 @@ import { useEffect, useState } from "react";
 import useGenerationsStore from "~/lib/stores/generateStore";
 import type { GenModelsItem } from "~/types/generations";
 import useAppStore from "~/lib/stores/appStore";
-import PlayGroundRunHistoryModalAction from "~/pages/generations/components/GenerationsHistoryModalAction";
 
 export type ModelProductPickerProps = {
   /** Matches `gen_models.generation_type` (e.g. `"video"`). */
@@ -380,7 +379,6 @@ export default function ModelProductPicker({ generationType }: ModelProductPicke
       {isMobile ? (
         <Group justify="space-between" align="center" wrap="nowrap">
           {variantSelect}
-          <PlayGroundRunHistoryModalAction title={currentVariantLabel || "Run history"} />
         </Group>
       ) : (
         <>{variantSelect}</>

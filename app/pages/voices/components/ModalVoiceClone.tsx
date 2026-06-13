@@ -13,13 +13,14 @@ import { useForm } from "@mantine/form";
 import { RiFileCopyLine } from "@remixicon/react";
 import { useEffect } from "react";
 import useVoicesStore from "~/lib/stores/voicesStore";
-import { AddMediaZone } from "~/pages/generate/components/x-ui-components/MediaFilePicker/AddMediaZone";
 import {
   VOICE_ACCENT_OPTIONS,
   VOICE_AGE_OPTIONS,
   VOICE_GENDER_OPTIONS,
 } from "~/pages/voices/voiceFormOptions";
+import { VOICE_CLONE_SAMPLE_MAX_SEC } from "~/pages/voices/voiceCloneRecordingOptions";
 import useAppStore from "~/lib/stores/appStore";
+import { AudioSampleCapture } from "~/shared/recording/AudioSampleCapture";
 
 type CloneVoiceFormValues = {
   name: string;
@@ -105,7 +106,7 @@ export function ModalVoiceClone() {
         <form onSubmit={handleSubmit}>
           <Stack gap="md">
             <Text size="sm" c="dimmed">
-              Pick an audio sample from your files to clone a new voice into your library.
+              Record your voice or upload an audio sample to clone a new voice into your library.
             </Text>
             <TextInput
               label="Name"
@@ -118,18 +119,12 @@ export function ModalVoiceClone() {
               <Text size="sm" fw={500}>
                 Audio sample
               </Text>
-              {!cloneLoading ? (
-                <AddMediaZone
-                  selectLabel="Select audio sample"
-                  modalTitle="Select audio sample"
-                  allowedTypes="audio"
-                  onPickPath={(path) => form.setFieldValue("audioUrl", path.trim())}
-                  onAddUrl={(url) => form.setFieldValue("audioUrl", url.trim())}
-                />
-              ) : null}
-              <Text size="sm" c={form.values.audioUrl.trim() ? "dimmed" : "red"}>
-                {form.values.audioUrl.trim() || "No audio file selected"}
-              </Text>
+              <AudioSampleCapture
+                audioUrl={form.values.audioUrl}
+                onAudioUrlChange={(url) => form.setFieldValue("audioUrl", url)}
+                disabled={cloneLoading}
+                maxDurationSec={VOICE_CLONE_SAMPLE_MAX_SEC}
+              />
             </Stack>
             <Textarea
               label="Description"

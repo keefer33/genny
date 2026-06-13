@@ -152,7 +152,6 @@ export function FilePickerContent({
                 value={currentPage}
                 onChange={handlePageChange}
                 size="sm"
-                withEdges
               />
             </Group>
           )}

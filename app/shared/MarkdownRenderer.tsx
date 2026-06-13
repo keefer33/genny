@@ -15,6 +15,7 @@ import rehypeSanitize from "rehype-sanitize";
 import remarkGfm from "remark-gfm";
 import { copyToClipboard } from "~/lib/utils";
 import useAppStore from "~/lib/stores/appStore";
+import { MarkdownMediaLink } from "~/shared/MarkdownMediaLink";
 
 // Language mapping for CodeMirror
 const getLanguageExtension = (language: string) => {
@@ -55,13 +56,7 @@ export default function MarkdownRenderer({
   useDivForParagraphs = false,
 }: MarkdownRendererProps) {
   const { themeSettings } = useAppStore();
-
-  const imageStyle: React.CSSProperties = {
-    maxWidth: "100%",
-    maxHeight: 360,
-    borderRadius: "var(--mantine-radius-sm)",
-    objectFit: "contain",
-  };
+  const linkColor = themeSettings.colorScheme === "dark" ? "#63b3ed" : "#3182ce";
 
   return (
     <Box className={className} style={style}>
@@ -69,8 +64,10 @@ export default function MarkdownRenderer({
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeRaw, rehypeSanitize]}
         components={{
-          img: ({ src, alt, ...props }) => (
-            <Box component="img" src={src} alt={alt ?? "Generated"} style={imageStyle} {...props} />
+          img: ({ src, alt }) => (
+            <MarkdownMediaLink href={src} linkColor={linkColor}>
+              {alt ?? "Generated"}
+            </MarkdownMediaLink>
           ),
           code({ className, children, ...props }) {
             const match = /language-(\w+)/.exec(className || "");
@@ -373,20 +370,10 @@ export default function MarkdownRenderer({
               {children}
             </span>
           ),
-          a: ({ children, href, ...props }) => (
-            <a
-              href={href}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                color: themeSettings.colorScheme === "dark" ? "#63b3ed" : "#3182ce",
-                textDecoration: "underline",
-                wordBreak: "break-word",
-              }}
-              {...props}
-            >
+          a: ({ children, href }) => (
+            <MarkdownMediaLink href={href} linkColor={linkColor}>
               {children}
-            </a>
+            </MarkdownMediaLink>
           ),
           strong: ({ children }) => (
             <strong

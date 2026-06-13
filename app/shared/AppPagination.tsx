@@ -1,27 +1,34 @@
 import { Pagination, type PaginationProps } from "@mantine/core";
 
+const MAX_PAGE_BUTTONS = 5;
+
 interface AppPaginationProps extends PaginationProps {
+  /** @deprecated Ignored — pagination always shows at most 5 page numbers. */
   mobileVisibleItems?: number;
 }
 
+function siblingsForPageButtonCount(pageButtonCount: number): number {
+  // Mantine shows `2 * siblings + 1` page numbers in the sliding window.
+  return Math.max(1, Math.floor((pageButtonCount - 1) / 2));
+}
+
+const defaultSiblings = siblingsForPageButtonCount(MAX_PAGE_BUTTONS);
+
 export function AppPagination({
-  mobileVisibleItems = 6,
-  siblings: _siblings,
-  boundaries: _boundaries,
-  withEdges: _withEdges,
+  mobileVisibleItems: _mobileVisibleItems,
+  siblings = defaultSiblings,
+  boundaries = 0,
+  withEdges = true,
+  withControls = false,
   ...props
 }: AppPaginationProps) {
-  // Global pagination density (desktop + mobile) driven by one value.
-  const visibleItems = Math.max(3, mobileVisibleItems);
-  const computedSiblings = visibleItems >= 8 ? 2 : visibleItems >= 7 ? 1 : 0;
-  const computedBoundaries = 1;
-
   return (
     <Pagination
-      siblings={computedSiblings}
-      boundaries={computedBoundaries}
-      withEdges={false}
       {...props}
+      siblings={siblings}
+      boundaries={boundaries}
+      withEdges={withEdges}
+      withControls={withControls}
     />
   );
 }

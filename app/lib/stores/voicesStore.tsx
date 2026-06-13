@@ -50,9 +50,12 @@ export type DesignPreviewVoice = {
   previewAudio: string;
 };
 
+/** @deprecated Design API now returns saved user voices directly. */
 export type DesignVoiceResult = {
   langCode: string;
-  previewVoices: DesignPreviewVoice[];
+  designPrompt: string;
+  previewText: string;
+  voices: UserVoice[];
 };
 
 export const USER_VOICES_PAGE_SIZE = 9;
@@ -71,6 +74,11 @@ export type VoiceDesignAssistResult = {
   age: string | null;
   accent: string | null;
   defaultName: string;
+};
+
+export type SpeechScriptAssistResult = {
+  text: string;
+  title: string;
 };
 
 type VoicesState = {
@@ -96,6 +104,7 @@ type VoicesState = {
   speechUpdateLoading: boolean;
   designLoading: boolean;
   assistLoading: boolean;
+  speechAssistLoading: boolean;
   publishLoading: boolean;
   cloneLoading: boolean;
   updateLoading: boolean;
@@ -117,6 +126,10 @@ type VoicesState = {
     designPrompt: string;
     previewText: string;
     numberOfSamples?: number;
+    baseName?: string;
+    gender?: string | null;
+    age?: string | null;
+    accent?: string | null;
   }) => Promise<DesignVoiceResult | null>;
   assistVoiceDesign: (payload: {
     designPrompt?: string;
@@ -126,6 +139,16 @@ type VoicesState = {
     accent?: string | null;
     defaultName?: string;
   }) => Promise<VoiceDesignAssistResult | null>;
+  assistSpeechScript: (payload: {
+    text?: string;
+    title?: string;
+    voiceName?: string | null;
+    voiceDescription?: string | null;
+    gender?: string | null;
+    age?: string | null;
+    accent?: string | null;
+    random?: boolean;
+  }) => Promise<SpeechScriptAssistResult | null>;
   publishVoices: (
     items: Array<{
       voiceId: string;
@@ -158,9 +181,10 @@ type VoicesState = {
       gender: string | null;
       age: string | null;
       accent: string | null;
-    }
+    },
+    options?: { quiet?: boolean }
   ) => Promise<boolean>;
-  deleteVoice: (voiceId: string) => Promise<boolean>;
+  deleteVoice: (voiceId: string, options?: { quiet?: boolean }) => Promise<boolean>;
   editVoiceOpened: boolean;
   openEditVoice: () => void;
   closeEditVoice: () => void;
@@ -212,6 +236,7 @@ const useVoicesStore = create<VoicesState>((set, get) => ({
   speechUpdateLoading: false,
   designLoading: false,
   assistLoading: false,
+  speechAssistLoading: false,
   publishLoading: false,
   cloneLoading: false,
   updateLoading: false,
@@ -473,6 +498,41 @@ const useVoicesStore = create<VoicesState>((set, get) => ({
     }
   },
 
+  assistSpeechScript: async (payload) => {
+    set({ speechAssistLoading: true, error: null });
+    try {
+      const data = await authFetchJson<SpeechScriptAssistResult>(
+        `${endpoint}/voices/speech/assist`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            text: payload.text?.trim() || undefined,
+            title: payload.title?.trim() || undefined,
+            voiceName: payload.voiceName?.trim() || undefined,
+            voiceDescription: payload.voiceDescription?.trim() || undefined,
+            gender: payload.gender?.trim() || undefined,
+            age: payload.age?.trim() || undefined,
+            accent: payload.accent?.trim() || undefined,
+            random: payload.random === true,
+          }),
+        },
+        { errorMessage: "AI assist failed" }
+      );
+      set({ speechAssistLoading: false });
+      showNotification({
+        title: "AI assist",
+        message: payload.random ? "Random speech script is ready." : "Speech script is ready.",
+        type: "success",
+      });
+      return data;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "AI assist failed";
+      set({ speechAssistLoading: false, error: message });
+      showNotification({ title: "AI assist", message, type: "error" });
+      return null;
+    }
+  },
+
   assistVoiceDesign: async (payload) => {
     set({ assistLoading: true, error: null });
     try {
@@ -518,6 +578,10 @@ const useVoicesStore = create<VoicesState>((set, get) => ({
             previewText: payload.previewText,
             language: "EN_US",
             numberOfSamples: payload.numberOfSamples ?? 3,
+            baseName: payload.baseName?.trim() || undefined,
+            gender: payload.gender?.trim() || undefined,
+            age: payload.age?.trim() || undefined,
+            accent: payload.accent?.trim() || undefined,
           }),
         },
         { errorMessage: "Voice design failed" }
@@ -620,7 +684,7 @@ const useVoicesStore = create<VoicesState>((set, get) => ({
     }
   },
 
-  updateVoice: async (voiceId, payload) => {
+  updateVoice: async (voiceId, payload, options) => {
     set({ updateLoading: true, error: null });
     try {
       await authFetchJson(
@@ -638,21 +702,25 @@ const useVoicesStore = create<VoicesState>((set, get) => ({
         { errorMessage: "Failed to update voice" }
       );
       set({ updateLoading: false });
-      showNotification({
-        title: "Voice updated",
-        message: "Your voice was saved.",
-        type: "success",
-      });
+      if (!options?.quiet) {
+        showNotification({
+          title: "Voice updated",
+          message: "Your voice was saved.",
+          type: "success",
+        });
+      }
       return true;
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to update voice";
       set({ updateLoading: false, error: message });
-      showNotification({ title: "Could not update voice", message, type: "error" });
+      if (!options?.quiet) {
+        showNotification({ title: "Could not update voice", message, type: "error" });
+      }
       return false;
     }
   },
 
-  deleteVoice: async (voiceId) => {
+  deleteVoice: async (voiceId, options) => {
     set({ deleteLoading: true, error: null });
     try {
       await authFetchJson(
@@ -661,16 +729,20 @@ const useVoicesStore = create<VoicesState>((set, get) => ({
         { errorMessage: "Failed to delete voice" }
       );
       set({ deleteLoading: false });
-      showNotification({
-        title: "Voice deleted",
-        message: "The voice was removed from your library.",
-        type: "success",
-      });
+      if (!options?.quiet) {
+        showNotification({
+          title: "Voice deleted",
+          message: "The voice was removed from your library.",
+          type: "success",
+        });
+      }
       return true;
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to delete voice";
       set({ deleteLoading: false, error: message });
-      showNotification({ title: "Could not delete voice", message, type: "error" });
+      if (!options?.quiet) {
+        showNotification({ title: "Could not delete voice", message, type: "error" });
+      }
       return false;
     }
   },

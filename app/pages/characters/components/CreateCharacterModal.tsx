@@ -19,7 +19,7 @@ export function CreateCharacterModal() {
 
   return (
     <>
-      <Button size="xs" leftSection={<RiAddLine size={18} />} onClick={openCreate}>
+      <Button size="compact-sm" leftSection={<RiAddLine size={18} />} onClick={openCreate}>
         New
       </Button>
       <CharacterUpsertModal

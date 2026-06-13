@@ -55,6 +55,7 @@ export type CharacterFormValues = {
   age: string | null;
   ethnicity: string | null;
   lookModel?: CharacterLookModelSelection;
+  referenceImageUrl?: string | null;
 };
 
 export type CharacterDesignAssistResult = {
@@ -118,6 +119,7 @@ type CharactersState = {
     gender?: string | null;
     age?: string | null;
     ethnicity?: string | null;
+    referenceImageUrl?: string | null;
   }) => Promise<CharacterDesignAssistResult | null>;
   createCharacter: (values: CharacterFormValues) => Promise<UserCharacter | null>;
   updateCharacter: (characterId: string, values: CharacterFormValues) => Promise<boolean>;
@@ -325,6 +327,7 @@ const useCharactersStore = create<CharactersState>((set, get) => ({
             gender: payload.gender?.trim() || undefined,
             age: payload.age?.trim() || undefined,
             ethnicity: payload.ethnicity?.trim() || undefined,
+            referenceImageUrl: payload.referenceImageUrl?.trim() || undefined,
           }),
         },
         { errorMessage: "AI assist failed" }
@@ -464,6 +467,7 @@ const useCharactersStore = create<CharactersState>((set, get) => ({
             age: values.age?.trim() || undefined,
             ethnicity: values.ethnicity?.trim() || undefined,
             lookModel: values.lookModel,
+            referenceImageUrl: values.referenceImageUrl?.trim() || undefined,
           }),
         },
         { errorMessage: "Failed to create character" }
@@ -477,7 +481,11 @@ const useCharactersStore = create<CharactersState>((set, get) => ({
           type: "success",
         });
         const { charactersPaginated, charactersSearch } = get();
-        await get().loadCharacters({ page: 1, paginate: charactersPaginated, search: charactersSearch });
+        await get().loadCharacters({
+          page: 1,
+          paginate: charactersPaginated,
+          search: charactersSearch,
+        });
       }
       return character;
     } catch (err) {

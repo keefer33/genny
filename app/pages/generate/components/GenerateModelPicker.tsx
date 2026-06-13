@@ -5,7 +5,6 @@ import useAppStore from "~/lib/stores/appStore";
 import useGenerationsStore from "~/lib/stores/generateStore";
 import type { GenModelsItem } from "~/types/generations";
 import { useNavigate, useParams } from "react-router";
-import PlayGroundRunHistoryModalAction from "~/pages/generations/components/GenerationsHistoryModalAction";
 import ModelDescription from "~/shared/ModelDescription";
 
 function uniqueModelProductsInOrder(items: GenModelsItem[]): string[] {
@@ -339,9 +338,6 @@ export default function GenerateModelPicker() {
           modelName={currentModel?.model_name}
           description={currentModel?.model_description}
         />
-        {isMobile ? (
-          <PlayGroundRunHistoryModalAction title={currentVariantLabel || "Run history"} />
-        ) : null}
       </Group>
     </Stack>
   );

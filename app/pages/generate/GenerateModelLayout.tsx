@@ -8,6 +8,7 @@ import DesktopSplitLayout from "~/shared/DesktopSplitLayout";
 import GenerationsHistory from "../generations/components/GenerationsHistory";
 import MobileScrollBox from "~/shared/MobileScrollBox";
 import GenerateModelPicker from "~/pages/generate/components/GenerateModelPicker";
+import GenerationTypePicker from "~/pages/generate/components/GenerationTypePicker";
 
 const ALLOWED_GENERATION_TYPES = new Set(["image", "video", "audio", "tool"]);
 
@@ -97,7 +98,8 @@ export default function GenerateModelLayout() {
 
   return isMobile ? (
     <MobileScrollBox>
-      <Stack gap="md" style={{ flex: 1, minHeight: 0 }}>
+      <Stack gap="md" style={{ flex: 1, minHeight: 0 }} pt="xs">
+        <GenerationTypePicker />
         <GenerateModelPicker />
         <Outlet />
       </Stack>
@@ -106,7 +108,7 @@ export default function GenerateModelLayout() {
     <DesktopSplitLayout>
       <Paper
         w={420}
-        p="sm"
+        //p="sm"
         style={{
           flex: "0 0 auto",
           alignSelf: "stretch",
@@ -116,13 +118,15 @@ export default function GenerateModelLayout() {
           flexDirection: "column",
           overflow: "hidden",
         }}
+        pt="xs"
       >
         <Stack gap="xs" style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+          <GenerationTypePicker />
           <GenerateModelPicker />
           <Outlet />
         </Stack>
       </Paper>
-      <Box style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
+      <Box style={{ flex: 1, minHeight: 0, overflow: "hidden" }} pt="xs">
         <GenerationsHistory />
       </Box>
     </DesktopSplitLayout>

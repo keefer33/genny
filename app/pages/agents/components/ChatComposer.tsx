@@ -1,9 +1,10 @@
 import { ActionIcon, Anchor, Card, Group, Menu, Text, Textarea } from "@mantine/core";
 import { RiAddLine, RiAttachment2, RiSendPlane2Line } from "@remixicon/react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useChatsStore } from "~/lib/stores/chatsStore";
 import useAppStore from "~/lib/stores/appStore";
 import AttachmentsModal from "~/pages/agents/components/AttachmentsModal";
+import { ChatVoiceInputButton } from "~/pages/agents/components/ChatVoiceInputButton";
 import { FilePickerModal } from "~/shared/FilePickerModal";
 import type { FileData } from "~/lib/stores/filesFoldersStore";
 import type { ChatAttachment } from "./attachmentsTypes";
@@ -53,6 +54,14 @@ export default function ChatComposer() {
     setPickerOpen(false);
     setAttachmentsModalOpen(true);
   };
+
+  const handleVoiceTranscript = useCallback((text: string) => {
+    setPrompt((prev) => {
+      const trimmed = prev.trim();
+      return trimmed ? `${trimmed} ${text}` : text;
+    });
+    focusTextarea();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -106,19 +115,25 @@ export default function ChatComposer() {
           }}
           disabled={!selectedModelName || runChatLoading}
           rightSection={
-            <ActionIcon
-              type="submit"
-              variant="subtle"
-              size="sm"
-              loading={runChatLoading}
-              disabled={!selectedModelName}
-              aria-label="Send"
-            >
-              <RiSendPlane2Line size={18} />
-            </ActionIcon>
+            <Group gap={4} wrap="nowrap" justify="flex-end">
+              <ChatVoiceInputButton
+                disabled={!selectedModelName || runChatLoading}
+                onTranscript={handleVoiceTranscript}
+              />
+              <ActionIcon
+                type="submit"
+                variant="subtle"
+                size="sm"
+                loading={runChatLoading}
+                disabled={!selectedModelName}
+                aria-label="Send"
+              >
+                <RiSendPlane2Line size={18} />
+              </ActionIcon>
+            </Group>
           }
           rightSectionPointerEvents="auto"
-          rightSectionWidth={36}
+          rightSectionWidth={72}
           leftSection={
             <Menu shadow="md" width={220} position="top-start">
               <Menu.Target>

@@ -1,11 +1,17 @@
 import { Button } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { RiImageAddLine } from "@remixicon/react";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { authFetchJson } from "~/lib/stores/authFetch";
 import useCharactersStore from "~/lib/stores/charactersStore";
 import useVoicesStore, { type UserVoice, type UserVoiceSpeech } from "~/lib/stores/voicesStore";
+import { endpoint } from "~/lib/utils";
 import { EMPTY_CHARACTER_LOOKS } from "~/pages/characters/characterLookTypes";
-import { buildBaseLookPickerOptionsFromLooks } from "~/pages/characters/components/CharacterBaseLookPicker";
+import type { CharacterScene } from "~/pages/characters/characterSceneGenerationUtils";
+import {
+  buildBaseLookPickerOptionsForVideo,
+  buildBaseLookPickerOptionsFromLooks,
+} from "~/pages/characters/components/CharacterBaseLookPicker";
 import GenerateLookModalDialog from "~/pages/characters/components/GenerateLookModalDialog";
 import {
   isCharacterMode,
@@ -22,6 +28,7 @@ export function GenerateLookModal(props: GenerateLookModalProps) {
   const [opening, setOpening] = useState(false);
   const [characterVoice, setCharacterVoice] = useState<UserVoice | null>(null);
   const [voiceSpeeches, setVoiceSpeeches] = useState<UserVoiceSpeech[]>([]);
+  const [characterScenes, setCharacterScenes] = useState<CharacterScene[]>([]);
 
   const generateCharacterLook = useCharactersStore((s) => s.generateCharacterLook);
   const generateCharacterScene = useCharactersStore((s) => s.generateCharacterScene);
@@ -55,9 +62,19 @@ export function GenerateLookModal(props: GenerateLookModalProps) {
     setOpening(true);
     setCharacterVoice(null);
     setVoiceSpeeches([]);
+    setCharacterScenes([]);
 
     try {
       await fetchCharacterLooks(id);
+
+      if (kind === "video" || kind === "scene") {
+        const data = await authFetchJson<{ scenes?: CharacterScene[] }>(
+          `${endpoint}/characters/${encodeURIComponent(id)}/scenes`,
+          undefined,
+          { errorMessage: "Failed to load character scenes" }
+        );
+        setCharacterScenes(data.scenes ?? []);
+      }
 
       const character = await fetchCharacterById(id, { silent: true });
       const voiceId = character?.voice_id?.trim();
@@ -93,8 +110,15 @@ export function GenerateLookModal(props: GenerateLookModalProps) {
     [props, kind, generateCharacterLook, generateCharacterScene, generateCharacterVideo, close]
   );
 
+  const baseLookOptions = useMemo(
+    () =>
+      kind === "video" || kind === "scene"
+        ? buildBaseLookPickerOptionsForVideo(characterLooks, characterScenes)
+        : buildBaseLookPickerOptionsFromLooks(characterLooks),
+    [kind, characterLooks, characterScenes]
+  );
+
   if (isCharacterMode(props)) {
-    const baseLookOptions = buildBaseLookPickerOptionsFromLooks(characterLooks);
     const trigger = props.renderTrigger?.({
       open: () => void handleOpen(),
       opening,

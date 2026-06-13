@@ -1,5 +1,6 @@
 import { Group, Stack, Text, Select, MultiSelect } from "@mantine/core";
 import useGenerationsStore from "~/lib/stores/generateStore";
+import useAppStore from "~/lib/stores/appStore";
 
 interface GenerationFiltersProps {
   availableModels?: Array<{ id: string; name: string }>;
@@ -61,6 +62,7 @@ export function RunHistoryFilters({
   const setSelectedModelTypeFilters =
     onModelTypeFiltersChange ?? setGenerationsHistoryModelTypeFilters;
 
+  const { themeSettings } = useAppStore();
   return (
     <Stack gap="xl">
       {/* Model Filter */}
@@ -69,7 +71,7 @@ export function RunHistoryFilters({
           <Text size="sm" fw={500}>
             Filter by model
             {selectedFilterModelId && (
-              <Text component="span" size="xs" c="blue" ml="xs">
+              <Text component="span" size="xs" ml="xs" c={themeSettings.themeColor}>
                 (selected)
               </Text>
             )}

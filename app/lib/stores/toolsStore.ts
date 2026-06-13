@@ -150,6 +150,12 @@ interface ToolsByToolkitState {
   toolsByToolkitLoading: boolean;
 }
 
+/** Toolkit metadata keyed by slug (for connected accounts list). */
+interface ToolkitSummariesState {
+  toolkitSummariesBySlug: Record<string, ToolkitItem>;
+  toolkitSummariesLoading: boolean;
+}
+
 interface ToolsActions {
   setSearchInput: (value: string) => void;
   setCategoryFilter: (value: string) => void;
@@ -173,6 +179,8 @@ interface ToolsActions {
   }) => Promise<void>;
   /** Load tools for multiple toolkits in parallel; stores in toolsByToolkit. */
   loadToolsForToolkits: (toolkitSlugs: string[]) => Promise<void>;
+  /** Load toolkit name/logo metadata for connected account slugs. */
+  loadToolkitSummariesForSlugs: (toolkitSlugs: string[]) => Promise<void>;
   resetDetail: () => void;
 
   loadConnectedAccounts: () => Promise<void>;
@@ -189,7 +197,10 @@ type ToolsState = ToolsListState &
   ToolsDetailState &
   ToolsConnectionsState &
   ToolsByToolkitState &
+  ToolkitSummariesState &
   ToolsActions;
+
+const toolkitSummariesInFlight = new Set<string>();
 
 export const useToolsStore = create<ToolsState>((set, get) => ({
   toolkitsData: null,
@@ -218,6 +229,9 @@ export const useToolsStore = create<ToolsState>((set, get) => ({
 
   toolsByToolkit: {},
   toolsByToolkitLoading: false,
+
+  toolkitSummariesBySlug: {},
+  toolkitSummariesLoading: false,
 
   setSearchInput: (value) => set({ searchInput: value }),
   setCategoryFilter: (value) => set({ categoryFilter: value }),
@@ -337,6 +351,46 @@ export const useToolsStore = create<ToolsState>((set, get) => ({
     }
   },
 
+  loadToolkitSummariesForSlugs: async (toolkitSlugs: string[]) => {
+    const slugs = [...new Set(toolkitSlugs.map((s) => s.trim()).filter(Boolean))];
+    const missing = slugs.filter(
+      (slug) => !get().toolkitSummariesBySlug[slug] && !toolkitSummariesInFlight.has(slug)
+    );
+    if (missing.length === 0) return;
+
+    const apiKey = useAppStore.getState().getAuthApiKey();
+    if (!apiKey) return;
+
+    for (const slug of missing) toolkitSummariesInFlight.add(slug);
+    set({ toolkitSummariesLoading: true });
+
+    try {
+      const results = await Promise.all(
+        missing.map(async (slug) => {
+          try {
+            const item = await authFetchJson<ToolkitItem>(
+              `${endpoint}/tools/toolkits/${encodeURIComponent(slug)}`,
+              undefined,
+              { errorMessage: `Failed to load toolkit ${slug}` }
+            );
+            return { slug, item };
+          } catch {
+            return { slug, item: null as ToolkitItem | null };
+          }
+        })
+      );
+
+      const next = { ...get().toolkitSummariesBySlug };
+      for (const { slug, item } of results) {
+        if (item?.slug) next[slug] = item;
+      }
+      set({ toolkitSummariesBySlug: next });
+    } finally {
+      for (const slug of missing) toolkitSummariesInFlight.delete(slug);
+      set({ toolkitSummariesLoading: false });
+    }
+  },
+
   loadToolsForToolkits: async (toolkitSlugs: string[]) => {
     const slugs = [...new Set(toolkitSlugs)].filter(Boolean);
     if (slugs.length === 0) {
@@ -412,7 +466,12 @@ export const useToolsStore = create<ToolsState>((set, get) => ({
         (payload as { success?: unknown }).success === true
           ? ((payload as { data?: ConnectedAccountsListResponse }).data ?? { items: [] })
           : (payload as ConnectedAccountsListResponse);
-      set({ connectedAccounts: json.items ?? [], connectedAccountsLoading: false });
+      const accounts = json.items ?? [];
+      set({ connectedAccounts: accounts, connectedAccountsLoading: false });
+      const slugs = accounts
+        .map((account) => account.toolkit?.slug?.trim())
+        .filter((slug): slug is string => Boolean(slug));
+      void get().loadToolkitSummariesForSlugs(slugs);
     } catch (err) {
       set({
         connectedAccountsError: err instanceof Error ? err.message : "Failed to load connections",

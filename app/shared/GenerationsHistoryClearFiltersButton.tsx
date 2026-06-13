@@ -20,7 +20,7 @@ export function GenerationsHistoryClearFiltersButton() {
 
   return (
     <Group justify="flex-end">
-      <Button variant="light" size="xs" color="red" onClick={clearGenerationsHistoryFilters}>
+      <Button variant="subtle" size="xs" onClick={clearGenerationsHistoryFilters}>
         Clear all filters
       </Button>
     </Group>

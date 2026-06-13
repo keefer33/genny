@@ -54,91 +54,16 @@ function MessageBubble({
     .map((p) => (p.type === "text" ? (p as { text?: string }).text : ""))
     .filter(Boolean)
     .join("");
-  // Chat history may store attachments either as AI SDK parts (`type: "image" | "video" | "file"`)
-  // or as raw attachment inputs (`type: "<mime>/..."`, with `url` + optional `thumbnail_url`).
-  const imageParts = message.content.filter((p) => {
-    if (p.type === "image") return !!(p.image || p.imageUrl);
-    if (typeof p.type === "string" && p.type.startsWith("image/")) {
-      return !!(p.url || p.image || p.imageUrl);
-    }
-    return false;
-  });
-  const videoParts = message.content.filter((p) => {
-    if (p.type === "video") return !!p.videoUrl;
-    if (typeof p.type === "string" && p.type.startsWith("video/")) return !!(p.url || p.videoUrl);
-    return false;
-  });
-  const fileParts = message.content.filter((p) => {
-    if (p.type === "file") return !!p.fileUrl;
-    if (
-      typeof p.type === "string" &&
-      (p.type.startsWith("image/") || p.type.startsWith("video/"))
-    ) {
-      return false;
-    }
-    return !!p.url;
-  });
   const isUser = message.role === "user";
-
-  const imageStyle: React.CSSProperties = {
-    maxWidth: "100%",
-    maxHeight: 360,
-    borderRadius: "var(--mantine-radius-sm)",
-    objectFit: "contain",
-  };
 
   const content = (
     <>
       <Box className="markdown-body" fz="sm" h-min={streaming ? 28 : undefined}>
-        {text ? <MarkdownRenderer content={text ?? ""} /> : null}
+        {text ? <MarkdownRenderer content={text} /> : null}
         {streaming && streamingReasoning && (
           <Text size="sm" c="dimmed" mt="xs" style={{ whiteSpace: "pre-wrap" }}>
             {streamingReasoning}
           </Text>
-        )}
-        {imageParts.length > 0 && (
-          <Box mt="xs" style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            {imageParts.map((p, i) => (
-              <Box
-                key={i}
-                component="img"
-                src={
-                  (p as any).image ??
-                  (p as any).imageUrl ??
-                  (p as any).thumbnail_url ??
-                  (p as any).url
-                }
-                alt="Generated"
-                style={imageStyle}
-              />
-            ))}
-          </Box>
-        )}
-        {videoParts.length > 0 && (
-          <Box mt="xs" style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            {videoParts.map((p, i) => (
-              <video
-                key={`video-${i}`}
-                src={(p as any).videoUrl ?? (p as any).url}
-                controls
-                style={{ ...imageStyle, background: "var(--mantine-color-dark-7)" }}
-              />
-            ))}
-          </Box>
-        )}
-        {fileParts.length > 0 && (
-          <Box mt="xs" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {fileParts.map((p, i) => (
-              <a
-                key={`file-${i}`}
-                href={(p as any).fileUrl ?? (p as any).url}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                {(p as any).fileName ?? (p as any).name ?? (p as any).fileUrl ?? (p as any).url}
-              </a>
-            ))}
-          </Box>
         )}
         {streaming && (
           <Box

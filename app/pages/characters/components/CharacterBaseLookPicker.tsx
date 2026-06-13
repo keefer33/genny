@@ -7,6 +7,7 @@ import {
   characterMemberFileThumbnailUrl,
 } from "~/pages/characters/characterUtils";
 import type { CharacterLook } from "~/pages/characters/characterLookTypes";
+import type { CharacterScene } from "~/pages/characters/characterSceneGenerationUtils";
 
 export type BaseLookPickerOption = {
   value: string;
@@ -57,14 +58,74 @@ export function buildBaseLookPickerOptionsFromLooks(
   return options;
 }
 
+export function buildBaseLookPickerOptionsFromScenes(
+  scenes: CharacterScene[]
+): BaseLookPickerOption[] {
+  const options: BaseLookPickerOption[] = [];
+  const seen = new Set<string>();
+
+  const sortedScenes = [...scenes].sort((a, b) =>
+    (b.created_at ?? "").localeCompare(a.created_at ?? "")
+  );
+
+  for (const scene of sortedScenes) {
+    const file = scene.file;
+    if (!file?.id) continue;
+
+    const memberFile = {
+      id: file.id,
+      file_name: file.file_name?.trim() || scene.name?.trim() || "Scene",
+      file_path: file.file_path?.trim() || "",
+      file_size: file.file_size ?? 0,
+      file_type: file.file_type?.trim() || "image/png",
+      created_at: file.created_at ?? "",
+      thumbnail_url: file.thumbnail_url?.trim() || undefined,
+      upload_type: file.upload_type,
+    };
+
+    const generationUrl = characterMemberFileGenerationUrl(memberFile);
+    if (!generationUrl || seen.has(generationUrl)) continue;
+    seen.add(generationUrl);
+
+    const name = scene.name?.trim() || "Scene";
+    options.push({
+      value: generationUrl,
+      label: `${name} (scene)`,
+      thumbnailUrl: characterMemberFileThumbnailUrl(memberFile),
+    });
+  }
+
+  return options;
+}
+
+export function buildBaseLookPickerOptionsForVideo(
+  looks: CharacterLook[],
+  scenes: CharacterScene[]
+): BaseLookPickerOption[] {
+  const lookOptions = buildBaseLookPickerOptionsFromLooks(looks);
+  const seen = new Set(lookOptions.map((option) => option.value));
+  const merged = [...lookOptions];
+
+  for (const option of buildBaseLookPickerOptionsFromScenes(scenes)) {
+    if (seen.has(option.value)) continue;
+    seen.add(option.value);
+    merged.push(option);
+  }
+
+  return merged;
+}
+
 type CharacterBaseLookPickerProps = {
   options: BaseLookPickerOption[];
   disabled?: boolean;
+  /** When true, copy reflects looks + scenes (video generation). */
+  includesScenes?: boolean;
 };
 
 export function CharacterBaseLookPicker({
   options,
   disabled = false,
+  includesScenes = false,
 }: CharacterBaseLookPickerProps) {
   const form = useFormContext();
   const value =
@@ -81,9 +142,11 @@ export function CharacterBaseLookPicker({
 
   if (selectData.length === 0) {
     return (
-      <Input.Wrapper label="Base look reference">
+      <Input.Wrapper label={includesScenes ? "Image reference" : "Base look reference"}>
         <Text size="sm" c="dimmed" mt={4}>
-          No look images available for this character yet.
+          {includesScenes
+            ? "No look or scene images available for this character yet."
+            : "No look images available for this character yet."}
         </Text>
       </Input.Wrapper>
     );
@@ -108,10 +171,12 @@ export function CharacterBaseLookPicker({
           <Box>
             <Box pb="md">
               <Text size="sm" fw={500}>
-                Look reference
+                {includesScenes ? "Image reference" : "Look reference"}
               </Text>
               <Text size="sm" c="dimmed">
-                First image when generating.
+                {includesScenes
+                  ? "Choose a look or scene as the visual reference."
+                  : "First image when generating."}
               </Text>
             </Box>
             <Select

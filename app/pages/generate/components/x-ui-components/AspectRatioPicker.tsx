@@ -79,7 +79,7 @@ export function AspectRatioPicker({
               key={`${fieldName}-${ratio.label}`}
               type="button"
               bd={0}
-              variant={isSelected ? "filled" : "default"}
+              variant={isSelected ? "light" : "default"}
               onClick={() => form.setFieldValue(fieldName, ratio.label)}
               disabled={readOnly}
               p={3}

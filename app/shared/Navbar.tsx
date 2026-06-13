@@ -20,9 +20,10 @@ import {
   RiImageAiLine,
   RiVideoAiLine,
   RiVoiceAiLine,
-  RiToolsLine,
+  RiMicLine,
   RiChatAi2Line,
   RiTeamLine,
+  RiAiGenerate2,
 } from "@remixicon/react";
 import { NavLink, useLocation } from "react-router";
 import useAppStore from "~/lib/stores/appStore";
@@ -51,25 +52,11 @@ export function Navbar({ toggleMobile, collapsed }: NavbarProps) {
       matchPrefix: "/dashboard",
     },
     {
-      to: "generate/image",
-      icon: RiImageAiLine,
-      label: "Images",
-      description: "Image Generator",
-      matchPrefix: "/generate/image",
-    },
-    {
-      to: "/generate/video",
-      icon: RiVideoAiLine,
-      label: "Videos",
-      description: "Video Generator",
-      matchPrefix: "/generate/video",
-    },
-    {
-      to: "/generate/audio",
-      icon: RiVoiceAiLine,
-      label: "Audio",
-      description: "Audio Generator",
-      matchPrefix: "/generate/audio",
+      to: "generate",
+      icon: RiAiGenerate2,
+      label: "Playground",
+      description: "Playground",
+      matchPrefix: "/generate",
     },
     {
       to: "/generations",
@@ -84,10 +71,18 @@ export function Navbar({ toggleMobile, collapsed }: NavbarProps) {
       description: "Agents",
     },
     {
-      to: "/tools",
-      icon: RiToolsLine,
-      label: "Tools",
-      description: "Toolkits",
+      to: "/characters",
+      icon: RiTeamLine,
+      label: "Characters",
+      description: "Create and manage characters",
+      matchPrefix: "/characters",
+    },
+    {
+      to: "/voices",
+      icon: RiMicLine,
+      label: "Voices",
+      description: "Design and manage voices",
+      matchPrefix: "/voices",
     },
     // Add login item if not logged in
     ...(!isLoggedIn
@@ -114,20 +109,6 @@ export function Navbar({ toggleMobile, collapsed }: NavbarProps) {
       icon: RiFolder2Line,
       label: "Files",
       description: "File Management",
-    },
-    {
-      to: "/characters",
-      icon: RiTeamLine,
-      label: "Characters",
-      description: "Create and manage characters",
-      matchPrefix: "/characters",
-    },
-    {
-      to: "/voices",
-      icon: RiVoiceAiLine,
-      label: "Voices",
-      description: "Design and manage voices",
-      matchPrefix: "/voices",
     },
     {
       to: "/account/usage-log",
