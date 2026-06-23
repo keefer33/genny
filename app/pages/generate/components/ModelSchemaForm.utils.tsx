@@ -1,6 +1,11 @@
 import { ActionIcon, Group, Popover, Text } from "@mantine/core";
 import { RiInformationLine } from "@remixicon/react";
-import type { BoxPickerValueType, FunctionSchema, JsonSchemaProperty } from "~/types/generations";
+import type {
+  BoxPickerValueType,
+  FunctionSchema,
+  JsonSchemaProperty,
+  SchemaConditionClause,
+} from "~/types/generations";
 
 export function parseFunctionSchema(raw: unknown): FunctionSchema | null {
   if (raw == null) return null;
@@ -438,30 +443,61 @@ export function schemaValuesEqual(left: unknown, right: unknown): boolean {
   return false;
 }
 
+function matchesSingleFieldCondition(
+  clause: { field?: string; equals?: unknown; notEquals?: unknown; in?: unknown[] },
+  values: Record<string, unknown>
+): boolean {
+  const field = typeof clause.field === "string" ? clause.field : "";
+  if (!field) return false;
+  const currentValue = getFormValueAtPath(values, field);
+
+  if ("equals" in clause) {
+    return schemaValuesEqual(currentValue, clause.equals);
+  }
+  if ("notEquals" in clause) {
+    return !schemaValuesEqual(currentValue, clause.notEquals);
+  }
+  if (Array.isArray(clause.in)) {
+    return clause.in.some((candidate) => schemaValuesEqual(currentValue, candidate));
+  }
+  return false;
+}
+
+function matchesConditionClause(
+  clause: SchemaConditionClause | undefined,
+  values: Record<string, unknown>
+): boolean {
+  if (!clause) return false;
+  if (Array.isArray(clause.all)) {
+    return clause.all.every((part) => matchesSingleFieldCondition(part, values));
+  }
+  return matchesSingleFieldCondition(clause, values);
+}
+
+function isValueAllowedByEnumFilter(
+  value: unknown,
+  allowed: Array<string | number> | undefined
+): boolean {
+  if (!allowed?.length) return true;
+  return allowed.some((candidate) => schemaValuesEqual(value, candidate));
+}
+
 export function evaluateConditions(
   schema: FunctionSchema | null,
   values: Record<string, unknown>
-): { setValues: Record<string, unknown>; disabledFields: Set<string> } {
+): {
+  setValues: Record<string, unknown>;
+  disabledFields: Set<string>;
+  enumFilters: Record<string, Array<string | number>>;
+} {
   const setValues: Record<string, unknown> = {};
   const disabledFields = new Set<string>();
+  const enumFilters: Record<string, Array<string | number>> = {};
   const conditions = schema?.["x-conditions"];
-  if (!Array.isArray(conditions)) return { setValues, disabledFields };
+  if (!Array.isArray(conditions)) return { setValues, disabledFields, enumFilters };
 
   for (const condition of conditions) {
-    const field = typeof condition?.if?.field === "string" ? condition.if.field : "";
-    if (!field) continue;
-    const currentValue = getFormValueAtPath(values, field);
-    let matches = false;
-
-    if ("equals" in (condition.if ?? {})) {
-      matches = schemaValuesEqual(currentValue, condition.if?.equals);
-    } else if ("notEquals" in (condition.if ?? {})) {
-      matches = !schemaValuesEqual(currentValue, condition.if?.notEquals);
-    } else if (Array.isArray(condition.if?.in)) {
-      matches = condition.if.in.some((candidate) => schemaValuesEqual(currentValue, candidate));
-    }
-
-    if (!matches) continue;
+    if (!matchesConditionClause(condition.if, values)) continue;
 
     if (condition.then?.set && typeof condition.then.set === "object") {
       Object.assign(setValues, condition.then.set);
@@ -474,9 +510,26 @@ export function evaluateConditions(
         )
         .forEach((fieldName) => disabledFields.add(fieldName));
     }
+    if (condition.then?.enum && typeof condition.then.enum === "object") {
+      for (const [fieldName, allowed] of Object.entries(condition.then.enum)) {
+        if (!Array.isArray(allowed) || allowed.length === 0) continue;
+        enumFilters[fieldName] = allowed;
+      }
+    }
   }
 
-  return { setValues, disabledFields };
+  for (const [fieldName, allowed] of Object.entries(enumFilters)) {
+    const currentValue = getFormValueAtPath(values, fieldName);
+    if (isValueAllowedByEnumFilter(currentValue, allowed)) continue;
+    const propDefault = schema?.properties?.[fieldName]?.default;
+    const fallback =
+      propDefault !== undefined && isValueAllowedByEnumFilter(propDefault, allowed)
+        ? propDefault
+        : allowed[0];
+    setValues[fieldName] = fallback;
+  }
+
+  return { setValues, disabledFields, enumFilters };
 }
 
 /** Strip UI-only keys (e.g. `__rowKey`) and empty values at every depth, including nested `SchemaObjectArrayField` rows. */

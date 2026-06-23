@@ -52,23 +52,21 @@ export default function MemberFiles() {
   const { loadTags } = useTagStore();
 
   useEffect(() => {
-    if (user?.user?.id) {
-      // Files page only shows uploaded files (upload_type = "upload")
-      loadUserFiles(paginationData.currentPage, user.user.id, undefined, undefined, undefined);
-      loadTags(user.user.id);
-    }
+    if (!user?.user?.id) return;
+
+    // Files page only shows user uploads; persist in store so pagination keeps the filter.
+    loadUserFiles(paginationData.currentPage, user.user.id, undefined, "upload", undefined);
+    loadTags(user.user.id);
+
+    return () => {
+      useFilesFoldersStore.getState().setSelectedUploadType(null);
+    };
   }, [fileTypeFilter, selectedTags, user?.user?.id]);
 
   // Refresh file list showing only uploads (not generations). Used after upload/delete/update.
   const handleFileUpdate = async () => {
     if (user?.user?.id) {
-      await loadUserFiles(
-        paginationData.currentPage,
-        user.user.id,
-        undefined,
-        undefined,
-        undefined
-      );
+      await loadUserFiles(paginationData.currentPage, user.user.id);
     }
   };
 
@@ -138,7 +136,7 @@ export default function MemberFiles() {
         setSelectedFiles(new Set());
         setSelectedFileData(new Map());
         closeDeleteModal();
-        loadUserFiles(paginationData.currentPage, user.user.id, undefined, undefined, undefined);
+        loadUserFiles(paginationData.currentPage, user.user.id);
       }
     } catch (error) {
       console.error("Error deleting files:", error);

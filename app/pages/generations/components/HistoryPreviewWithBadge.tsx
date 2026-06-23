@@ -36,6 +36,7 @@ export function HistoryPreviewWithBadge({
             justifyContent: "center",
           }}
           p="xs"
+          py="xl"
         >
           <GennyAudioPlayer src={url} compact stopPropagation aria-label="Audio preview" />
         </Box>

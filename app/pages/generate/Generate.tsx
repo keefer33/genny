@@ -1,6 +1,6 @@
 import { Box, Button, Paper, ScrollArea, Stack } from "@mantine/core";
 import DesktopSplitLayout from "~/shared/DesktopSplitLayout";
-import GenModelsProductScroller from "~/shared/GenModelsProductScroller";
+import GenModelsList from "~/shared/GenModelsList";
 import MobileScrollBox from "~/shared/MobileScrollBox";
 import useAppStore from "~/lib/stores/appStore";
 import { RiSoundModuleLine } from "@remixicon/react";
@@ -12,13 +12,7 @@ export default function Generate() {
   const { isMobile } = useAppStore();
   const [historyOpened, { open: openHistory, close: closeHistory }] = useDisclosure(false);
 
-  const genModels = (
-    <Stack gap="xl">
-      <GenModelsProductScroller title="Video Models" generationType="video" />
-      <GenModelsProductScroller title="Image Models" generationType="image" />
-      <GenModelsProductScroller title="Audio Models" generationType="audio" />
-    </Stack>
-  );
+  const genModels = <GenModelsList />;
 
   return isMobile ? (
     <MobileScrollBox>
