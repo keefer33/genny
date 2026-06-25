@@ -1,4 +1,4 @@
-import { Box, Card, Center, Loader, Stack, Text } from "@mantine/core";
+import { Card, Center, Loader, Stack } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useEffect, useState } from "react";
 import { HistoryPreviewWithBadge } from "~/pages/generations/components/HistoryPreviewWithBadge";
@@ -44,7 +44,9 @@ export type MarkdownAiFileLinkProps = {
 };
 
 export function MarkdownAiFileLink({ url, label }: MarkdownAiFileLinkProps) {
-  const [file, setFile] = useState<UserFileRecord>(() => buildMinimalUserFile(url) as UserFileRecord);
+  const [file, setFile] = useState<UserFileRecord>(
+    () => buildMinimalUserFile(url) as UserFileRecord
+  );
   const [metadataLoading, setMetadataLoading] = useState(true);
   const [previewOpen, { open: openPreview, close: closePreview }] = useDisclosure(false);
 
@@ -81,7 +83,6 @@ export function MarkdownAiFileLink({ url, label }: MarkdownAiFileLinkProps) {
 
   if (!isAiFileLinkUrl(url)) return null;
 
-  const displayName = file?.file_name?.trim() || label?.trim() || "File";
   const previewUrl = file?.thumbnail_url?.trim() || file?.file_path?.trim() || url;
   const fileType = file?.file_type?.trim() || "application/octet-stream";
   const canOpenDetail = Boolean(file?.id?.trim());
@@ -89,46 +90,34 @@ export function MarkdownAiFileLink({ url, label }: MarkdownAiFileLinkProps) {
   return (
     <>
       <Card
-        withBorder
         radius="md"
-        p="xs"
-        my="xs"
-        maw={360}
+        p={0}
+        w={300}
         style={{ cursor: canOpenDetail ? "pointer" : "default" }}
         onClick={() => {
           if (canOpenDetail) openPreview();
         }}
       >
         <Stack gap="xs">
-          <Box h={140} pos="relative" style={{ overflow: "hidden", borderRadius: "var(--mantine-radius-sm)" }}>
-            <HistoryPreviewWithBadge
-              url={previewUrl}
-              file_type={fileType}
-              upload_type={file?.upload_type}
-            />
-            {metadataLoading ? (
-              <Center
-                pos="absolute"
-                top={8}
-                right={8}
-                w={28}
-                h={28}
-                style={{
-                  borderRadius: "var(--mantine-radius-sm)",
-                  background: "rgba(0, 0, 0, 0.45)",
-                }}
-              >
-                <Loader size="xs" color="white" />
-              </Center>
-            ) : null}
-          </Box>
-          <Text size="sm" fw={600} lineClamp={2}>
-            {displayName}
-          </Text>
-          {label && label.trim() !== displayName ? (
-            <Text size="xs" c="dimmed" lineClamp={2}>
-              {label}
-            </Text>
+          <HistoryPreviewWithBadge
+            url={previewUrl}
+            file_type={fileType}
+            upload_type={file?.upload_type}
+          />
+          {metadataLoading ? (
+            <Center
+              pos="absolute"
+              top={8}
+              right={8}
+              w={28}
+              h={28}
+              style={{
+                borderRadius: "var(--mantine-radius-sm)",
+                background: "rgba(0, 0, 0, 0.45)",
+              }}
+            >
+              <Loader size="xs" color="white" />
+            </Center>
           ) : null}
         </Stack>
       </Card>

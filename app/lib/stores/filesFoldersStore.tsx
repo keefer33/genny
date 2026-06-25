@@ -416,6 +416,10 @@ const useFilesFoldersStoreBase = create<FilesFoldersState>((set, get) => ({
     const finalFileTypeFilter =
       fileTypeFilter !== undefined ? fileTypeFilter : get().fileTypeFilter;
 
+    if (uploadType !== undefined) {
+      set({ selectedUploadType: uploadType });
+    }
+
     set({ gridLoading: true, error: null });
 
     try {

@@ -177,8 +177,7 @@ function chatMessageRowToUIMessage(row: ChatMessageRow): ChatUIMessage {
     | null
     | undefined;
 
-  const messageObj =
-    parsedMessage && typeof parsedMessage === "object" ? parsedMessage : null;
+  const messageObj = parsedMessage && typeof parsedMessage === "object" ? parsedMessage : null;
 
   const parsedUsage = safeJsonParse(row.usage) as
     | {
@@ -226,6 +225,9 @@ interface ChatsState {
   chatsLoading: boolean;
   messages: ChatUIMessage[];
   selectedInteractionIndex: number;
+  /** Desktop: show entire chat history in the main content area (reset on new message / pagination). */
+  showFullChatHistory: boolean;
+  setShowFullChatHistory: (show: boolean) => void;
   setSelectedInteractionIndex: (index: number) => void;
   goToPreviousInteraction: () => void;
   goToNextInteraction: () => void;
@@ -328,8 +330,11 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
   agentsLoading: false,
   messages: [],
   selectedInteractionIndex: 0,
+  showFullChatHistory: false,
+  setShowFullChatHistory: (show) => set({ showFullChatHistory: show }),
   setSelectedInteractionIndex: (index) =>
     set((state) => ({
+      showFullChatHistory: false,
       selectedInteractionIndex: Math.max(
         0,
         Math.min(index, latestInteractionIndex(state.messages))
@@ -337,17 +342,22 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
     })),
   goToPreviousInteraction: () =>
     set((state) => ({
+      showFullChatHistory: false,
       selectedInteractionIndex: Math.max(0, state.selectedInteractionIndex - 1),
     })),
   goToNextInteraction: () =>
     set((state) => ({
+      showFullChatHistory: false,
       selectedInteractionIndex: Math.min(
         latestInteractionIndex(state.messages),
         state.selectedInteractionIndex + 1
       ),
     })),
   goToLatestInteraction: () =>
-    set((state) => ({ selectedInteractionIndex: latestInteractionIndex(state.messages) })),
+    set((state) => ({
+      showFullChatHistory: false,
+      selectedInteractionIndex: latestInteractionIndex(state.messages),
+    })),
   streamingContent: "",
   streamingReasoning: "",
   streamStatus: null,
@@ -393,6 +403,7 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
       selectedChat: null,
       messages: [],
       selectedInteractionIndex: 0,
+      showFullChatHistory: false,
       chatsListModalOpen: false,
     });
     if (typeof window !== "undefined") {
@@ -429,7 +440,11 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
   },
 
   setMessages: (messages: ChatUIMessage[]) =>
-    set({ messages, selectedInteractionIndex: latestInteractionIndex(messages) }),
+    set({
+      messages,
+      selectedInteractionIndex: latestInteractionIndex(messages),
+      showFullChatHistory: false,
+    }),
 
   clearChats: () =>
     set({
@@ -437,6 +452,7 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
       selectedChat: null,
       messages: [],
       selectedInteractionIndex: 0,
+      showFullChatHistory: false,
       selectedModelName: null,
       streamingContent: "",
       streamingReasoning: "",
@@ -482,6 +498,7 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
       return {
         messages: nextMessages,
         selectedInteractionIndex: latestInteractionIndex(nextMessages),
+        showFullChatHistory: false,
       };
     });
 
@@ -751,9 +768,10 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
       set({
         messages,
         selectedInteractionIndex: latestInteractionIndex(messages),
+        showFullChatHistory: false,
       });
     } catch {
-      set({ messages: [], selectedInteractionIndex: 0 });
+      set({ messages: [], selectedInteractionIndex: 0, showFullChatHistory: false });
     }
   },
 

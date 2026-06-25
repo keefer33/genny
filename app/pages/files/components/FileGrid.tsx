@@ -53,6 +53,7 @@ export function FileGrid({
   cols = { base: 1, sm: 2, md: 3, lg: 4 },
   showPreview = true,
 }: FileGridProps) {
+  console.log("files", files);
   if (renderFileCard) {
     return (
       <SimpleGrid cols={cols} spacing="md">

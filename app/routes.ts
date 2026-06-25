@@ -37,5 +37,7 @@ export default [
     layout("pages/generate/GenerateModelLayout.tsx", [
       route("/generate/:generation_type/*", "pages/generate/GenerateModel.tsx"),
     ]),
+    route("/storyboards", "pages/storyboards/Storyboards.tsx"),
+    route("/storyboards/:storyboardId", "pages/storyboards/Storyboard.tsx"),
   ]),
 ] satisfies RouteConfig;

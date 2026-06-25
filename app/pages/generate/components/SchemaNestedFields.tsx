@@ -36,6 +36,7 @@ import {
   boxPickerEnumOptions,
   boxPickerValueTypeForProp,
   resolveXUiComponent,
+  schemaValuesEqual,
 } from "./ModelSchemaForm.utils";
 
 export type SchemaNestedFieldsProps = {
@@ -44,6 +45,7 @@ export type SchemaNestedFieldsProps = {
   readOnly: boolean;
   generationType: "image" | "video" | "audio";
   conditionDisabledFields: Set<string>;
+  conditionEnumFilters?: Record<string, Array<string | number>>;
   /**
    * When false, required fields do not show a red * in labels (inputs still use `required`).
    * Array-of-object rows use false to match legacy row UX.
@@ -57,6 +59,7 @@ export function SchemaNestedFields({
   readOnly: readOnlyFromParent,
   generationType,
   conditionDisabledFields,
+  conditionEnumFilters = {},
   showRequiredStarInLabel = true,
 }: SchemaNestedFieldsProps) {
   const form = useFormContext();
@@ -132,7 +135,14 @@ export function SchemaNestedFields({
         }
 
         if (prop.enum?.length) {
-          const boxOptions = boxPickerEnumOptions(prop);
+          let boxOptions = boxPickerEnumOptions(prop);
+          const enumFilter =
+            conditionEnumFilters[fieldPath] ?? conditionEnumFilters[key] ?? undefined;
+          if (enumFilter?.length) {
+            boxOptions = boxOptions.filter((option) =>
+              enumFilter.some((allowed) => schemaValuesEqual(allowed, option))
+            );
+          }
           if (boxOptions.length > 0) {
             if (
               prop.type === "string" &&
@@ -294,6 +304,7 @@ export function SchemaNestedFields({
                   readOnly={isFieldReadOnly}
                   generationType={generationType}
                   conditionDisabledFields={conditionDisabledFields}
+                  conditionEnumFilters={conditionEnumFilters}
                   showRequiredStarInLabel={showRequiredStarInLabel}
                 />
               </Stack>

@@ -16,7 +16,6 @@ import {
   Text,
   TextInput,
   Tooltip,
-  Container,
 } from "@mantine/core";
 import { Carousel } from "@mantine/carousel";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -325,192 +324,183 @@ export default function CharacterLooksPanel({ characterId }: CharacterLooksPanel
       }}
     >
       <ScrollArea style={{ flex: 1, minHeight: 0 }} type="auto">
-        <Container size="lg">
-          <SimpleGrid
-            cols={{ base: 2, "600px": 2, "900px": 5 }}
-            spacing="md"
-            type="container"
-            px="sm"
-          >
-            <GenerateLookModal
-              characterId={id}
-              onGenerated={handleLookGenerated}
-              renderTrigger={({ open, opening, label }) => (
-                <GenerateAssetPlaceholderCard
-                  label={label}
-                  description="Generate front, back, and side views"
-                  onClick={open}
-                  loading={opening}
-                />
-              )}
-            />
-            {looks.map((look) => {
-              const views = itemByView(look.items);
-              const failed = lookHasFailed(look);
-              const generating = lookIsActivelyGenerating(look);
-              const generationError = getLookGenerationError(look);
-              const showRetry = lookCanRetry(look);
-              const opensEditModal = lookRetryOpensGenerateModal(look);
-              return (
-                <Card key={look.id} padding={0} radius="md" pos="relative">
-                  <Box pos="absolute" top={8} right={8} style={{ zIndex: 10 }}>
-                    {look.base_look ? (
-                      <Badge size="md" variant="default">
-                        Base look
-                      </Badge>
-                    ) : null}
-                  </Box>
-                  <Card.Section>
-                    <Carousel
-                      height={200}
-                      withControls
-                      withIndicators
-                      slideSize="100%"
-                      emblaOptions={{ loop: true }}
-                      styles={{
-                        root: { height: 200 },
-                        viewport: { height: 200 },
-                        container: { height: 200 },
-                        slide: { height: 200 },
-                        controls: { top: "50%", transform: "translateY(-50%)" },
-                        indicator: { width: 6, height: 6 },
-                      }}
-                    >
-                      {CHARACTER_LOOK_VIEW_ORDER.map((view) => {
-                        const item = views.get(view);
-                        const file = item?.file;
-                        const thumbUrl = file
-                          ? characterMemberFileThumbnailUrl(lookItemFileToMemberFile(file))
-                          : "";
+        <SimpleGrid
+          cols={{ base: 2, "600px": 2, "900px": 5 }}
+          spacing="md"
+          type="container"
+          px="sm"
+        >
+          <GenerateLookModal
+            characterId={id}
+            onGenerated={handleLookGenerated}
+            renderTrigger={({ open, opening, label }) => (
+              <GenerateAssetPlaceholderCard
+                label={label}
+                description="Generate front, back, and side views"
+                onClick={open}
+                loading={opening}
+              />
+            )}
+          />
+          {looks.map((look) => {
+            const views = itemByView(look.items);
+            const failed = lookHasFailed(look);
+            const generating = lookIsActivelyGenerating(look);
+            const generationError = getLookGenerationError(look);
+            const showRetry = lookCanRetry(look);
+            const opensEditModal = lookRetryOpensGenerateModal(look);
+            return (
+              <Card key={look.id} padding={0} radius="md" pos="relative">
+                <Box pos="absolute" top={8} right={8} style={{ zIndex: 10 }}>
+                  {look.base_look ? (
+                    <Badge size="md" variant="default">
+                      Base look
+                    </Badge>
+                  ) : null}
+                </Box>
+                <Card.Section>
+                  <Carousel
+                    //height={200}
+                    withControls
+                    withIndicators
+                    slideSize="100%"
+                    emblaOptions={{ loop: true }}
+                    styles={{
+                      controls: { top: "50%", transform: "translateY(-50%)" },
+                      indicator: { width: 6, height: 6 },
+                    }}
+                  >
+                    {CHARACTER_LOOK_VIEW_ORDER.map((view) => {
+                      const item = views.get(view);
+                      const file = item?.file;
+                      const thumbUrl = file
+                        ? characterMemberFileThumbnailUrl(lookItemFileToMemberFile(file))
+                        : "";
 
-                        return (
-                          <Carousel.Slide key={view}>
-                            <Box
-                              h={200}
-                              w="100%"
-                              pos="relative"
-                              style={{
-                                cursor: file ? "pointer" : "default",
-                                display: "flex",
-                                justifyContent: "center",
-                                alignItems: "center",
-                              }}
-                              onClick={() => {
-                                if (file) openFileDetail(file);
-                              }}
-                            >
-                              {thumbUrl ? (
-                                <Box h={200} style={{ aspectRatio: "1 / 1", maxWidth: "100%" }}>
-                                  <Image
-                                    src={thumbUrl}
-                                    alt={VIEW_LABELS[view]}
-                                    fit="cover"
-                                    h={200}
-                                    w="100%"
-                                  />
-                                </Box>
-                              ) : failed ? (
-                                <Center h="100%" bg="var(--mantine-color-default-hover)">
-                                  <Stack align="center" gap={4}>
-                                    <RiAlertLine size={20} color="var(--mantine-color-red-6)" />
-                                    <Text size="xs" c="dimmed" ta="center" px="sm">
-                                      Not generated
-                                    </Text>
-                                  </Stack>
-                                </Center>
-                              ) : generating ? (
-                                <Center h="100%" bg="var(--mantine-color-default-hover)">
-                                  <Loader size="sm" />
-                                </Center>
-                              ) : (
-                                <Center h="100%" bg="var(--mantine-color-default-hover)">
-                                  <Loader size="sm" />
-                                </Center>
-                              )}
-                            </Box>
-                          </Carousel.Slide>
-                        );
-                      })}
-                    </Carousel>
-                  </Card.Section>
+                      return (
+                        <Carousel.Slide key={view}>
+                          <Box
+                            // h={200}
+                            w="100%"
+                            pos="relative"
+                            style={{
+                              cursor: file ? "pointer" : "default",
+                              display: "flex",
+                              justifyContent: "center",
+                              alignItems: "center",
+                            }}
+                            onClick={() => {
+                              if (file) openFileDetail(file);
+                            }}
+                          >
+                            {thumbUrl ? (
+                              <Image
+                                src={thumbUrl}
+                                alt={VIEW_LABELS[view]}
+                                fit="cover"
+                                style={{ objectPosition: "bottom" }}
+                                w="100%"
+                                h="100%"
+                              />
+                            ) : failed ? (
+                              <Center h="100%" bg="var(--mantine-color-default-hover)">
+                                <Stack align="center" gap={4}>
+                                  <RiAlertLine size={20} color="var(--mantine-color-red-6)" />
+                                  <Text size="xs" c="dimmed" ta="center" px="sm">
+                                    Not generated
+                                  </Text>
+                                </Stack>
+                              </Center>
+                            ) : generating ? (
+                              <Center h="100%" bg="var(--mantine-color-default-hover)">
+                                <Loader size="sm" />
+                              </Center>
+                            ) : (
+                              <Center h="100%" bg="var(--mantine-color-default-hover)">
+                                <Loader size="sm" />
+                              </Center>
+                            )}
+                          </Box>
+                        </Carousel.Slide>
+                      );
+                    })}
+                  </Carousel>
+                </Card.Section>
 
-                  <Stack gap="xs" p="xs">
-                    <Group justify="space-between" wrap="nowrap" align="flex-start">
-                      <Text fw={600} size="sm" lineClamp={1}>
-                        {look.name?.trim() || "Look"}
-                      </Text>
-                      <Group gap={4} wrap="nowrap">
-                        <Tooltip label="Edit look name">
+                <Stack gap="xs" p="xs">
+                  <Group justify="space-between" wrap="nowrap" align="flex-start">
+                    <Text fw={600} size="sm" lineClamp={1}>
+                      {look.name?.trim() || "Look"}
+                    </Text>
+                    <Group gap={4} wrap="nowrap">
+                      <Tooltip label="Edit look name">
+                        <ActionIcon
+                          variant="subtle"
+                          aria-label="Edit look name"
+                          loading={savingLookId === look.id}
+                          disabled={
+                            Boolean(deletingLookId) ||
+                            Boolean(savingLookId) ||
+                            Boolean(retryingLookId)
+                          }
+                          onClick={() => openEditLook(look)}
+                        >
+                          <RiPencilLine size={18} />
+                        </ActionIcon>
+                      </Tooltip>
+                      {!look.base_look ? (
+                        <Tooltip label="Delete look">
                           <ActionIcon
                             variant="subtle"
-                            aria-label="Edit look name"
-                            loading={savingLookId === look.id}
+                            color="red"
+                            aria-label="Delete look"
+                            loading={deletingLookId === look.id}
                             disabled={
                               Boolean(deletingLookId) ||
                               Boolean(savingLookId) ||
                               Boolean(retryingLookId)
                             }
-                            onClick={() => openEditLook(look)}
+                            onClick={() => setDeleteConfirmLook(look)}
                           >
-                            <RiPencilLine size={18} />
+                            <RiDeleteBinLine size={18} />
                           </ActionIcon>
                         </Tooltip>
-                        {!look.base_look ? (
-                          <Tooltip label="Delete look">
-                            <ActionIcon
-                              variant="subtle"
-                              color="red"
-                              aria-label="Delete look"
-                              loading={deletingLookId === look.id}
-                              disabled={
-                                Boolean(deletingLookId) ||
-                                Boolean(savingLookId) ||
-                                Boolean(retryingLookId)
-                              }
-                              onClick={() => setDeleteConfirmLook(look)}
-                            >
-                              <RiDeleteBinLine size={18} />
-                            </ActionIcon>
-                          </Tooltip>
-                        ) : null}
-                      </Group>
-                      {failed ? (
-                        <Badge size="sm" color="red" variant="light">
-                          Failed
-                        </Badge>
-                      ) : generating ? (
-                        <Badge size="sm" color="blue" variant="light">
-                          Generating
-                        </Badge>
                       ) : null}
                     </Group>
-                    {generationError ? (
-                      <Text size="xs" c="red">
-                        {generationError.message}
-                      </Text>
+                    {failed ? (
+                      <Badge size="sm" color="red" variant="light">
+                        Failed
+                      </Badge>
+                    ) : generating ? (
+                      <Badge size="sm" color="blue" variant="light">
+                        Generating
+                      </Badge>
                     ) : null}
-                    {showRetry ? (
-                      <Button
-                        size="compact-xs"
-                        variant="light"
-                        color="red"
-                        loading={retryingLookId === look.id}
-                        disabled={
-                          Boolean(retryingLookId) ||
-                          Boolean(deletingLookId) ||
-                          Boolean(savingLookId)
-                        }
-                        onClick={() => void handleRetryLook(look)}
-                      >
-                        {opensEditModal ? "Edit & retry" : "Retry generation"}
-                      </Button>
-                    ) : null}
-                  </Stack>
-                </Card>
-              );
-            })}
-          </SimpleGrid>
-        </Container>
+                  </Group>
+                  {generationError ? (
+                    <Text size="xs" c="red">
+                      {generationError.message}
+                    </Text>
+                  ) : null}
+                  {showRetry ? (
+                    <Button
+                      size="compact-xs"
+                      variant="light"
+                      color="red"
+                      loading={retryingLookId === look.id}
+                      disabled={
+                        Boolean(retryingLookId) || Boolean(deletingLookId) || Boolean(savingLookId)
+                      }
+                      onClick={() => void handleRetryLook(look)}
+                    >
+                      {opensEditModal ? "Edit & retry" : "Retry generation"}
+                    </Button>
+                  ) : null}
+                </Stack>
+              </Card>
+            );
+          })}
+        </SimpleGrid>
       </ScrollArea>
 
       <FileDetailModal opened={detailOpened} onClose={closeDetail} file={detailFile} />

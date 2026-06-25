@@ -356,20 +356,30 @@ export type BrandGroup = {
   }[];
 };
 
+export type SchemaConditionClause = {
+  field?: string;
+  equals?: unknown;
+  notEquals?: unknown;
+  in?: unknown[];
+  all?: Array<{
+    field?: string;
+    equals?: unknown;
+    notEquals?: unknown;
+    in?: unknown[];
+  }>;
+};
+
 export type FunctionSchema = {
   properties?: Record<string, JsonSchemaProperty>;
   required?: string[];
   "x-order-properties"?: string[];
   "x-conditions"?: Array<{
-    if?: {
-      field?: string;
-      equals?: unknown;
-      notEquals?: unknown;
-      in?: unknown[];
-    };
+    if?: SchemaConditionClause;
     then?: {
       set?: Record<string, unknown>;
       disable?: string[];
+      /** Restrict enum options for fields when this condition matches. */
+      enum?: Record<string, Array<string | number>>;
     };
   }>;
 };

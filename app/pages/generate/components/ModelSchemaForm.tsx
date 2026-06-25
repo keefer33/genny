@@ -224,6 +224,7 @@ export default function ModelSchemaForm({
                   readOnly={false}
                   generationType={generationType}
                   conditionDisabledFields={conditionState.disabledFields}
+                  conditionEnumFilters={conditionState.enumFilters}
                 />
               ) : null}
 

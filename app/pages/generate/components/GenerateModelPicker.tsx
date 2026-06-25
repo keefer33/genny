@@ -59,7 +59,7 @@ function routeModelId(item: GenModelsItem): string {
 export default function GenerateModelPicker() {
   const params = useParams();
   const navigate = useNavigate();
-  const { user, authApiKey, updateUserProfile, isMobile } = useAppStore();
+  const { user, authApiKey, updateUserProfile } = useAppStore();
   const {
     error,
     selectedModel,

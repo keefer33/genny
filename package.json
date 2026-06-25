@@ -10,7 +10,8 @@
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
     "lint:fix": "eslint . --ext .js,.jsx,.ts,.tsx --fix",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "remotion:bundle": "remotion bundle app/pages/storyboards/remotion/index.ts --bundle-cache=false --out-dir build"
   },
   "dependencies": {
     "@codemirror/lang-css": "^6.3.1",
@@ -29,6 +30,10 @@
     "@react-router/serve": "^7.9.2",
     "@reechy-tools/recorder": "^0.1.0",
     "@remixicon/react": "^4.7.0",
+    "@remotion/cli": "^4.0.482",
+    "@remotion/google-fonts": "^4.0.482",
+    "@remotion/player": "^4.0.482",
+    "@remotion/transitions": "^4.0.482",
     "@stripe/react-stripe-js": "^5.2.0",
     "@stripe/stripe-js": "^8.1.0",
     "@supabase/supabase-js": "^2.76.1",
@@ -40,6 +45,7 @@
     "fix-webm-duration": "^1.0.6",
     "highlight.js": "^11.9.0",
     "isbot": "^5.1.31",
+    "mediabunny": "^1.49.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "react-markdown": "^9.0.1",
@@ -48,6 +54,7 @@
     "rehype-raw": "^7.0.0",
     "rehype-sanitize": "^6.0.0",
     "remark-gfm": "^4.0.0",
+    "remotion": "^4.0.482",
     "zustand": "^5.0.8"
   },
   "devDependencies": {

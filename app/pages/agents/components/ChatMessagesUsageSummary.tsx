@@ -2,12 +2,12 @@ import { Divider, Group, Paper, Stack, Text } from "@mantine/core";
 import { useMemo } from "react";
 import type { ChatMetadata, ChatRow, ChatUIMessage } from "~/lib/stores/chatsStore";
 
-function formatUsd(amount: number): string {
+export function formatUsd(amount: number): string {
   if (!Number.isFinite(amount)) return "—";
   return `$${amount.toFixed(4)}`;
 }
 
-function summarizeUsage(chat: ChatRow | null | undefined, messages: ChatUIMessage[]) {
+export function summarizeUsage(chat: ChatRow | null | undefined, messages: ChatUIMessage[]) {
   const metadata = (chat?.metadata ?? null) as ChatMetadata | null;
   const generations = metadata?.generations ?? [];
 
@@ -60,64 +60,72 @@ function summarizeUsage(chat: ChatRow | null | undefined, messages: ChatUIMessag
 export default function ChatMessagesUsageSummary({
   chat,
   messages,
+  variant = "panel",
 }: {
   chat: ChatRow | null | undefined;
   messages: ChatUIMessage[];
+  variant?: "panel" | "popover";
 }) {
   const s = useMemo(() => summarizeUsage(chat, messages), [chat, messages]);
 
+  const content = (
+    <Stack gap={6}>
+      <Text size="sm" fw={600}>
+        Usage
+      </Text>
+
+      <Group gap="xs" wrap="wrap">
+        <Text size="sm">
+          <Text span fw={500} component="span">
+            LLM (messages)
+          </Text>
+          {`: ${formatUsd(s.llmCost)}`}
+          <Text span c="dimmed" size="xs" component="span" ml={6}>
+            · {s.inputTokens.toLocaleString()} in / {s.outputTokens.toLocaleString()} out ·{" "}
+            {s.totalTokens.toLocaleString()} tokens
+          </Text>
+        </Text>
+      </Group>
+
+      <Stack gap={4}>
+        <Text size="sm">
+          <Text span fw={500} component="span">
+            Generations
+          </Text>
+          {`: ${formatUsd(s.generationsTotal)} (${s.generationRows.length})`}
+        </Text>
+        {s.generationRows.map((row, i) => (
+          <Text
+            key={`${row.id}:${i}`}
+            size="xs"
+            c="dimmed"
+            pl="md"
+            style={{ fontFamily: "var(--mantine-font-monospace)" }}
+          >
+            {row.id.length > 12 ? `${row.id.slice(0, 8)}…` : row.id}
+            {row.slug ? ` · ${row.slug}` : ""} · {formatUsd(row.cost)}
+          </Text>
+        ))}
+      </Stack>
+
+      <Divider my={4} />
+
+      <Group justify="space-between" wrap="nowrap">
+        <Text size="sm" fw={700}>
+          Total
+        </Text>
+        <Text size="sm" fw={700}>
+          {formatUsd(s.grandTotal)}
+        </Text>
+      </Group>
+    </Stack>
+  );
+
+  if (variant === "popover") return content;
+
   return (
     <Paper withBorder p="sm" radius="md" mx="md" mt="xs" mb="xs">
-      <Stack gap={6}>
-        <Text size="sm" fw={600}>
-          Usage
-        </Text>
-
-        <Group gap="xs" wrap="wrap">
-          <Text size="sm">
-            <Text span fw={500} component="span">
-              LLM (messages)
-            </Text>
-            {`: ${formatUsd(s.llmCost)}`}
-            <Text span c="dimmed" size="xs" component="span" ml={6}>
-              · {s.inputTokens.toLocaleString()} in / {s.outputTokens.toLocaleString()} out ·{" "}
-              {s.totalTokens.toLocaleString()} tokens
-            </Text>
-          </Text>
-        </Group>
-
-        <Stack gap={4}>
-          <Text size="sm">
-            <Text span fw={500} component="span">
-              Generations
-            </Text>
-            {`: ${formatUsd(s.generationsTotal)} (${s.generationRows.length})`}
-          </Text>
-          {s.generationRows.map((row, i) => (
-            <Text
-              key={`${row.id}:${i}`}
-              size="xs"
-              c="dimmed"
-              pl="md"
-              style={{ fontFamily: "var(--mantine-font-monospace)" }}
-            >
-              {row.id.length > 12 ? `${row.id.slice(0, 8)}…` : row.id}
-              {row.slug ? ` · ${row.slug}` : ""} · {formatUsd(row.cost)}
-            </Text>
-          ))}
-        </Stack>
-
-        <Divider my={4} />
-
-        <Group justify="space-between" wrap="nowrap">
-          <Text size="sm" fw={700}>
-            Total
-          </Text>
-          <Text size="sm" fw={700}>
-            {formatUsd(s.grandTotal)}
-          </Text>
-        </Group>
-      </Stack>
+      {content}
     </Paper>
   );
 }
