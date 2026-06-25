@@ -1,30 +1,22 @@
 import type { CalculateMetadataFunction } from "remotion";
 import { Composition } from "remotion";
 import { MyComposition } from "./Composition";
-import { getMediaMetadata } from "../../../lib/mediaMetadata";
+import type { StoryboardCompositionProps } from "./sceneLayerTypes";
+
+const DEFAULT_WIDTH = 1920;
+const DEFAULT_HEIGHT = 1080;
+const DEFAULT_FPS = 24;
+const DEFAULT_DURATION = 90;
 
 export function RemotionRoot() {
-  type MyCompProps = {
-    width?: number | undefined;
-    height?: number | undefined;
-    durationInFrames?: number | undefined;
-    fps?: number | undefined;
-  };
-
-  const calculateMetadata: CalculateMetadataFunction<MyCompProps> = async ({
+  const calculateMetadata: CalculateMetadataFunction<StoryboardCompositionProps> = async ({
     props,
-    defaultProps,
   }) => {
-    const metadata = await getMediaMetadata("https://aifile.link/fvrVEx.mp4");
     return {
-      width: props.width ?? defaultProps.width ?? metadata.dimensions.width ?? 720,
-      height: props.height ?? defaultProps.height ?? metadata.dimensions.height ?? 1280,
-      durationInFrames:
-        props.durationInFrames ??
-        defaultProps.durationInFrames ??
-        Math.round(metadata.durationInSeconds * metadata.fps) ??
-        30,
-      fps: props.fps ?? defaultProps.fps ?? metadata.fps ?? 10,
+      width: props.width ?? DEFAULT_WIDTH,
+      height: props.height ?? DEFAULT_HEIGHT,
+      fps: props.fps ?? DEFAULT_FPS,
+      durationInFrames: props.durationInFrames ?? DEFAULT_DURATION,
     };
   };
 
@@ -33,11 +25,10 @@ export function RemotionRoot() {
       <Composition
         id="MyComp"
         component={MyComposition}
-        durationInFrames={60}
-        fps={30}
-        width={720}
-        height={1080}
-        //defaultProps={{width: 1280, height: 1080}}
+        durationInFrames={DEFAULT_DURATION}
+        fps={DEFAULT_FPS}
+        width={DEFAULT_WIDTH}
+        height={DEFAULT_HEIGHT}
         calculateMetadata={calculateMetadata}
       />
     </>

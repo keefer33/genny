@@ -11,7 +11,7 @@
     "lint:fix": "eslint . --ext .js,.jsx,.ts,.tsx --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "remotion:bundle": "remotion bundle app/pages/storyboards/remotion/index.ts --out-dir build"
+    "remotion:bundle": "remotion bundle app/pages/storyboards/remotion/index.ts --bundle-cache=false --out-dir build"
   },
   "dependencies": {
     "@codemirror/lang-css": "^6.3.1",
@@ -31,7 +31,9 @@
     "@reechy-tools/recorder": "^0.1.0",
     "@remixicon/react": "^4.7.0",
     "@remotion/cli": "^4.0.482",
+    "@remotion/google-fonts": "^4.0.482",
     "@remotion/player": "^4.0.482",
+    "@remotion/transitions": "^4.0.482",
     "@stripe/react-stripe-js": "^5.2.0",
     "@stripe/stripe-js": "^8.1.0",
     "@supabase/supabase-js": "^2.76.1",

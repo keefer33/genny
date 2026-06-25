@@ -25,3 +25,12 @@ export const getMediaMetadata = async (src: string) => {
     fps,
   };
 };
+
+export async function getVideoDurationInFrames(
+  src: string,
+  compositionFps: number
+): Promise<number> {
+  const metadata = await getMediaMetadata(src);
+  const fps = metadata.fps ?? compositionFps;
+  return Math.max(1, Math.round(metadata.durationInSeconds * fps));
+}
