@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { Box, Button, Card, Group, SimpleGrid, Stack, Text, ThemeIcon, Title } from "@mantine/core";
 import { Link } from "react-router";
 import {
@@ -18,9 +18,6 @@ import useFilesFoldersStore from "~/lib/stores/filesFoldersStore";
 import useSupportStore from "~/lib/stores/supportStore";
 import useUsageLogStore from "~/lib/stores/usageLogStore";
 import GenModelsProductScroller from "~/shared/GenModelsProductScroller";
-import { authFetchJson } from "~/lib/stores/authFetch";
-import { endpoint } from "~/lib/utils";
-import { showNotification } from "~/lib/notificationUtils";
 
 function formatMoney(value: number) {
   if (!Number.isFinite(value)) return "$0.00";
@@ -42,9 +39,8 @@ export default function Dashboard() {
   const { getUser, getCurrentUserUsageBalance } = useAppStore();
   const user = getUser();
   const userId = user?.user?.id;
-  const [remotionTestLoading, setRemotionTestLoading] = useState(false);
 
-  const { listChats, chats, chatsLoading } = useChatsStore();
+  const { listChats, chatsLoading } = useChatsStore();
 
   const {
     generationsHistory,
@@ -56,7 +52,7 @@ export default function Dashboard() {
   const { paginationData, gridLoading: filesLoading, loadUserFiles } = useFilesFoldersStore();
   const { tickets, ticketsLoading, fetchTickets } = useSupportStore();
 
-  const { logs, logsLoading, fetchUsageLog } = useUsageLogStore();
+  const { fetchUsageLog } = useUsageLogStore();
 
   useEffect(() => {
     if (!userId) return;
@@ -84,13 +80,6 @@ export default function Dashboard() {
     return { generationTotal, filesTotal, mostRecentGenerationAt };
   }, [generationsHistoryTotal, paginationData?.total, generationsHistory]);
 
-  const recentGenerations = useMemo(() => generationsHistory.slice(0, 4), [generationsHistory]);
-  const recentFiles = useMemo(
-    () => paginationData?.data?.slice(0, 4) ?? [],
-    [paginationData?.data]
-  );
-  const recentChats = useMemo(() => chats.slice(0, 4), [chats]);
-
   const welcomeName =
     user?.profile?.first_name ?? user?.profile?.username ?? user?.user?.email ?? "there";
 
@@ -99,38 +88,7 @@ export default function Dashboard() {
   const openTicketsCount = tickets.filter(
     (t) => t.status === "opened" || t.status === "pending"
   ).length;
-  const isLoading =
-    generationsHistoryLoading || filesLoading || logsLoading || chatsLoading || ticketsLoading;
-
-  const handleTestRemotionRender = async () => {
-    setRemotionTestLoading(true);
-    try {
-      const result = await authFetchJson<{
-        file_id?: string;
-        file_url?: string;
-        file_name?: string;
-      }>(
-        `${endpoint}/remotion/render`,
-        { method: "POST", body: JSON.stringify({}) },
-        { errorMessage: "Remotion render failed" }
-      );
-      showNotification({
-        title: "Remotion render",
-        message: result.file_url
-          ? `Saved ${result.file_name ?? "video"} to your files.`
-          : "Render completed.",
-        type: "success",
-      });
-    } catch (error) {
-      showNotification({
-        title: "Remotion render failed",
-        message: error instanceof Error ? error.message : "Request failed",
-        type: "error",
-      });
-    } finally {
-      setRemotionTestLoading(false);
-    }
-  };
+  const isLoading = generationsHistoryLoading || filesLoading || chatsLoading || ticketsLoading;
 
   return (
     <Mounted size="xl" pt="md">
@@ -250,16 +208,6 @@ export default function Dashboard() {
           <GenModelsProductScroller title="Video Models" generationType="video" />
           <GenModelsProductScroller title="Image Models" generationType="image" />
         </Stack>
-
-        <Group justify="center">
-          <Button
-            variant="light"
-            loading={remotionTestLoading}
-            onClick={() => void handleTestRemotionRender()}
-          >
-            Test Remotion render
-          </Button>
-        </Group>
       </Stack>
     </Mounted>
   );
