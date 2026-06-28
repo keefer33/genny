@@ -16,7 +16,20 @@ const defaultProps: StoryboardCompositionProps = {
 
 export function MyComposition(props: StoryboardCompositionProps) {
   if (props.scenes && props.scenes.length > 0) {
-    return <StoryboardMultiSceneCanvas scenes={props.scenes} />;
+    return (
+      <StoryboardMultiSceneCanvas
+        scenes={props.scenes}
+        baseLayers={props.baseLayers}
+        width={props.width}
+        height={props.height}
+        selectedSceneIndex={props.selectedSceneIndex ?? null}
+        isBaseSceneSelected={props.isBaseSceneSelected ?? false}
+        selectedLayerId={props.selectedLayerId}
+        setSelectedLayerId={props.setSelectedLayerId}
+        changeLayer={props.changeLayer}
+        onLayersPersist={props.onLayersPersist}
+      />
+    );
   }
 
   return <StoryboardSceneCanvas {...props} />;

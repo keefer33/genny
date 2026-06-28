@@ -3,16 +3,73 @@ import { showNotification } from "../notificationUtils";
 import { authFetchJson } from "./authFetch";
 import { endpoint } from "../utils";
 import {
+  assignLayerSortValues,
+  assignSceneSortValues,
+  buildScenePayloadFromRow,
+  createDefaultSceneLayer,
+  getBaseStoryboardScene,
+  isBaseStoryboardScene,
+  nextSceneSort,
+  regularStoryboardScenes,
+  sortLayersBySort,
+  sortStoryboardScenes,
   storyboardSettingsFromForm,
   nextSceneTitle,
   scenePayloadFromForm,
-  buildScenePayloadFromExisting,
+  buildScenePayloadWithTransition,
+  parseSceneDurationInFrames,
+  parseSceneLayers,
+  parseTransitionToNext,
+  sanitizeLayersForSave,
+  totalStoryboardDurationInFrames,
   type SceneLayer,
+  type SceneTransitionToNext,
   type StoryboardFormValues,
   type StoryboardSceneFormValues,
   type UserStoryboard,
   type UserStoryboardScene,
 } from "~/pages/storyboards/storyboardUtils";
+import {
+  defaultTransitionToNext,
+  normalizeTransitionToNext,
+} from "~/pages/storyboards/sceneTransitionTypes";
+
+export type EditingTransitionScene = {
+  sceneId: string;
+  sceneDuration: number;
+  nextSceneDuration: number;
+};
+
+export type ResolvedEditingTransition = {
+  sceneId: string;
+  sceneTitle: string;
+  sceneDuration: number;
+  nextSceneDuration: number;
+  transition: SceneTransitionToNext;
+};
+
+const transitionSaveTimers: Record<string, ReturnType<typeof setTimeout>> = {};
+
+export function resolveEditingTransition(
+  editingTransitionScene: EditingTransitionScene | null,
+  storyboardScenes: UserStoryboardScene[]
+): ResolvedEditingTransition | null {
+  if (!editingTransitionScene) return null;
+  const scene = storyboardScenes.find((row) => row.id === editingTransitionScene.sceneId);
+  if (!scene) return null;
+  const rawTransition = parseTransitionToNext(scene.scene) ?? defaultTransitionToNext();
+  return {
+    sceneId: editingTransitionScene.sceneId,
+    sceneTitle: scene.title?.trim() || "Untitled scene",
+    sceneDuration: editingTransitionScene.sceneDuration,
+    nextSceneDuration: editingTransitionScene.nextSceneDuration,
+    transition: normalizeTransitionToNext(
+      rawTransition,
+      editingTransitionScene.sceneDuration,
+      editingTransitionScene.nextSceneDuration
+    ),
+  };
+}
 
 type StoryboardsState = {
   storyboards: UserStoryboard[];
@@ -26,10 +83,57 @@ type StoryboardsState = {
   createSceneLoading: boolean;
   updateSceneLoading: boolean;
   saveLayersLoading: boolean;
+  saveTransitionLoading: boolean;
   renderStoryboardLoading: boolean;
   deletingSceneId: string | null;
   error: string | null;
+  editingScene: UserStoryboardScene | null;
+  editingTransitionScene: EditingTransitionScene | null;
+  editingLayerId: string | null;
+  selectedSceneId: string | null;
+  selectedLayerId: string | null;
+  layerItems: SceneLayer[];
+  layerEditorOpened: boolean;
+  sceneCreateModalOpened: boolean;
   setSelectedStoryboard: (storyboard: UserStoryboard | null) => void;
+  resetStoryboardEditor: () => void;
+  openCreateSceneModal: () => void;
+  closeCreateSceneModal: () => void;
+  openEditSceneModal: (scene: UserStoryboardScene) => void;
+  closeEditSceneModal: () => void;
+  openTransitionModal: (
+    scene: UserStoryboardScene,
+    sceneDuration: number,
+    nextSceneDuration: number
+  ) => void;
+  closeTransitionModal: () => void;
+  saveEditingTransition: (storyboardId: string, transition: SceneTransitionToNext) => void;
+  clearTransitionSaveTimers: () => void;
+  setEditingScene: (scene: UserStoryboardScene | null) => void;
+  setEditingTransitionScene: (value: EditingTransitionScene | null) => void;
+  setEditingLayerId: (layerId: string | null) => void;
+  setSelectedSceneId: (
+    sceneId: string | null | ((current: string | null) => string | null)
+  ) => void;
+  setSelectedLayerId: (
+    layerId: string | null | ((current: string | null) => string | null)
+  ) => void;
+  setLayerItems: (layers: SceneLayer[] | ((current: SceneLayer[]) => SceneLayer[])) => void;
+  changeLayer: (layerId: string, updater: (layer: SceneLayer) => SceneLayer) => void;
+  syncSceneSelection: () => void;
+  syncLayersFromSelectedScene: () => void;
+  selectStoryboardScene: (storyboardId: string, sceneId: string) => void;
+  openLayerEditor: () => void;
+  closeLayerEditor: () => void;
+  selectStoryboardLayer: (storyboardId: string, sceneId: string, layerId: string) => void;
+  addStoryboardLayer: (storyboardId: string, sceneId: string) => Promise<void>;
+  deleteStoryboardLayer: (storyboardId: string, sceneId: string, layerId: string) => Promise<void>;
+  openStoryboardLayerEditor: (
+    storyboardId: string,
+    sceneId: string,
+    layerId: string
+  ) => Promise<void>;
+  saveEditingLayer: (storyboardId: string, layer: SceneLayer) => Promise<void>;
   loadStoryboards: () => Promise<void>;
   loadStoryboardDetail: (storyboardId: string) => Promise<UserStoryboard | null>;
   createStoryboard: (values: StoryboardFormValues) => Promise<UserStoryboard | null>;
@@ -51,10 +155,23 @@ type StoryboardsState = {
     layers: SceneLayer[],
     options?: { silent?: boolean }
   ) => Promise<boolean>;
+  saveStoryboardSceneTransition: (
+    storyboardId: string,
+    sceneId: string,
+    transitionToNext: SceneTransitionToNext,
+    nextSceneDuration: number,
+    options?: { silent?: boolean }
+  ) => Promise<boolean>;
   renderStoryboard: (
     storyboardId: string
   ) => Promise<{ file_id?: string; file_url?: string; file_name?: string } | null>;
   deleteStoryboardScene: (storyboardId: string, sceneId: string) => Promise<boolean>;
+  reorderStoryboardScenes: (storyboardId: string, orderedSceneIds: string[]) => Promise<void>;
+  reorderStoryboardLayers: (
+    storyboardId: string,
+    sceneId: string,
+    orderedLayerIds: string[]
+  ) => Promise<void>;
 };
 
 const useStoryboardsStore = create<StoryboardsState>((set, get) => ({
@@ -69,11 +186,281 @@ const useStoryboardsStore = create<StoryboardsState>((set, get) => ({
   createSceneLoading: false,
   updateSceneLoading: false,
   saveLayersLoading: false,
+  saveTransitionLoading: false,
   renderStoryboardLoading: false,
   deletingSceneId: null,
   error: null,
+  editingScene: null,
+  editingTransitionScene: null,
+  editingLayerId: null,
+  selectedSceneId: null,
+  selectedLayerId: null,
+  layerItems: [],
+  layerEditorOpened: false,
+  sceneCreateModalOpened: false,
 
-  setSelectedStoryboard: (storyboard) => set({ selectedStoryboard: storyboard }),
+  setSelectedStoryboard: (storyboard) => {
+    if (!storyboard) {
+      get().resetStoryboardEditor();
+    }
+    set({ selectedStoryboard: storyboard });
+  },
+
+  resetStoryboardEditor: () =>
+    set({
+      editingScene: null,
+      editingTransitionScene: null,
+      editingLayerId: null,
+      selectedSceneId: null,
+      selectedLayerId: null,
+      layerItems: [],
+      layerEditorOpened: false,
+      sceneCreateModalOpened: false,
+    }),
+
+  openCreateSceneModal: () => set({ sceneCreateModalOpened: true }),
+
+  closeCreateSceneModal: () => set({ sceneCreateModalOpened: false }),
+
+  openEditSceneModal: (scene) => set({ editingScene: scene }),
+
+  closeEditSceneModal: () => set({ editingScene: null }),
+
+  openTransitionModal: (scene, sceneDuration, nextSceneDuration) =>
+    set({
+      editingTransitionScene: {
+        sceneId: scene.id,
+        sceneDuration,
+        nextSceneDuration,
+      },
+    }),
+
+  closeTransitionModal: () => set({ editingTransitionScene: null }),
+
+  saveEditingTransition: (storyboardId, transition) => {
+    const editing = resolveEditingTransition(get().editingTransitionScene, get().storyboardScenes);
+    if (!editing) return;
+
+    const existingTimer = transitionSaveTimers[editing.sceneId];
+    if (existingTimer) clearTimeout(existingTimer);
+
+    transitionSaveTimers[editing.sceneId] = setTimeout(() => {
+      delete transitionSaveTimers[editing.sceneId];
+      void get().saveStoryboardSceneTransition(
+        storyboardId,
+        editing.sceneId,
+        transition,
+        editing.nextSceneDuration,
+        { silent: true }
+      );
+    }, 400);
+  },
+
+  clearTransitionSaveTimers: () => {
+    for (const timer of Object.values(transitionSaveTimers)) {
+      clearTimeout(timer);
+    }
+    for (const key of Object.keys(transitionSaveTimers)) {
+      delete transitionSaveTimers[key];
+    }
+  },
+
+  setEditingScene: (scene) => set({ editingScene: scene }),
+
+  setEditingTransitionScene: (value) => set({ editingTransitionScene: value }),
+
+  setEditingLayerId: (layerId) => set({ editingLayerId: layerId }),
+
+  setSelectedSceneId: (sceneId) =>
+    set((state) => ({
+      selectedSceneId: typeof sceneId === "function" ? sceneId(state.selectedSceneId) : sceneId,
+    })),
+
+  setSelectedLayerId: (layerId) =>
+    set((state) => ({
+      selectedLayerId: typeof layerId === "function" ? layerId(state.selectedLayerId) : layerId,
+    })),
+
+  setLayerItems: (layers) =>
+    set((state) => ({
+      layerItems: typeof layers === "function" ? layers(state.layerItems) : layers,
+    })),
+
+  changeLayer: (layerId, updater) =>
+    set((state) => ({
+      layerItems: state.layerItems.map((layer) => (layer.id === layerId ? updater(layer) : layer)),
+    })),
+
+  syncSceneSelection: () => {
+    const scenes = get().storyboardScenes;
+    if (scenes.length === 0) {
+      set({ selectedSceneId: null, layerItems: [], selectedLayerId: null });
+      return;
+    }
+
+    const current = get().selectedSceneId;
+    if (current && scenes.some((scene) => scene.id === current)) {
+      return;
+    }
+
+    const regularScenes = regularStoryboardScenes(scenes);
+    set({ selectedSceneId: regularScenes[0]?.id ?? scenes[0]?.id ?? null });
+  },
+
+  syncLayersFromSelectedScene: () => {
+    const { storyboardScenes, selectedSceneId, selectedLayerId } = get();
+    const selectedScene = storyboardScenes.find((scene) => scene.id === selectedSceneId) ?? null;
+    if (!selectedScene) {
+      set({ layerItems: [], selectedLayerId: null });
+      return;
+    }
+
+    const layers = parseSceneLayers(selectedScene.scene);
+    const prev = get().layerItems;
+    if (JSON.stringify(sanitizeLayersForSave(prev)) === JSON.stringify(layers)) {
+      return;
+    }
+
+    set({
+      layerItems: layers,
+      selectedLayerId:
+        selectedLayerId && layers.some((layer) => layer.id === selectedLayerId)
+          ? selectedLayerId
+          : null,
+    });
+  },
+
+  selectStoryboardScene: (storyboardId, sceneId) => {
+    const { selectedSceneId, layerItems, saveStoryboardSceneLayers } = get();
+    if (selectedSceneId && selectedSceneId !== sceneId) {
+      void saveStoryboardSceneLayers(storyboardId, selectedSceneId, layerItems, { silent: true });
+    }
+
+    const scene = get().storyboardScenes.find((row) => row.id === sceneId);
+    set({
+      selectedSceneId: sceneId,
+      selectedLayerId: null,
+      layerItems: parseSceneLayers(scene?.scene),
+    });
+  },
+
+  openLayerEditor: () => set({ layerEditorOpened: true }),
+
+  closeLayerEditor: () => set({ layerEditorOpened: false, editingLayerId: null }),
+
+  selectStoryboardLayer: (storyboardId, sceneId, layerId) => {
+    const { selectedSceneId, layerItems, saveStoryboardSceneLayers, storyboardScenes } = get();
+    if (selectedSceneId && selectedSceneId !== sceneId) {
+      void saveStoryboardSceneLayers(storyboardId, selectedSceneId, layerItems, { silent: true });
+    }
+
+    const scene = storyboardScenes.find((row) => row.id === sceneId);
+    const nextLayerItems =
+      sceneId === selectedSceneId ? layerItems : parseSceneLayers(scene?.scene);
+
+    set({
+      selectedSceneId: sceneId,
+      selectedLayerId: layerId,
+      layerItems: nextLayerItems,
+    });
+  },
+
+  addStoryboardLayer: async (storyboardId, sceneId) => {
+    const {
+      selectedSceneId,
+      layerItems,
+      storyboardScenes,
+      saveStoryboardSceneLayers,
+      setSelectedSceneId,
+      setSelectedLayerId,
+      setLayerItems,
+    } = get();
+    if (selectedSceneId && selectedSceneId !== sceneId) {
+      await saveStoryboardSceneLayers(storyboardId, selectedSceneId, layerItems, { silent: true });
+    }
+    const scene = storyboardScenes.find((row) => row.id === sceneId);
+    if (!scene) return;
+    if (isBaseStoryboardScene(scene) && regularStoryboardScenes(storyboardScenes).length === 0) {
+      showNotification({
+        title: "Add scene first",
+        message: "Global layers need at least one scene to determine the storyboard duration.",
+        type: "error",
+      });
+      return;
+    }
+    const existingLayers = sceneId === selectedSceneId ? layerItems : parseSceneLayers(scene.scene);
+    const duration = isBaseStoryboardScene(scene)
+      ? totalStoryboardDurationInFrames(storyboardScenes)
+      : parseSceneDurationInFrames(scene.scene);
+    const nextLayers = [...existingLayers, createDefaultSceneLayer(existingLayers, duration)];
+    setSelectedSceneId(sceneId);
+    setLayerItems(nextLayers);
+    setSelectedLayerId(nextLayers[nextLayers.length - 1]?.id ?? null);
+    await saveStoryboardSceneLayers(storyboardId, sceneId, nextLayers);
+  },
+
+  deleteStoryboardLayer: async (storyboardId, sceneId, layerId) => {
+    const {
+      selectedSceneId,
+      selectedLayerId,
+      editingLayerId,
+      layerItems,
+      storyboardScenes,
+      saveStoryboardSceneLayers,
+      setSelectedSceneId,
+      setSelectedLayerId,
+      setLayerItems,
+      closeLayerEditor,
+    } = get();
+    if (selectedSceneId && selectedSceneId !== sceneId) {
+      await saveStoryboardSceneLayers(storyboardId, selectedSceneId, layerItems, { silent: true });
+    }
+    const scene = storyboardScenes.find((row) => row.id === sceneId);
+    if (!scene) return;
+    const existingLayers = sceneId === selectedSceneId ? layerItems : parseSceneLayers(scene.scene);
+    const nextLayers = existingLayers.filter((layer) => layer.id !== layerId);
+    setSelectedSceneId(sceneId);
+    setLayerItems(nextLayers);
+    if (selectedLayerId === layerId) {
+      setSelectedLayerId(null);
+    }
+    if (editingLayerId === layerId) {
+      closeLayerEditor();
+    }
+    await saveStoryboardSceneLayers(storyboardId, sceneId, nextLayers);
+  },
+
+  openStoryboardLayerEditor: async (storyboardId, sceneId, layerId) => {
+    const {
+      selectedSceneId,
+      layerItems,
+      saveStoryboardSceneLayers,
+      setSelectedSceneId,
+      setSelectedLayerId,
+      setLayerItems,
+      setEditingLayerId,
+      openLayerEditor,
+    } = get();
+    if (selectedSceneId && selectedSceneId !== sceneId) {
+      await saveStoryboardSceneLayers(storyboardId, selectedSceneId, layerItems, { silent: true });
+    }
+    if (sceneId !== selectedSceneId) {
+      const scene = get().storyboardScenes.find((row) => row.id === sceneId);
+      setSelectedSceneId(sceneId);
+      setLayerItems(parseSceneLayers(scene?.scene));
+    }
+    setSelectedLayerId(layerId);
+    setEditingLayerId(layerId);
+    openLayerEditor();
+  },
+
+  saveEditingLayer: async (storyboardId, layer) => {
+    const { selectedSceneId, layerItems, setLayerItems, saveStoryboardSceneLayers } = get();
+    if (!selectedSceneId) return;
+    const nextLayers = layerItems.map((item) => (item.id === layer.id ? layer : item));
+    setLayerItems(nextLayers);
+    await saveStoryboardSceneLayers(storyboardId, selectedSceneId, nextLayers);
+  },
 
   loadStoryboards: async () => {
     set({ storyboardsLoading: true, error: null });
@@ -98,7 +485,19 @@ const useStoryboardsStore = create<StoryboardsState>((set, get) => ({
     const id = storyboardId.trim();
     if (!id) return null;
 
-    set({ selectedStoryboardLoading: true, error: null, storyboardScenes: [] });
+    set({
+      selectedStoryboardLoading: true,
+      error: null,
+      storyboardScenes: [],
+      editingScene: null,
+      editingTransitionScene: null,
+      editingLayerId: null,
+      selectedSceneId: null,
+      selectedLayerId: null,
+      layerItems: [],
+      layerEditorOpened: false,
+      sceneCreateModalOpened: false,
+    });
     try {
       const [storyboardData, scenesData] = await Promise.all([
         authFetchJson<{ storyboard?: UserStoryboard }>(
@@ -114,7 +513,7 @@ const useStoryboardsStore = create<StoryboardsState>((set, get) => ({
       ]);
 
       const storyboard = storyboardData.storyboard ?? null;
-      const scenes = scenesData.scenes ?? [];
+      const scenes = sortStoryboardScenes(scenesData.scenes ?? []);
       set({
         selectedStoryboard: storyboard,
         storyboardScenes: scenes,
@@ -236,6 +635,7 @@ const useStoryboardsStore = create<StoryboardsState>((set, get) => ({
     if (!id) return null;
 
     const title = values.title.trim() || nextSceneTitle(get().storyboardScenes);
+    const sort = nextSceneSort(get().storyboardScenes);
     set({ createSceneLoading: true, error: null });
     try {
       const data = await authFetchJson<{ scene?: UserStoryboardScene }>(
@@ -244,6 +644,7 @@ const useStoryboardsStore = create<StoryboardsState>((set, get) => ({
           method: "POST",
           body: JSON.stringify({
             title,
+            sort,
             scene: scenePayloadFromForm(values),
           }),
         },
@@ -252,7 +653,9 @@ const useStoryboardsStore = create<StoryboardsState>((set, get) => ({
       set({ createSceneLoading: false });
       const scene = data.scene ?? null;
       if (scene?.id) {
-        set({ storyboardScenes: [...get().storyboardScenes, scene] });
+        set({
+          storyboardScenes: sortStoryboardScenes([...get().storyboardScenes, scene]),
+        });
       }
       return scene;
     } catch (error) {
@@ -268,7 +671,15 @@ const useStoryboardsStore = create<StoryboardsState>((set, get) => ({
     const sid = sceneId.trim();
     if (!sbid || !sid) return false;
 
-    const title = values.title.trim() || nextSceneTitle(get().storyboardScenes);
+    const scenes = get().storyboardScenes;
+    const regularScenes = regularStoryboardScenes(scenes);
+    const regularIndex = regularScenes.findIndex((row) => row.id === sid);
+    const nextSceneDuration =
+      regularIndex >= 0 && regularIndex < regularScenes.length - 1
+        ? parseSceneDurationInFrames(regularScenes[regularIndex + 1]?.scene)
+        : undefined;
+
+    const title = values.title.trim() || nextSceneTitle(scenes);
     set({ updateSceneLoading: true, error: null });
     try {
       const data = await authFetchJson<{ scene?: UserStoryboardScene }>(
@@ -277,7 +688,7 @@ const useStoryboardsStore = create<StoryboardsState>((set, get) => ({
           method: "PATCH",
           body: JSON.stringify({
             title,
-            scene: scenePayloadFromForm(values, existingScene),
+            scene: scenePayloadFromForm(values, existingScene, { nextSceneDuration }),
           }),
         },
         { errorMessage: "Failed to update scene" }
@@ -285,11 +696,48 @@ const useStoryboardsStore = create<StoryboardsState>((set, get) => ({
       set({ updateSceneLoading: false });
       const updated = data.scene ?? null;
       if (updated?.id) {
-        set({
-          storyboardScenes: get().storyboardScenes.map((row) =>
-            row.id === updated.id ? updated : row
-          ),
-        });
+        let nextScenes = get().storyboardScenes.map((row) =>
+          row.id === updated.id ? updated : row
+        );
+
+        if (regularIndex > 0) {
+          const prevScene = regularScenes[regularIndex - 1];
+          const prevTransition = parseTransitionToNext(prevScene?.scene);
+          if (prevTransition?.enabled) {
+            const prevDuration = parseSceneDurationInFrames(prevScene?.scene);
+            const newNextDuration = parseSceneDurationInFrames(updated.scene);
+            const reclamped = normalizeTransitionToNext(
+              prevTransition,
+              prevDuration,
+              newNextDuration
+            );
+            if (reclamped.durationInFrames !== prevTransition.durationInFrames) {
+              const prevData = await authFetchJson<{ scene?: UserStoryboardScene }>(
+                `${endpoint}/storyboards/${encodeURIComponent(sbid)}/scenes/${encodeURIComponent(prevScene.id)}`,
+                {
+                  method: "PATCH",
+                  body: JSON.stringify({
+                    title: prevScene.title?.trim() || null,
+                    scene: buildScenePayloadWithTransition(
+                      prevScene.scene,
+                      reclamped,
+                      newNextDuration
+                    ),
+                  }),
+                },
+                { errorMessage: "Failed to update adjacent transition" }
+              );
+              const prevUpdated = prevData.scene ?? null;
+              if (prevUpdated?.id) {
+                nextScenes = nextScenes.map((row) =>
+                  row.id === prevUpdated.id ? prevUpdated : row
+                );
+              }
+            }
+          }
+        }
+
+        set({ storyboardScenes: nextScenes });
         showNotification({
           title: "Scene updated",
           message: "Your changes were saved.",
@@ -322,7 +770,7 @@ const useStoryboardsStore = create<StoryboardsState>((set, get) => ({
           method: "PATCH",
           body: JSON.stringify({
             title: existing.title?.trim() || null,
-            scene: buildScenePayloadFromExisting(existing.scene, layers),
+            scene: buildScenePayloadFromRow(existing, layers),
           }),
         },
         { errorMessage: "Failed to save layers" }
@@ -349,6 +797,63 @@ const useStoryboardsStore = create<StoryboardsState>((set, get) => ({
       const message = error instanceof Error ? error.message : "Failed to save layers";
       set({ saveLayersLoading: false, error: message });
       showNotification({ title: "Save layers", message, type: "error" });
+      return false;
+    }
+  },
+
+  saveStoryboardSceneTransition: async (
+    storyboardId,
+    sceneId,
+    transitionToNext,
+    nextSceneDuration,
+    options
+  ) => {
+    const sbid = storyboardId.trim();
+    const sid = sceneId.trim();
+    if (!sbid || !sid) return false;
+
+    const existing = get().storyboardScenes.find((row) => row.id === sid);
+    if (!existing) return false;
+
+    set({ saveTransitionLoading: true, error: null });
+    try {
+      const data = await authFetchJson<{ scene?: UserStoryboardScene }>(
+        `${endpoint}/storyboards/${encodeURIComponent(sbid)}/scenes/${encodeURIComponent(sid)}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            title: existing.title?.trim() || null,
+            scene: buildScenePayloadWithTransition(
+              existing.scene,
+              transitionToNext,
+              nextSceneDuration
+            ),
+          }),
+        },
+        { errorMessage: "Failed to save transition" }
+      );
+      set({ saveTransitionLoading: false });
+      const updated = data.scene ?? null;
+      if (updated?.id) {
+        set({
+          storyboardScenes: get().storyboardScenes.map((row) =>
+            row.id === updated.id ? updated : row
+          ),
+        });
+        if (!options?.silent) {
+          showNotification({
+            title: "Transition saved",
+            message: "Scene transition was updated.",
+            type: "success",
+          });
+        }
+        return true;
+      }
+      return false;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to save transition";
+      set({ saveTransitionLoading: false, error: message });
+      showNotification({ title: "Save transition", message, type: "error" });
       return false;
     }
   },
@@ -393,6 +898,16 @@ const useStoryboardsStore = create<StoryboardsState>((set, get) => ({
     const sid = sceneId.trim();
     if (!sbid || !sid) return false;
 
+    const existing = get().storyboardScenes.find((scene) => scene.id === sid);
+    if (existing && isBaseStoryboardScene(existing)) {
+      showNotification({
+        title: "Delete scene",
+        message: "The base scene cannot be deleted.",
+        type: "error",
+      });
+      return false;
+    }
+
     set({ deletingSceneId: sid, error: null });
     try {
       await authFetchJson(
@@ -400,10 +915,14 @@ const useStoryboardsStore = create<StoryboardsState>((set, get) => ({
         { method: "DELETE" },
         { errorMessage: "Failed to delete scene" }
       );
-      set({
-        deletingSceneId: null,
-        storyboardScenes: get().storyboardScenes.filter((scene) => scene.id !== sid),
-      });
+      const remaining = assignSceneSortValues(
+        get().storyboardScenes.filter((scene) => scene.id !== sid)
+      );
+      set({ deletingSceneId: null, storyboardScenes: remaining });
+      void get().reorderStoryboardScenes(
+        sbid,
+        regularStoryboardScenes(remaining).map((row) => row.id)
+      );
       return true;
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to delete scene";
@@ -411,6 +930,71 @@ const useStoryboardsStore = create<StoryboardsState>((set, get) => ({
       showNotification({ title: "Delete scene", message, type: "error" });
       return false;
     }
+  },
+
+  reorderStoryboardScenes: async (storyboardId, orderedSceneIds) => {
+    const sbid = storyboardId.trim();
+    if (!sbid || orderedSceneIds.length === 0) return;
+
+    const { selectedSceneId, layerItems, saveStoryboardSceneLayers, storyboardScenes } = get();
+    if (selectedSceneId && layerItems.length > 0) {
+      await saveStoryboardSceneLayers(sbid, selectedSceneId, layerItems, { silent: true });
+    }
+
+    const base = getBaseStoryboardScene(storyboardScenes);
+    const regular = regularStoryboardScenes(storyboardScenes);
+    const byId = new Map(regular.map((row) => [row.id, row]));
+    const reorderedRegular = orderedSceneIds
+      .map((id) => byId.get(id))
+      .filter((row): row is UserStoryboardScene => Boolean(row));
+    if (reorderedRegular.length !== regular.length) return;
+
+    const withSort = reorderedRegular.map((row, index) => ({ ...row, sort: index + 1 }));
+    const nextScenes = base ? [{ ...base, sort: 0 }, ...withSort] : withSort;
+    set({ storyboardScenes: nextScenes });
+
+    await Promise.all(
+      withSort.map((row) =>
+        authFetchJson<{ scene?: UserStoryboardScene }>(
+          `${endpoint}/storyboards/${encodeURIComponent(sbid)}/scenes/${encodeURIComponent(row.id)}`,
+          {
+            method: "PATCH",
+            body: JSON.stringify({ sort: row.sort }),
+          },
+          { errorMessage: "Failed to reorder scenes" }
+        )
+      )
+    );
+  },
+
+  reorderStoryboardLayers: async (storyboardId, sceneId, orderedLayerIds) => {
+    const sbid = storyboardId.trim();
+    const sid = sceneId.trim();
+    if (!sbid || !sid || orderedLayerIds.length === 0) return;
+
+    const {
+      selectedSceneId,
+      layerItems,
+      storyboardScenes,
+      saveStoryboardSceneLayers,
+      setLayerItems,
+    } = get();
+    const scene = storyboardScenes.find((row) => row.id === sid);
+    if (!scene) return;
+
+    const currentLayers =
+      sid === selectedSceneId ? layerItems : sortLayersBySort(parseSceneLayers(scene.scene));
+    const byId = new Map(currentLayers.map((layer) => [layer.id, layer]));
+    const reordered = orderedLayerIds
+      .map((id) => byId.get(id))
+      .filter((layer): layer is SceneLayer => Boolean(layer));
+    if (reordered.length !== currentLayers.length) return;
+
+    const nextLayers = assignLayerSortValues(reordered);
+    if (sid === selectedSceneId) {
+      setLayerItems(nextLayers);
+    }
+    await saveStoryboardSceneLayers(sbid, sid, nextLayers, { silent: true });
   },
 }));
 

@@ -1,45 +1,30 @@
-import { Player } from "@remotion/player";
+import { Player, type PlayerRef } from "@remotion/player";
 import { MyComposition } from "./remotion/Composition";
 import type { StoryboardCompositionProps } from "./remotion/sceneLayerTypes";
-import {
-  Box,
-  Button,
-  Group,
-  Loader,
-  Paper,
-  ScrollArea,
-  Stack,
-  Text,
-  Title,
-  ActionIcon,
-  Tooltip,
-} from "@mantine/core";
-import {
-  RiAddLine,
-  RiArrowLeftLine,
-  RiDeleteBinLine,
-  RiFilmLine,
-  RiPencilLine,
-} from "@remixicon/react";
-import { useDisclosure } from "@mantine/hooks";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Box, Button, Group, Loader, Paper, ScrollArea, Stack, Text, Title } from "@mantine/core";
+import { RiArrowLeftLine, RiFilmLine } from "@remixicon/react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router";
 import useAppStore from "~/lib/stores/appStore";
 import useStoryboardsStore from "~/lib/stores/storyboardsStore";
-import { SceneLayersPanel } from "~/pages/storyboards/components/SceneLayersPanel";
+import { StoryboardSceneList } from "~/pages/storyboards/components/StoryboardSceneList";
+import { StoryboardTimeline } from "~/pages/storyboards/components/StoryboardTimeline";
+import { SceneTransitionModal } from "~/pages/storyboards/components/SceneTransitionModal";
 import { EditLayerModal } from "~/pages/storyboards/components/EditLayerModal";
 import { StoryboardSceneUpsertModal } from "~/pages/storyboards/components/StoryboardSceneUpsertModal";
 import {
-  createDefaultSceneLayer,
+  buildStoryboardBaseLayers,
+  buildStoryboardPlayerScenes,
   DEFAULT_STORYBOARD_FPS,
-  parseSceneBackground,
-  parseSceneDurationInFrames,
-  parseSceneLayers,
+  getBaseStoryboardScene,
   parseStoryboardSettings,
-  type SceneLayer,
-  type UserStoryboardScene,
+  regularStoryboardScenes,
+  storyboardSeekFrameForSceneId,
+  totalStoryboardDurationInFrames,
 } from "~/pages/storyboards/storyboardUtils";
 import DesktopSplitLayout from "~/shared/DesktopSplitLayout";
+
+const PLAYER_MAX_HEIGHT = 650;
 
 export function meta() {
   return [{ title: "Storyboard" }];
@@ -55,36 +40,20 @@ export default function Storyboard() {
   const selectedStoryboard = useStoryboardsStore((s) => s.selectedStoryboard);
   const storyboardScenes = useStoryboardsStore((s) => s.storyboardScenes);
   const selectedStoryboardLoading = useStoryboardsStore((s) => s.selectedStoryboardLoading);
-  const createSceneLoading = useStoryboardsStore((s) => s.createSceneLoading);
-  const saveLayersLoading = useStoryboardsStore((s) => s.saveLayersLoading);
-  const deletingSceneId = useStoryboardsStore((s) => s.deletingSceneId);
   const setSelectedStoryboard = useStoryboardsStore((s) => s.setSelectedStoryboard);
   const loadStoryboardDetail = useStoryboardsStore((s) => s.loadStoryboardDetail);
-  const deleteStoryboardScene = useStoryboardsStore((s) => s.deleteStoryboardScene);
   const saveStoryboardSceneLayers = useStoryboardsStore((s) => s.saveStoryboardSceneLayers);
   const renderStoryboard = useStoryboardsStore((s) => s.renderStoryboard);
   const renderStoryboardLoading = useStoryboardsStore((s) => s.renderStoryboardLoading);
-  const [createSceneOpened, { open: openCreateScene, close: closeCreateScene }] =
-    useDisclosure(false);
-  const [editingScene, setEditingScene] = useState<UserStoryboardScene | null>(null);
-  const [editSceneOpened, { open: openEditScene, close: closeEditScene }] = useDisclosure(false);
-  const [editingLayerId, setEditingLayerId] = useState<string | null>(null);
-  const [editLayerOpened, { open: openEditLayer, close: closeEditLayer }] = useDisclosure(false);
-  const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
-  const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
-  const [layerItems, setLayerItems] = useState<SceneLayer[]>([]);
-  const layerItemsRef = useRef(layerItems);
-  layerItemsRef.current = layerItems;
-
-  const selectedScene = useMemo(
-    () => storyboardScenes.find((scene) => scene.id === selectedSceneId) ?? null,
-    [storyboardScenes, selectedSceneId]
-  );
-
-  const editingLayer = useMemo(
-    () => layerItems.find((layer) => layer.id === editingLayerId) ?? null,
-    [editingLayerId, layerItems]
-  );
+  const selectedSceneId = useStoryboardsStore((s) => s.selectedSceneId);
+  const selectedLayerId = useStoryboardsStore((s) => s.selectedLayerId);
+  const layerItems = useStoryboardsStore((s) => s.layerItems);
+  const setSelectedLayerId = useStoryboardsStore((s) => s.setSelectedLayerId);
+  const changeLayer = useStoryboardsStore((s) => s.changeLayer);
+  const syncSceneSelection = useStoryboardsStore((s) => s.syncSceneSelection);
+  const syncLayersFromSelectedScene = useStoryboardsStore((s) => s.syncLayersFromSelectedScene);
+  const clearTransitionSaveTimers = useStoryboardsStore((s) => s.clearTransitionSaveTimers);
+  const playerRef = useRef<PlayerRef>(null);
 
   useEffect(() => {
     if (!id) {
@@ -111,223 +80,113 @@ export default function Storyboard() {
   }, [id, storyboards, loadStoryboardDetail, setSelectedStoryboard, navigate]);
 
   useEffect(() => {
-    if (storyboardScenes.length === 0) {
-      setSelectedSceneId(null);
-      setLayerItems([]);
-      setSelectedLayerId(null);
-      return;
-    }
-
-    setSelectedSceneId((current) => {
-      if (current && storyboardScenes.some((scene) => scene.id === current)) {
-        return current;
-      }
-      return storyboardScenes[0]?.id ?? null;
-    });
-  }, [storyboardScenes]);
+    syncSceneSelection();
+  }, [storyboardScenes, syncSceneSelection]);
 
   useEffect(() => {
-    if (!selectedScene) {
-      setLayerItems([]);
-      setSelectedLayerId(null);
-      return;
-    }
-    const layers = parseSceneLayers(selectedScene.scene);
-    setLayerItems(layers);
-    setSelectedLayerId((current) =>
-      current && layers.some((layer) => layer.id === current) ? current : null
-    );
-  }, [selectedScene]);
+    return () => {
+      clearTransitionSaveTimers();
+    };
+  }, [clearTransitionSaveTimers]);
 
-  const sceneDurationInFrames = useMemo(
-    () => parseSceneDurationInFrames(selectedScene?.scene),
-    [selectedScene?.scene]
+  useEffect(() => {
+    syncLayersFromSelectedScene();
+  }, [selectedSceneId, storyboardScenes, syncLayersFromSelectedScene]);
+
+  const regularScenes = useMemo(
+    () => regularStoryboardScenes(storyboardScenes),
+    [storyboardScenes]
   );
 
-  const storyboardFps = useMemo(() => {
-    return parseStoryboardSettings(selectedStoryboard?.settings).fps ?? DEFAULT_STORYBOARD_FPS;
-  }, [selectedStoryboard?.settings]);
+  const totalDurationInFrames = useMemo(
+    () => Math.max(1, totalStoryboardDurationInFrames(storyboardScenes)),
+    [storyboardScenes]
+  );
+
+  const selectedRegularSceneIndex = useMemo(
+    () => regularScenes.findIndex((scene) => scene.id === selectedSceneId),
+    [regularScenes, selectedSceneId]
+  );
+
+  const isBaseSceneSelected = useMemo(() => {
+    const baseScene = getBaseStoryboardScene(storyboardScenes);
+    return Boolean(baseScene && baseScene.id === selectedSceneId);
+  }, [storyboardScenes, selectedSceneId]);
+
+  useEffect(() => {
+    if (!selectedSceneId) return;
+
+    const layer =
+      selectedLayerId && selectedSceneId
+        ? layerItems.find((row) => row.id === selectedLayerId)
+        : undefined;
+    const frame = storyboardSeekFrameForSceneId(storyboardScenes, selectedSceneId, layer?.from);
+    const clampedFrame = Math.min(Math.max(0, frame), Math.max(0, totalDurationInFrames - 1));
+    playerRef.current?.seekTo(clampedFrame);
+  }, [selectedSceneId, selectedLayerId, storyboardScenes, totalDurationInFrames]);
+
+  const settings = useMemo(
+    () => parseStoryboardSettings(selectedStoryboard?.settings),
+    [selectedStoryboard?.settings]
+  );
+
+  const playerScenes = useMemo(
+    () => buildStoryboardPlayerScenes(storyboardScenes, selectedSceneId, layerItems),
+    [storyboardScenes, selectedSceneId, layerItems]
+  );
+
+  const baseLayers = useMemo(
+    () => buildStoryboardBaseLayers(storyboardScenes, selectedSceneId, layerItems),
+    [storyboardScenes, selectedSceneId, layerItems]
+  );
+
+  const handleLayersPersist = useCallback(() => {
+    if (!selectedSceneId) return;
+    const layers = useStoryboardsStore.getState().layerItems;
+    void saveStoryboardSceneLayers(id, selectedSceneId, layers, { silent: true });
+  }, [id, saveStoryboardSceneLayers, selectedSceneId]);
+
+  const playerInputProps = useMemo<StoryboardCompositionProps>(
+    () => ({
+      width: settings.width ?? 1920,
+      height: settings.height ?? 1080,
+      fps: settings.fps ?? DEFAULT_STORYBOARD_FPS,
+      durationInFrames: totalDurationInFrames,
+      scenes: playerScenes,
+      baseLayers,
+      selectedSceneIndex: selectedRegularSceneIndex >= 0 ? selectedRegularSceneIndex : null,
+      isBaseSceneSelected,
+      background: { type: "color", value: "#000000" },
+      layers: [],
+      selectedLayerId,
+      setSelectedLayerId,
+      changeLayer,
+      onLayersPersist: handleLayersPersist,
+    }),
+    [
+      baseLayers,
+      changeLayer,
+      handleLayersPersist,
+      isBaseSceneSelected,
+      playerScenes,
+      selectedLayerId,
+      selectedRegularSceneIndex,
+      settings,
+      totalDurationInFrames,
+    ]
+  );
 
   if (!id) {
     return <Navigate to="/storyboards" replace />;
   }
 
   const storyboardReady = Boolean(selectedStoryboard?.id === id);
-  const settings = parseStoryboardSettings(selectedStoryboard?.settings);
   const playerProps = {
     width: settings.width ?? 1920,
     height: settings.height ?? 1080,
-    durationInFrames: sceneDurationInFrames,
-    fps: settings.fps ?? 24,
+    durationInFrames: totalDurationInFrames,
+    fps: settings.fps ?? DEFAULT_STORYBOARD_FPS,
   };
-
-  const sceneBackground = useMemo(
-    () => parseSceneBackground(selectedScene?.scene),
-    [selectedScene?.scene]
-  );
-
-  const handleLayersPersist = useCallback(() => {
-    if (!selectedSceneId) return;
-    void saveStoryboardSceneLayers(id, selectedSceneId, layerItemsRef.current, { silent: true });
-  }, [id, saveStoryboardSceneLayers, selectedSceneId]);
-
-  const changeLayer = useCallback((layerId: string, updater: (layer: SceneLayer) => SceneLayer) => {
-    setLayerItems((prev) => prev.map((layer) => (layer.id === layerId ? updater(layer) : layer)));
-  }, []);
-
-  const playerInputProps = useMemo<StoryboardCompositionProps>(
-    () => ({
-      background: sceneBackground,
-      layers: layerItems,
-      selectedLayerId,
-      setSelectedLayerId,
-      changeLayer,
-      onLayersPersist: handleLayersPersist,
-    }),
-    [changeLayer, handleLayersPersist, layerItems, sceneBackground, selectedLayerId]
-  );
-
-  const handleAddScene = () => {
-    openCreateScene();
-  };
-
-  const handleEditScene = (scene: UserStoryboardScene) => {
-    setEditingScene(scene);
-    openEditScene();
-  };
-
-  const handleCloseEditScene = () => {
-    closeEditScene();
-    setEditingScene(null);
-  };
-
-  const handleSelectScene = (sceneId: string) => {
-    setSelectedSceneId(sceneId);
-    setSelectedLayerId(null);
-  };
-
-  const handleAddLayer = async () => {
-    if (!selectedSceneId) return;
-    const nextLayers = [...layerItems, createDefaultSceneLayer(layerItems, sceneDurationInFrames)];
-    setLayerItems(nextLayers);
-    setSelectedLayerId(nextLayers[nextLayers.length - 1]?.id ?? null);
-    await saveStoryboardSceneLayers(id, selectedSceneId, nextLayers);
-  };
-
-  const handleDeleteLayer = async (layerId: string) => {
-    if (!selectedSceneId) return;
-    const nextLayers = layerItems.filter((layer) => layer.id !== layerId);
-    setLayerItems(nextLayers);
-    if (selectedLayerId === layerId) {
-      setSelectedLayerId(null);
-    }
-    if (editingLayerId === layerId) {
-      setEditingLayerId(null);
-      closeEditLayer();
-    }
-    await saveStoryboardSceneLayers(id, selectedSceneId, nextLayers);
-  };
-
-  const handleEditLayer = (layerId: string) => {
-    setEditingLayerId(layerId);
-    openEditLayer();
-  };
-
-  const handleCloseEditLayer = () => {
-    closeEditLayer();
-    setEditingLayerId(null);
-  };
-
-  const handleSaveLayer = async (layer: SceneLayer) => {
-    if (!selectedSceneId) return;
-    const nextLayers = layerItems.map((item) => (item.id === layer.id ? layer : item));
-    setLayerItems(nextLayers);
-    await saveStoryboardSceneLayers(id, selectedSceneId, nextLayers);
-  };
-
-  const handleRenderVideo = () => {
-    void renderStoryboard(id);
-  };
-
-  const sceneList = (
-    <Stack gap="xs" p="xs">
-      <Button
-        leftSection={<RiAddLine size={18} />}
-        onClick={handleAddScene}
-        loading={createSceneLoading}
-        fullWidth
-      >
-        Add scene
-      </Button>
-      {storyboardScenes.length === 0 ? (
-        <Text size="sm" c="dimmed">
-          No scenes yet.
-        </Text>
-      ) : (
-        storyboardScenes.map((scene) => {
-          const isSelected = scene.id === selectedSceneId;
-          return (
-            <Group
-              key={scene.id}
-              justify="space-between"
-              wrap="nowrap"
-              gap="xs"
-              p="xs"
-              style={{
-                borderRadius: "var(--mantine-radius-sm)",
-                background: isSelected ? "var(--mantine-color-blue-light)" : "transparent",
-                cursor: "pointer",
-              }}
-              onClick={() => handleSelectScene(scene.id)}
-            >
-              <Text size="sm" style={{ flex: 1, minWidth: 0 }} lineClamp={1}>
-                {scene.title?.trim() || "Untitled scene"}
-              </Text>
-              <Group gap={4} wrap="nowrap">
-                <Tooltip label="Edit scene">
-                  <ActionIcon
-                    variant="subtle"
-                    aria-label="Edit scene"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      handleEditScene(scene);
-                    }}
-                  >
-                    <RiPencilLine size={18} />
-                  </ActionIcon>
-                </Tooltip>
-                <Tooltip label="Delete scene">
-                  <ActionIcon
-                    variant="subtle"
-                    color="red"
-                    aria-label="Delete scene"
-                    loading={deletingSceneId === scene.id}
-                    disabled={Boolean(deletingSceneId && deletingSceneId !== scene.id)}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      void deleteStoryboardScene(id, scene.id);
-                    }}
-                  >
-                    <RiDeleteBinLine size={18} />
-                  </ActionIcon>
-                </Tooltip>
-              </Group>
-            </Group>
-          );
-        })
-      )}
-      <SceneLayersPanel
-        scene={selectedScene}
-        layers={layerItems}
-        selectedLayerId={selectedLayerId}
-        savingLayers={saveLayersLoading}
-        onSelectLayer={setSelectedLayerId}
-        onAddLayer={() => void handleAddLayer()}
-        onEditLayer={handleEditLayer}
-        onDeleteLayer={(layerId) => void handleDeleteLayer(layerId)}
-      />
-    </Stack>
-  );
 
   if (isMobile) {
     return <Box p="xs">Sorry, this page is not available on mobile.</Box>;
@@ -347,29 +206,10 @@ export default function Storyboard() {
 
   return (
     <DesktopSplitLayout>
-      <StoryboardSceneUpsertModal
-        opened={createSceneOpened}
-        onClose={closeCreateScene}
-        storyboardId={id}
-        sceneCount={storyboardScenes.length}
-        storyboardFps={storyboardFps}
-      />
-      <StoryboardSceneUpsertModal
-        opened={editSceneOpened}
-        onClose={handleCloseEditScene}
-        storyboardId={id}
-        sceneCount={storyboardScenes.length}
-        storyboardFps={storyboardFps}
-        scene={editingScene}
-      />
-      <EditLayerModal
-        opened={editLayerOpened}
-        onClose={handleCloseEditLayer}
-        layer={editingLayer}
-        sceneDurationInFrames={sceneDurationInFrames}
-        submitting={saveLayersLoading}
-        onSave={handleSaveLayer}
-      />
+      <StoryboardSceneUpsertModal mode="create" storyboardId={id} />
+      <StoryboardSceneUpsertModal mode="edit" storyboardId={id} />
+      <EditLayerModal storyboardId={id} />
+      <SceneTransitionModal storyboardId={id} />
       <Paper
         w={420}
         p="sm"
@@ -408,8 +248,8 @@ export default function Storyboard() {
               variant="light"
               leftSection={<RiFilmLine size={16} />}
               loading={renderStoryboardLoading}
-              disabled={storyboardScenes.length === 0}
-              onClick={handleRenderVideo}
+              disabled={regularScenes.length === 0}
+              onClick={() => void renderStoryboard(id)}
             >
               Render video
             </Button>
@@ -417,8 +257,14 @@ export default function Storyboard() {
           <Title order={4} lineClamp={1}>
             {selectedStoryboard?.title?.trim() || "Untitled storyboard"}
           </Title>
+          {regularScenes.length > 0 ? (
+            <Text size="xs" c="dimmed">
+              {regularScenes.length} scene{regularScenes.length === 1 ? "" : "s"} ·{" "}
+              {totalDurationInFrames} frames total
+            </Text>
+          ) : null}
           <ScrollArea style={{ flex: 1, minHeight: 0 }} type="auto" offsetScrollbars="y">
-            {sceneList}
+            <StoryboardSceneList storyboardId={id} />
           </ScrollArea>
         </Stack>
       </Paper>
@@ -426,24 +272,63 @@ export default function Storyboard() {
         style={{
           flex: 1,
           minHeight: 0,
+          minWidth: 0,
           overflow: "hidden",
           display: "flex",
           flexDirection: "column",
+          width: "100%",
         }}
         pt="xs"
       >
-        {selectedScene ? (
-          <Player
-            component={MyComposition}
-            durationInFrames={playerProps.durationInFrames}
-            fps={playerProps.fps}
-            compositionWidth={playerProps.width}
-            compositionHeight={playerProps.height}
-            inputProps={playerInputProps}
-            overflowVisible
-            controls
-            style={{ width: "720px" }}
-          />
+        {regularScenes.length > 0 ? (
+          <Stack
+            gap={0}
+            style={{ flex: 1, minHeight: 0, minWidth: 0, overflow: "hidden", width: "100%" }}
+          >
+            <Box
+              style={{
+                flex: "0 0 auto",
+                position: "relative",
+                width: "100%",
+                height: PLAYER_MAX_HEIGHT,
+                maxHeight: PLAYER_MAX_HEIGHT,
+              }}
+            >
+              <Box
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  margin: "auto",
+                  aspectRatio: `${playerProps.width} / ${playerProps.height}`,
+                  maxHeight: "100%",
+                  maxWidth: "100%",
+                }}
+              >
+                <Player
+                  ref={playerRef}
+                  key={`${id}-${storyboardScenes.length}`}
+                  component={MyComposition}
+                  durationInFrames={playerProps.durationInFrames}
+                  fps={playerProps.fps}
+                  compositionWidth={playerProps.width}
+                  compositionHeight={playerProps.height}
+                  inputProps={playerInputProps}
+                  overflowVisible
+                  controls
+                  style={{ width: "100%" }}
+                />
+              </Box>
+            </Box>
+            <StoryboardTimeline
+              storyboardId={id}
+              playerRef={playerRef}
+              totalDurationInFrames={totalDurationInFrames}
+              fps={playerProps.fps}
+            />
+          </Stack>
         ) : (
           <Text size="sm" c="dimmed" p="md">
             Add a scene to start editing.

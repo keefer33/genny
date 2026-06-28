@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Img, OffthreadVideo, continueRender, delayRender } from "remotion";
+import { AnimatedText } from "remotion-bits";
 import { loadGoogleFontFamily } from "../googleFontsCatalog";
 import type { LayerContent } from "../layerContentTypes";
 
@@ -37,15 +38,19 @@ export function LayerContentRenderer({ content }: LayerContentRendererProps) {
     return <Img src={content.url.trim()} style={fillStyle} />;
   }
 
+  if (content.type === "animatedText") {
+    return <LayerAnimatedTextContent content={content} />;
+  }
+
   return <LayerTextContent content={content} />;
 }
 
-function LayerTextContent({ content }: { content: Extract<LayerContent, { type: "text" }> }) {
-  const [fontFamily, setFontFamily] = useState(content.fontFamily);
+function useLayerFontFamily(fontImportName: string, fallbackFamily: string, bold: boolean) {
+  const [fontFamily, setFontFamily] = useState(fallbackFamily);
 
   useEffect(() => {
-    const handle = delayRender(`load-layer-font-${content.fontImportName}`);
-    void loadGoogleFontFamily(content.fontImportName)
+    const handle = delayRender(`load-layer-font-${fontImportName}-${bold ? "700" : "400"}`);
+    void loadGoogleFontFamily(fontImportName, { bold })
       .then((loadedFamily) => {
         setFontFamily(loadedFamily);
         continueRender(handle);
@@ -56,7 +61,52 @@ function LayerTextContent({ content }: { content: Extract<LayerContent, { type: 
     return () => {
       continueRender(handle);
     };
-  }, [content.fontImportName]);
+  }, [fontImportName, bold]);
+
+  return fontFamily;
+}
+
+function textFontWeight(bold: boolean): React.CSSProperties["fontWeight"] {
+  return bold ? 700 : 400;
+}
+
+function LayerAnimatedTextContent({
+  content,
+}: {
+  content: Extract<LayerContent, { type: "animatedText" }>;
+}) {
+  const fontFamily = useLayerFontFamily(content.fontImportName, content.fontFamily, content.bold);
+  const { transition } = content;
+
+  return (
+    <div style={textContainerStyle}>
+      <AnimatedText
+        transition={{
+          split: transition.split,
+          duration: transition.duration,
+          splitStagger: transition.stagger,
+          opacity: transition.opacity,
+          y: transition.y,
+        }}
+        style={{
+          fontFamily,
+          fontSize: content.fontSize,
+          fontWeight: textFontWeight(content.bold),
+          color: content.color,
+          textAlign: "center",
+          width: "100%",
+          whiteSpace: "pre-wrap",
+          wordBreak: "break-word",
+        }}
+      >
+        {content.text}
+      </AnimatedText>
+    </div>
+  );
+}
+
+function LayerTextContent({ content }: { content: Extract<LayerContent, { type: "text" }> }) {
+  const fontFamily = useLayerFontFamily(content.fontImportName, content.fontFamily, content.bold);
 
   return (
     <div
@@ -64,6 +114,7 @@ function LayerTextContent({ content }: { content: Extract<LayerContent, { type: 
         ...textContainerStyle,
         fontFamily,
         fontSize: content.fontSize,
+        fontWeight: textFontWeight(content.bold),
         color: content.color,
         textAlign: "center",
         whiteSpace: "pre-wrap",

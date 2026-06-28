@@ -8,10 +8,12 @@ import {
   Stack,
   Switch,
   Textarea,
+  TextInput,
 } from "@mantine/core";
 import { useForm } from "@mantine/form";
-import { useEffect } from "react";
+import { useEffect, type FormEvent } from "react";
 import useAppStore from "~/lib/stores/appStore";
+import useStoryboardsStore from "~/lib/stores/storyboardsStore";
 import { GoogleFontPicker } from "~/pages/storyboards/components/GoogleFontPicker";
 import { SceneBackgroundMediaField } from "~/pages/storyboards/components/SceneBackgroundMediaField";
 import {
@@ -20,32 +22,60 @@ import {
   type LayerContentType,
   type LayerEditFormValues,
 } from "~/pages/storyboards/layerContentTypes";
-import type { SceneLayer } from "~/pages/storyboards/storyboardUtils";
-
-type EditLayerModalProps = {
-  opened: boolean;
-  onClose: () => void;
-  layer: SceneLayer | null;
-  sceneDurationInFrames: number;
-  submitting?: boolean;
-  onSave: (layer: SceneLayer) => void | Promise<void>;
-};
+import {
+  isBaseStoryboardScene,
+  parseSceneDurationInFrames,
+  totalStoryboardDurationInFrames,
+} from "~/pages/storyboards/storyboardUtils";
 
 const CONTENT_TYPE_OPTIONS = [
   { value: "video", label: "Video" },
   { value: "image", label: "Image" },
   { value: "text", label: "Text" },
+  { value: "animatedText", label: "Animated text" },
 ] as const;
 
-export function EditLayerModal({
-  opened,
-  onClose,
-  layer,
-  sceneDurationInFrames,
-  submitting = false,
-  onSave,
-}: EditLayerModalProps) {
+const ANIMATED_TEXT_SPLIT_OPTIONS = [
+  { value: "none", label: "None" },
+  { value: "word", label: "Word" },
+  { value: "character", label: "Character" },
+  { value: "line", label: "Line" },
+] as const;
+
+function parseFrameInput(value: number | string): number | null {
+  if (value === "" || value === "-") return null;
+  const parsed = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(parsed)) return null;
+  return Math.round(parsed);
+}
+
+function clampFrameRange(from: number, to: number, maxFrame: number): { from: number; to: number } {
+  const clampedFrom = Math.min(Math.max(0, from), maxFrame);
+  const clampedTo = Math.min(Math.max(clampedFrom, to), maxFrame);
+  return { from: clampedFrom, to: clampedTo };
+}
+
+type EditLayerModalProps = {
+  storyboardId: string;
+};
+
+export function EditLayerModal({ storyboardId }: EditLayerModalProps) {
   const isMobile = useAppStore((s) => s.isMobile);
+  const layerEditorOpened = useStoryboardsStore((s) => s.layerEditorOpened);
+  const editingLayerId = useStoryboardsStore((s) => s.editingLayerId);
+  const layerItems = useStoryboardsStore((s) => s.layerItems);
+  const selectedSceneId = useStoryboardsStore((s) => s.selectedSceneId);
+  const storyboardScenes = useStoryboardsStore((s) => s.storyboardScenes);
+  const saveLayersLoading = useStoryboardsStore((s) => s.saveLayersLoading);
+  const closeLayerEditor = useStoryboardsStore((s) => s.closeLayerEditor);
+  const saveEditingLayer = useStoryboardsStore((s) => s.saveEditingLayer);
+
+  const layer = layerItems.find((row) => row.id === editingLayerId) ?? null;
+  const selectedScene = storyboardScenes.find((scene) => scene.id === selectedSceneId);
+  const isBaseLayer = Boolean(selectedScene && isBaseStoryboardScene(selectedScene));
+  const sceneDurationInFrames = isBaseLayer
+    ? totalStoryboardDurationInFrames(storyboardScenes)
+    : parseSceneDurationInFrames(selectedScene?.scene);
   const maxFrame = Math.max(0, sceneDurationInFrames - 1);
 
   const form = useForm<LayerEditFormValues & { transparentBackground: boolean }>({
@@ -53,6 +83,7 @@ export function EditLayerModal({
       ...layerEditFormFromLayer(
         layer ?? {
           id: "",
+          title: "Layer 1",
           durationInFrames: sceneDurationInFrames,
           from: 0,
           left: 0,
@@ -65,6 +96,7 @@ export function EditLayerModal({
       transparentBackground: true,
     },
     validate: {
+      title: (value) => (value.trim() ? null : "Title is required"),
       from: (value) => {
         if (!Number.isFinite(value) || value < 0 || value > maxFrame) {
           return `From must be between 0 and ${maxFrame}`;
@@ -84,33 +116,46 @@ export function EditLayerModal({
   });
 
   useEffect(() => {
-    if (!opened || !layer) return;
-    const values = layerEditFormFromLayer(layer);
-    const from = Math.min(Math.max(0, values.from), maxFrame);
-    const to = Math.min(Math.max(from, values.to), maxFrame);
+    if (!layerEditorOpened || !editingLayerId) return;
+    const currentLayer = useStoryboardsStore
+      .getState()
+      .layerItems.find((row) => row.id === editingLayerId);
+    if (!currentLayer) return;
+    const values = layerEditFormFromLayer(currentLayer);
+    const { from, to } = clampFrameRange(values.from, values.to, maxFrame);
     form.setValues({
       ...values,
       from,
       to,
-      transparentBackground: layer.color === "transparent",
+      transparentBackground: currentLayer.color === "transparent",
     });
     form.resetDirty();
-  }, [opened, layer, maxFrame]);
+  }, [layerEditorOpened, editingLayerId, maxFrame]);
 
   const handleClose = () => {
-    if (submitting) return;
-    onClose();
+    if (saveLayersLoading) return;
+    closeLayerEditor();
   };
 
-  const handleSubmit = form.onSubmit(async (values) => {
+  const syncFrameRange = () => {
+    const { from, to } = form.getValues();
+    form.setValues({ ...form.getValues(), ...clampFrameRange(from, to, maxFrame) });
+  };
+
+  const submitLayer = async (values: LayerEditFormValues & { transparentBackground: boolean }) => {
     if (!layer) return;
     const nextLayer = layerFromEditForm(layer, {
       ...values,
       color: values.transparentBackground ? "transparent" : values.color,
     });
-    await onSave(nextLayer);
-    handleClose();
-  });
+    await saveEditingLayer(storyboardId, nextLayer);
+    closeLayerEditor();
+  };
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    syncFrameRange();
+    form.onSubmit(submitLayer)(event);
+  };
 
   const contentType = form.values.contentType;
 
@@ -127,28 +172,20 @@ export function EditLayerModal({
   };
 
   const handleFromChange = (value: number | string) => {
-    const nextFrom = typeof value === "number" ? value : Number(value);
-    if (!Number.isFinite(nextFrom)) return;
-    const from = Math.min(Math.max(0, Math.round(nextFrom)), maxFrame);
-    form.setFieldValue("from", from);
-    if (form.values.to < from) {
-      form.setFieldValue("to", from);
-    }
+    const nextFrom = parseFrameInput(value);
+    if (nextFrom === null) return;
+    form.setFieldValue("from", Math.min(Math.max(0, nextFrom), maxFrame));
   };
 
   const handleToChange = (value: number | string) => {
-    const nextTo = typeof value === "number" ? value : Number(value);
-    if (!Number.isFinite(nextTo)) return;
-    const to = Math.min(Math.max(0, Math.round(nextTo)), maxFrame);
-    form.setFieldValue("to", to);
-    if (form.values.from > to) {
-      form.setFieldValue("from", to);
-    }
+    const nextTo = parseFrameInput(value);
+    if (nextTo === null) return;
+    form.setFieldValue("to", Math.min(Math.max(0, nextTo), maxFrame));
   };
 
   return (
     <Modal
-      opened={opened}
+      opened={layerEditorOpened && Boolean(layer)}
       onClose={handleClose}
       title="Edit layer"
       centered
@@ -156,17 +193,18 @@ export function EditLayerModal({
     >
       <form onSubmit={handleSubmit}>
         <Stack gap="md">
+          <TextInput label="Title" disabled={saveLayersLoading} {...form.getInputProps("title")} />
           <Switch
             label="Transparent background"
             checked={form.values.transparentBackground}
             onChange={(event) => handleTransparentChange(event.currentTarget.checked)}
-            disabled={submitting}
+            disabled={saveLayersLoading}
           />
           {!form.values.transparentBackground ? (
             <ColorInput
               label="Layer background color"
               format="hex"
-              disabled={submitting}
+              disabled={saveLayersLoading}
               {...form.getInputProps("color")}
             />
           ) : null}
@@ -176,18 +214,22 @@ export function EditLayerModal({
               label="From (frame)"
               min={0}
               max={maxFrame}
-              disabled={submitting}
+              clampBehavior="blur"
+              disabled={saveLayersLoading}
               value={form.values.from}
               onChange={handleFromChange}
+              onBlur={syncFrameRange}
               error={form.errors.from}
             />
             <NumberInput
               label="To (frame)"
               min={0}
               max={maxFrame}
-              disabled={submitting}
+              clampBehavior="blur"
+              disabled={saveLayersLoading}
               value={form.values.to}
               onChange={handleToChange}
+              onBlur={syncFrameRange}
               error={form.errors.to}
             />
           </Group>
@@ -197,7 +239,7 @@ export function EditLayerModal({
             data={[...CONTENT_TYPE_OPTIONS]}
             value={contentType}
             onChange={handleContentTypeChange}
-            disabled={submitting}
+            disabled={saveLayersLoading}
           />
 
           {contentType === "video" ? (
@@ -223,38 +265,140 @@ export function EditLayerModal({
               <Textarea
                 label="Text"
                 minRows={2}
-                disabled={submitting}
+                disabled={saveLayersLoading}
                 {...form.getInputProps("text")}
               />
               <NumberInput
                 label="Font size"
                 min={8}
                 max={400}
-                disabled={submitting}
+                disabled={saveLayersLoading}
                 {...form.getInputProps("textFontSize")}
               />
               <ColorInput
                 label="Text color"
                 format="hex"
-                disabled={submitting}
+                disabled={saveLayersLoading}
                 {...form.getInputProps("textColor")}
               />
               <GoogleFontPicker
                 value={form.values.textFontImportName}
-                disabled={submitting}
+                disabled={saveLayersLoading}
                 onChange={(importName, fontFamily) => {
                   form.setFieldValue("textFontImportName", importName);
                   form.setFieldValue("textFontFamily", fontFamily);
                 }}
               />
+              <Switch
+                label="Bold"
+                checked={form.values.textBold}
+                onChange={(event) => form.setFieldValue("textBold", event.currentTarget.checked)}
+                disabled={saveLayersLoading}
+              />
+            </Stack>
+          ) : null}
+
+          {contentType === "animatedText" ? (
+            <Stack gap="sm">
+              <Textarea
+                label="Text"
+                minRows={2}
+                disabled={saveLayersLoading}
+                {...form.getInputProps("text")}
+              />
+              <NumberInput
+                label="Font size"
+                min={8}
+                max={400}
+                disabled={saveLayersLoading}
+                {...form.getInputProps("textFontSize")}
+              />
+              <ColorInput
+                label="Text color"
+                format="hex"
+                disabled={saveLayersLoading}
+                {...form.getInputProps("textColor")}
+              />
+              <GoogleFontPicker
+                value={form.values.textFontImportName}
+                disabled={saveLayersLoading}
+                onChange={(importName, fontFamily) => {
+                  form.setFieldValue("textFontImportName", importName);
+                  form.setFieldValue("textFontFamily", fontFamily);
+                }}
+              />
+              <Switch
+                label="Bold"
+                checked={form.values.textBold}
+                onChange={(event) => form.setFieldValue("textBold", event.currentTarget.checked)}
+                disabled={saveLayersLoading}
+              />
+              <Select
+                label="Split by"
+                description="How the text is divided for staggered animation"
+                data={[...ANIMATED_TEXT_SPLIT_OPTIONS]}
+                disabled={saveLayersLoading}
+                {...form.getInputProps("animatedTextSplit")}
+              />
+              <Group grow align="flex-start">
+                <NumberInput
+                  label="Duration (frames)"
+                  min={1}
+                  disabled={saveLayersLoading}
+                  {...form.getInputProps("animatedTextDuration")}
+                />
+                <NumberInput
+                  label="Stagger (frames)"
+                  min={0}
+                  disabled={saveLayersLoading}
+                  {...form.getInputProps("animatedTextStagger")}
+                />
+              </Group>
+              <Group grow align="flex-start">
+                <NumberInput
+                  label="Opacity start"
+                  min={0}
+                  max={1}
+                  step={0.1}
+                  decimalScale={2}
+                  disabled={saveLayersLoading}
+                  {...form.getInputProps("animatedTextOpacityFrom")}
+                />
+                <NumberInput
+                  label="Opacity end"
+                  min={0}
+                  max={1}
+                  step={0.1}
+                  decimalScale={2}
+                  disabled={saveLayersLoading}
+                  {...form.getInputProps("animatedTextOpacityTo")}
+                />
+              </Group>
+              <Group grow align="flex-start">
+                <NumberInput
+                  label="Y start (px)"
+                  disabled={saveLayersLoading}
+                  {...form.getInputProps("animatedTextYFrom")}
+                />
+                <NumberInput
+                  label="Y end (px)"
+                  disabled={saveLayersLoading}
+                  {...form.getInputProps("animatedTextYTo")}
+                />
+              </Group>
             </Stack>
           ) : null}
 
           <Group justify="flex-end" gap="xs">
-            <Button variant="default" onClick={handleClose} disabled={submitting} type="button">
+            <Button
+              variant="default"
+              onClick={handleClose}
+              disabled={saveLayersLoading}
+              type="button"
+            >
               Cancel
             </Button>
-            <Button type="submit" loading={submitting}>
+            <Button type="submit" loading={saveLayersLoading}>
               Save layer
             </Button>
           </Group>

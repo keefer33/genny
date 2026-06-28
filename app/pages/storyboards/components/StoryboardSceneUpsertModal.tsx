@@ -18,20 +18,17 @@ import useStoryboardsStore from "~/lib/stores/storyboardsStore";
 import { SceneBackgroundMediaField } from "~/pages/storyboards/components/SceneBackgroundMediaField";
 import {
   DEFAULT_SCENE_BACKGROUND_COLOR,
+  DEFAULT_STORYBOARD_FPS,
   emptySceneFormValues,
+  parseStoryboardSettings,
   sceneFormFromRow,
   type SceneBackgroundType,
   type StoryboardSceneFormValues,
-  type UserStoryboardScene,
 } from "~/pages/storyboards/storyboardUtils";
 
 type StoryboardSceneUpsertModalProps = {
-  opened: boolean;
-  onClose: () => void;
+  mode: "create" | "edit";
   storyboardId: string;
-  sceneCount: number;
-  storyboardFps: number;
-  scene?: UserStoryboardScene | null;
 };
 
 const BACKGROUND_TYPE_OPTIONS = [
@@ -47,19 +44,29 @@ function backgroundValueLabel(type: SceneBackgroundType): string {
 }
 
 export function StoryboardSceneUpsertModal({
-  opened,
-  onClose,
+  mode,
   storyboardId,
-  sceneCount,
-  storyboardFps,
-  scene = null,
 }: StoryboardSceneUpsertModalProps) {
   const isMobile = useAppStore((s) => s.isMobile);
-  const isEdit = Boolean(scene?.id);
+  const isEdit = mode === "edit";
+  const sceneCreateModalOpened = useStoryboardsStore((s) => s.sceneCreateModalOpened);
+  const editingScene = useStoryboardsStore((s) => s.editingScene);
+  const storyboardScenes = useStoryboardsStore((s) => s.storyboardScenes);
+  const selectedStoryboard = useStoryboardsStore((s) => s.selectedStoryboard);
   const createSceneLoading = useStoryboardsStore((s) => s.createSceneLoading);
   const updateSceneLoading = useStoryboardsStore((s) => s.updateSceneLoading);
   const createStoryboardScene = useStoryboardsStore((s) => s.createStoryboardScene);
   const updateStoryboardScene = useStoryboardsStore((s) => s.updateStoryboardScene);
+  const closeCreateSceneModal = useStoryboardsStore((s) => s.closeCreateSceneModal);
+  const closeEditSceneModal = useStoryboardsStore((s) => s.closeEditSceneModal);
+  const setSelectedSceneId = useStoryboardsStore((s) => s.setSelectedSceneId);
+
+  const scene = isEdit ? editingScene : null;
+  const opened = isEdit ? Boolean(editingScene) : sceneCreateModalOpened;
+  const sceneCount = storyboardScenes.length;
+  const storyboardFps =
+    parseStoryboardSettings(selectedStoryboard?.settings).fps ?? DEFAULT_STORYBOARD_FPS;
+  const onClose = isEdit ? closeEditSceneModal : closeCreateSceneModal;
   const submitting = isEdit ? updateSceneLoading : createSceneLoading;
   const [durationLoading, setDurationLoading] = useState(false);
   const durationRequestRef = useRef(0);
@@ -137,7 +144,10 @@ export function StoryboardSceneUpsertModal({
     }
 
     const created = await createStoryboardScene(storyboardId, values);
-    if (created?.id) handleClose();
+    if (created?.id) {
+      setSelectedSceneId(created.id);
+      handleClose();
+    }
   });
 
   const backgroundType = form.values.backgroundType;
