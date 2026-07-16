@@ -1,4 +1,4 @@
-import { DEFAULT_SCENE_BACKGROUND_COLOR } from "../storyboardUtils";
+import { DEFAULT_SCENE_BACKGROUND_COLOR, sceneBackgroundData } from "../storyboardUtils";
 import type { StoryboardCompositionProps } from "./sceneLayerTypes";
 import { StoryboardMultiSceneCanvas } from "./StoryboardMultiSceneCanvas";
 import { StoryboardSceneCanvas } from "./StoryboardSceneCanvas";
@@ -6,7 +6,7 @@ import { StoryboardSceneCanvas } from "./StoryboardSceneCanvas";
 const noop = () => undefined;
 
 const defaultProps: StoryboardCompositionProps = {
-  background: { type: "color", value: DEFAULT_SCENE_BACKGROUND_COLOR },
+  background: sceneBackgroundData("color", DEFAULT_SCENE_BACKGROUND_COLOR),
   layers: [],
   selectedLayerId: null,
   setSelectedLayerId: noop,

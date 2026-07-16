@@ -1,17 +1,20 @@
-import { Player, type PlayerRef } from "@remotion/player";
-import { MyComposition } from "./remotion/Composition";
 import type { StoryboardCompositionProps } from "./remotion/sceneLayerTypes";
-import { Box, Button, Group, Loader, Paper, ScrollArea, Stack, Text, Title } from "@mantine/core";
+import { AppShell, Box, Button, Center, Group, Loader, Stack, Text, Title } from "@mantine/core";
 import { RiArrowLeftLine, RiFilmLine } from "@remixicon/react";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router";
+import { useUserProfileUsageBalanceRealtime } from "~/lib/hooks/useUserRealtimeChannels";
 import useAppStore from "~/lib/stores/appStore";
 import useStoryboardsStore from "~/lib/stores/storyboardsStore";
+import {
+  StoryboardPlayerToolbar,
+  clampPlayerZoom,
+  PLAYER_ZOOM_STEP,
+} from "~/pages/storyboards/components/StoryboardPlayerToolbar";
+import { StoryboardPlayerViewport } from "~/pages/storyboards/components/StoryboardPlayerViewport";
 import { StoryboardSceneList } from "~/pages/storyboards/components/StoryboardSceneList";
 import { StoryboardTimeline } from "~/pages/storyboards/components/StoryboardTimeline";
-import { SceneTransitionModal } from "~/pages/storyboards/components/SceneTransitionModal";
-import { EditLayerModal } from "~/pages/storyboards/components/EditLayerModal";
-import { StoryboardSceneUpsertModal } from "~/pages/storyboards/components/StoryboardSceneUpsertModal";
+import { StoryboardEditorAside } from "~/pages/storyboards/components/StoryboardEditorAside";
 import {
   buildStoryboardBaseLayers,
   buildStoryboardPlayerScenes,
@@ -19,19 +22,27 @@ import {
   getBaseStoryboardScene,
   parseStoryboardSettings,
   regularStoryboardScenes,
+  sceneBackgroundData,
   storyboardSeekFrameForSceneId,
   totalStoryboardDurationInFrames,
 } from "~/pages/storyboards/storyboardUtils";
-import DesktopSplitLayout from "~/shared/DesktopSplitLayout";
+import { CostBadge } from "~/shared/CostBadge";
+import type { PlayerRef } from "@remotion/player";
 
-const PLAYER_MAX_HEIGHT = 650;
+const EDITOR_HEADER_HEIGHT = 60;
+const EDITOR_NAVBAR_WIDTH = 250;
+const EDITOR_ASIDE_WIDTH = 320;
+const EDITOR_FOOTER_HEIGHT = 220;
 
 export function meta() {
   return [{ title: "Storyboard" }];
 }
 
 export default function Storyboard() {
-  const isMobile = useAppStore((s) => s.isMobile);
+  const { getCurrentUserUsageBalance, getUser, isMobile, themeSettings } = useAppStore();
+  const userId = getUser()?.user?.id;
+  useUserProfileUsageBalanceRealtime(userId);
+
   const navigate = useNavigate();
   const { storyboardId } = useParams<{ storyboardId: string }>();
   const id = storyboardId?.trim() ?? "";
@@ -54,6 +65,15 @@ export default function Storyboard() {
   const syncLayersFromSelectedScene = useStoryboardsStore((s) => s.syncLayersFromSelectedScene);
   const clearTransitionSaveTimers = useStoryboardsStore((s) => s.clearTransitionSaveTimers);
   const playerRef = useRef<PlayerRef>(null);
+  const [playerZoom, setPlayerZoom] = useState(1);
+
+  const handlePlayerZoomIn = useCallback(() => {
+    setPlayerZoom((current) => clampPlayerZoom(current + PLAYER_ZOOM_STEP));
+  }, []);
+
+  const handlePlayerZoomOut = useCallback(() => {
+    setPlayerZoom((current) => clampPlayerZoom(current - PLAYER_ZOOM_STEP));
+  }, []);
 
   useEffect(() => {
     if (!id) {
@@ -156,7 +176,7 @@ export default function Storyboard() {
       baseLayers,
       selectedSceneIndex: selectedRegularSceneIndex >= 0 ? selectedRegularSceneIndex : null,
       isBaseSceneSelected,
-      background: { type: "color", value: "#000000" },
+      background: sceneBackgroundData("color", "#000000"),
       layers: [],
       selectedLayerId,
       setSelectedLayerId,
@@ -204,137 +224,121 @@ export default function Storyboard() {
     return null;
   }
 
+  const shellBg = themeSettings.colorScheme === "dark" ? "dark.7" : "white";
+
   return (
-    <DesktopSplitLayout>
-      <StoryboardSceneUpsertModal mode="create" storyboardId={id} />
-      <StoryboardSceneUpsertModal mode="edit" storyboardId={id} />
-      <EditLayerModal storyboardId={id} />
-      <SceneTransitionModal storyboardId={id} />
-      <Paper
-        w={420}
-        p="sm"
-        style={{
-          flex: "0 0 auto",
-          alignSelf: "stretch",
-          minHeight: 0,
-          maxHeight: "100%",
-          display: "flex",
-          flexDirection: "column",
-          overflow: "hidden",
-        }}
+    <>
+      <AppShell
+        //layout="alt"
+        h="100%"
+        header={{ height: EDITOR_HEADER_HEIGHT }}
+        navbar={{ width: EDITOR_NAVBAR_WIDTH, breakpoint: "sm" }}
+        aside={{ width: EDITOR_ASIDE_WIDTH, breakpoint: "md" }}
+        footer={{ height: EDITOR_FOOTER_HEIGHT }}
+        padding="0"
+        withBorder={false}
       >
-        <Stack
-          gap="xs"
+        <AppShell.Header bg={shellBg} withBorder>
+          <Group h="100%" px="md" justify="space-between" wrap="nowrap" gap="md">
+            <Group gap="md" wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
+              <Group gap="xs" wrap="nowrap">
+                <Button
+                  component={Link}
+                  to="/storyboards"
+                  size="compact-sm"
+                  variant="filled"
+                  leftSection={<RiArrowLeftLine size={16} />}
+                >
+                  Storyboards
+                </Button>
+                <Button
+                  size="compact-sm"
+                  variant="light"
+                  leftSection={<RiFilmLine size={16} />}
+                  loading={renderStoryboardLoading}
+                  disabled={regularScenes.length === 0}
+                  onClick={() => void renderStoryboard(id)}
+                >
+                  Render video
+                </Button>
+              </Group>
+              <Stack gap={0} style={{ flex: 1, minWidth: 0 }}>
+                <Title order={4} lineClamp={1}>
+                  {selectedStoryboard?.title?.trim() || "Untitled storyboard"}
+                </Title>
+                {regularScenes.length > 0 ? (
+                  <Text size="xs" c="dimmed" lineClamp={1}>
+                    {regularScenes.length} scene{regularScenes.length === 1 ? "" : "s"} ·{" "}
+                    {totalDurationInFrames} frames total
+                  </Text>
+                ) : null}
+              </Stack>
+            </Group>
+            <Group gap="md" wrap="nowrap">
+              {regularScenes.length > 0 ? (
+                <StoryboardPlayerToolbar
+                  zoom={playerZoom}
+                  onZoomIn={handlePlayerZoomIn}
+                  onZoomOut={handlePlayerZoomOut}
+                />
+              ) : null}
+              <CostBadge cost={getCurrentUserUsageBalance()} />
+            </Group>
+          </Group>
+        </AppShell.Header>
+
+        <AppShell.Navbar p={0} bg={shellBg} withBorder>
+          <StoryboardSceneList storyboardId={id} />
+        </AppShell.Navbar>
+
+        <AppShell.Aside p={0} bg={shellBg} withBorder>
+          <StoryboardEditorAside storyboardId={id} />
+        </AppShell.Aside>
+
+        <AppShell.Main
+          bg="var(--mantine-color-body)"
           style={{
-            flex: 1,
+            // Definite height so the absolute viewport can be measured by useResizeObserver.
+            position: "relative",
+            height: "100dvh",
+            width: "100dvw",
             minHeight: 0,
             overflow: "hidden",
-            display: "flex",
-            flexDirection: "column",
           }}
         >
-          <Group gap="xs" justify="space-between" wrap="nowrap">
-            <Button
-              component={Link}
-              to="/storyboards"
-              size="compact-xs"
-              variant="filled"
-              leftSection={<RiArrowLeftLine size={16} />}
-            >
-              Storyboards
-            </Button>
-            <Button
-              size="compact-xs"
-              variant="light"
-              leftSection={<RiFilmLine size={16} />}
-              loading={renderStoryboardLoading}
-              disabled={regularScenes.length === 0}
-              onClick={() => void renderStoryboard(id)}
-            >
-              Render video
-            </Button>
-          </Group>
-          <Title order={4} lineClamp={1}>
-            {selectedStoryboard?.title?.trim() || "Untitled storyboard"}
-          </Title>
           {regularScenes.length > 0 ? (
-            <Text size="xs" c="dimmed">
-              {regularScenes.length} scene{regularScenes.length === 1 ? "" : "s"} ·{" "}
-              {totalDurationInFrames} frames total
-            </Text>
-          ) : null}
-          <ScrollArea style={{ flex: 1, minHeight: 0 }} type="auto" offsetScrollbars="y">
-            <StoryboardSceneList storyboardId={id} />
-          </ScrollArea>
-        </Stack>
-      </Paper>
-      <Box
-        style={{
-          flex: 1,
-          minHeight: 0,
-          minWidth: 0,
-          overflow: "hidden",
-          display: "flex",
-          flexDirection: "column",
-          width: "100%",
-        }}
-        pt="xs"
-      >
-        {regularScenes.length > 0 ? (
-          <Stack
-            gap={0}
-            style={{ flex: 1, minHeight: 0, minWidth: 0, overflow: "hidden", width: "100%" }}
-          >
-            <Box
-              style={{
-                flex: "0 0 auto",
-                position: "relative",
-                width: "100%",
-                height: PLAYER_MAX_HEIGHT,
-                maxHeight: PLAYER_MAX_HEIGHT,
-              }}
-            >
-              <Box
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  margin: "auto",
-                  aspectRatio: `${playerProps.width} / ${playerProps.height}`,
-                  maxHeight: "100%",
-                  maxWidth: "100%",
-                }}
-              >
-                <Player
-                  ref={playerRef}
-                  key={`${id}-${storyboardScenes.length}`}
-                  component={MyComposition}
-                  durationInFrames={playerProps.durationInFrames}
-                  fps={playerProps.fps}
-                  compositionWidth={playerProps.width}
-                  compositionHeight={playerProps.height}
-                  inputProps={playerInputProps}
-                  overflowVisible
-                  controls
-                  style={{ width: "100%" }}
-                />
-              </Box>
-            </Box>
-            <StoryboardTimeline
-              storyboardId={id}
-              playerRef={playerRef}
-              totalDurationInFrames={totalDurationInFrames}
+            <StoryboardPlayerViewport
+              compositionWidth={playerProps.width}
+              compositionHeight={playerProps.height}
+              durationInFrames={playerProps.durationInFrames}
               fps={playerProps.fps}
+              inputProps={playerInputProps}
+              playerRef={playerRef}
+              zoom={playerZoom}
+              playerKey={`${id}-${storyboardScenes.length}`}
             />
-          </Stack>
-        ) : (
-          <Text size="sm" c="dimmed" p="md">
-            Add a scene to start editing.
-          </Text>
-        )}
-      </Box>
-    </DesktopSplitLayout>
+          ) : (
+            <Center h="100%">
+              <Text size="sm" c="dimmed">
+                Add a scene to start editing.
+              </Text>
+            </Center>
+          )}
+        </AppShell.Main>
+
+        <AppShell.Footer bg={shellBg} withBorder p={0}>
+          <Box h="100%" style={{ overflow: "hidden" }}>
+            {regularScenes.length > 0 ? (
+              <StoryboardTimeline
+                storyboardId={id}
+                playerRef={playerRef}
+                totalDurationInFrames={totalDurationInFrames}
+                fps={playerProps.fps}
+              />
+            ) : null}
+          </Box>
+        </AppShell.Footer>
+      </AppShell>
+    </>
   );
 }

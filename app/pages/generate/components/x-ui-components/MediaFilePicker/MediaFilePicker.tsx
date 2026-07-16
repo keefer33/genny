@@ -24,6 +24,15 @@ function getAllowedTypesFromXUi(xUi: unknown): unknown {
   return s.allowed_types ?? s.allowedTypes ?? s.allowed_file_types;
 }
 
+function getGenModelIdFromXUi(xUi: unknown): string | undefined {
+  if (!xUi || typeof xUi !== "object" || Array.isArray(xUi)) return undefined;
+  const settings = (xUi as Record<string, unknown>).settings;
+  if (!settings || typeof settings !== "object" || Array.isArray(settings)) return undefined;
+  const s = settings as Record<string, unknown>;
+  const raw = s.gen_model_id ?? s.genModelId;
+  return typeof raw === "string" && raw.trim() ? raw.trim() : undefined;
+}
+
 function allowedFileTypesToPickerTypes(raw: unknown): FileTypeFilter {
   const values =
     typeof raw === "string" && raw.trim()
@@ -72,6 +81,7 @@ export function MediaFilePicker({
   const allowedTypes = allowedFileTypesToPickerTypes(
     getAllowedTypesFromXUi(fieldSchema?.["x-ui-component"])
   );
+  const genModelId = getGenModelIdFromXUi(fieldSchema?.["x-ui-component"]);
   const title = fieldSchema.title ?? fieldName;
   const maxN = fieldSchema["x-ui-component"].settings.max;
 
@@ -194,6 +204,7 @@ export function MediaFilePicker({
           key={`${fieldName}-picker-${index}`}
           fileUrl={item.url}
           allowedTypes={allowedTypes}
+          genModelId={genModelId}
           modalTitle={`Select ${title}`}
           onReplace={(path) =>
             isMulti ? replaceAtFromPicker(index, path) : setSingleFromPicker(path)
@@ -239,6 +250,7 @@ export function MediaFilePicker({
       selectLabel={`Select ${title}`}
       modalTitle={`Select ${title}`}
       allowedTypes={allowedTypes}
+      genModelId={genModelId}
       onPickPath={(path) => (isMulti ? appendItem(path, "picker") : setSingleFromPicker(path))}
       onAddUrl={(url) => (isMulti ? appendItem(url, "addUrl") : setSingleFromUrlInput(url))}
     />

@@ -1,7 +1,15 @@
 import { DEFAULT_GOOGLE_FONT_IMPORT_NAME, getGoogleFontCatalogEntry } from "./googleFontsCatalog";
 import type { SceneLayer } from "./storyboardUtils";
+import {
+  defaultVideoPlaybackFormValues,
+  defaultVideoPlaybackOptions,
+  normalizeVideoPlaybackOptions,
+  videoPlaybackFormValuesFromOptions,
+  videoPlaybackOptionsFromForm,
+  type VideoPlaybackOptions,
+} from "./videoPlaybackOptions";
 
-export type LayerContentType = "video" | "image" | "text" | "animatedText";
+export type LayerContentType = "video" | "image" | "audio" | "text" | "animatedText";
 
 export type AnimatedTextSplit = "none" | "word" | "character" | "line";
 
@@ -16,12 +24,17 @@ export type LayerAnimatedTextTransition = {
 export type LayerVideoContent = {
   type: "video";
   url: string;
-};
+} & VideoPlaybackOptions;
 
 export type LayerImageContent = {
   type: "image";
   url: string;
 };
+
+export type LayerAudioContent = {
+  type: "audio";
+  url: string;
+} & VideoPlaybackOptions;
 
 export type LayerTextContent = {
   type: "text";
@@ -47,6 +60,7 @@ export type LayerAnimatedTextContent = {
 export type LayerContent =
   | LayerVideoContent
   | LayerImageContent
+  | LayerAudioContent
   | LayerTextContent
   | LayerAnimatedTextContent;
 
@@ -73,7 +87,16 @@ export type LayerEditFormValues = {
   color: string;
   contentType: LayerContentType;
   videoUrl: string;
+  videoTrimBefore: number;
+  videoTrimAfter: number | null;
+  videoVolume: number;
+  videoPlaybackRate: number;
   imageUrl: string;
+  audioUrl: string;
+  audioTrimBefore: number;
+  audioTrimAfter: number | null;
+  audioVolume: number;
+  audioPlaybackRate: number;
   text: string;
   textFontSize: number;
   textColor: string;
@@ -113,6 +136,64 @@ export function defaultLayerAnimatedTextContent(): LayerAnimatedTextContent {
   };
 }
 
+export function defaultLayerVideoContent(): LayerVideoContent {
+  return {
+    type: "video",
+    url: "",
+    ...defaultVideoPlaybackOptions(),
+  };
+}
+
+function normalizeLayerVideoContent(record: Record<string, unknown>): LayerVideoContent {
+  return {
+    type: "video",
+    url: typeof record.url === "string" ? record.url : "",
+    ...normalizeVideoPlaybackOptions(record),
+  };
+}
+
+function normalizeLayerAudioContent(record: Record<string, unknown>): LayerAudioContent {
+  return {
+    type: "audio",
+    url: typeof record.url === "string" ? record.url : "",
+    ...normalizeVideoPlaybackOptions(record),
+  };
+}
+
+function videoFormDefaults(): Pick<
+  LayerEditFormValues,
+  "videoTrimBefore" | "videoTrimAfter" | "videoVolume" | "videoPlaybackRate"
+> {
+  const defaults = defaultVideoPlaybackFormValues();
+  return {
+    videoTrimBefore: defaults.trimBefore,
+    videoTrimAfter: defaults.trimAfter,
+    videoVolume: defaults.volume,
+    videoPlaybackRate: defaults.playbackRate,
+  };
+}
+
+function audioFormDefaults(): Pick<
+  LayerEditFormValues,
+  "audioTrimBefore" | "audioTrimAfter" | "audioVolume" | "audioPlaybackRate"
+> {
+  const defaults = defaultVideoPlaybackFormValues();
+  return {
+    audioTrimBefore: defaults.trimBefore,
+    audioTrimAfter: defaults.trimAfter,
+    audioVolume: defaults.volume,
+    audioPlaybackRate: defaults.playbackRate,
+  };
+}
+
+export function defaultLayerAudioContent(): LayerAudioContent {
+  return {
+    type: "audio",
+    url: "",
+    ...defaultVideoPlaybackOptions(),
+  };
+}
+
 export function defaultLayerTextContent(): LayerTextContent {
   const entry = getGoogleFontCatalogEntry(DEFAULT_GOOGLE_FONT_IMPORT_NAME);
   return {
@@ -127,8 +208,9 @@ export function defaultLayerTextContent(): LayerTextContent {
 }
 
 export function defaultLayerContent(type: LayerContentType = "text"): LayerContent {
-  if (type === "video") return { type: "video", url: "" };
+  if (type === "video") return defaultLayerVideoContent();
   if (type === "image") return { type: "image", url: "" };
+  if (type === "audio") return defaultLayerAudioContent();
   if (type === "animatedText") return defaultLayerAnimatedTextContent();
   return defaultLayerTextContent();
 }
@@ -193,10 +275,13 @@ export function normalizeLayerContent(raw: unknown): LayerContent {
   const record = raw as Record<string, unknown>;
   const type = record.type;
   if (type === "video" && typeof record.url === "string") {
-    return { type: "video", url: record.url };
+    return normalizeLayerVideoContent(record);
   }
   if (type === "image" && typeof record.url === "string") {
     return { type: "image", url: record.url };
+  }
+  if (type === "audio" && typeof record.url === "string") {
+    return normalizeLayerAudioContent(record);
   }
   if (type === "text") {
     const fontImportName =
@@ -253,6 +338,8 @@ export function normalizeLayerContent(raw: unknown): LayerContent {
 export function layerEditFormFromLayer(layer: SceneLayer): LayerEditFormValues {
   const content = normalizeLayerContent(layer.content);
   const textDefaults = defaultLayerTextContent();
+  const videoDefaults = defaultLayerVideoContent();
+  const audioDefaults = defaultLayerAudioContent();
   const animatedDefaults = defaultLayerAnimatedTextContent();
   const isTextLike = content.type === "text" || content.type === "animatedText";
   const transition =
@@ -265,7 +352,28 @@ export function layerEditFormFromLayer(layer: SceneLayer): LayerEditFormValues {
     color: layer.color,
     contentType: content.type,
     videoUrl: content.type === "video" ? content.url : "",
+    videoTrimBefore:
+      content.type === "video"
+        ? videoPlaybackFormValuesFromOptions(content).trimBefore
+        : videoDefaults.trimBeforeFrames,
+    videoTrimAfter:
+      content.type === "video"
+        ? videoPlaybackFormValuesFromOptions(content).trimAfter
+        : videoDefaults.trimAfterFrames,
+    videoVolume: content.type === "video" ? content.volume : videoDefaults.volume,
+    videoPlaybackRate: content.type === "video" ? content.playbackRate : videoDefaults.playbackRate,
     imageUrl: content.type === "image" ? content.url : "",
+    audioUrl: content.type === "audio" ? content.url : "",
+    audioTrimBefore:
+      content.type === "audio"
+        ? videoPlaybackFormValuesFromOptions(content).trimBefore
+        : audioDefaults.trimBeforeFrames,
+    audioTrimAfter:
+      content.type === "audio"
+        ? videoPlaybackFormValuesFromOptions(content).trimAfter
+        : audioDefaults.trimAfterFrames,
+    audioVolume: content.type === "audio" ? content.volume : audioDefaults.volume,
+    audioPlaybackRate: content.type === "audio" ? content.playbackRate : audioDefaults.playbackRate,
     text: isTextLike ? content.text : textDefaults.text,
     textFontSize: isTextLike ? content.fontSize : textDefaults.fontSize,
     textColor: isTextLike ? content.color : textDefaults.color,
@@ -284,10 +392,33 @@ export function layerEditFormFromLayer(layer: SceneLayer): LayerEditFormValues {
 
 export function contentFromEditForm(values: LayerEditFormValues): LayerContent {
   if (values.contentType === "video") {
-    return { type: "video", url: values.videoUrl.trim() };
+    const playback = videoPlaybackOptionsFromForm({
+      trimBefore: values.videoTrimBefore,
+      trimAfter: values.videoTrimAfter,
+      volume: values.videoVolume,
+      playbackRate: values.videoPlaybackRate,
+    });
+    return {
+      type: "video",
+      url: values.videoUrl.trim(),
+      ...playback,
+    };
   }
   if (values.contentType === "image") {
     return { type: "image", url: values.imageUrl.trim() };
+  }
+  if (values.contentType === "audio") {
+    const playback = videoPlaybackOptionsFromForm({
+      trimBefore: values.audioTrimBefore,
+      trimAfter: values.audioTrimAfter,
+      volume: values.audioVolume,
+      playbackRate: values.audioPlaybackRate,
+    });
+    return {
+      type: "audio",
+      url: values.audioUrl.trim(),
+      ...playback,
+    };
   }
   if (values.contentType === "animatedText") {
     return {
@@ -340,7 +471,10 @@ export function emptyLayerEditForm(sceneDurationInFrames = 90): LayerEditFormVal
     color: "transparent",
     contentType: "text",
     videoUrl: "",
+    ...videoFormDefaults(),
     imageUrl: "",
+    audioUrl: "",
+    ...audioFormDefaults(),
     text: textDefaults.text,
     textFontSize: textDefaults.fontSize,
     textColor: textDefaults.color,
@@ -352,8 +486,23 @@ export function emptyLayerEditForm(sceneDurationInFrames = 90): LayerEditFormVal
 }
 
 export function layerContentLabel(content: LayerContent): string {
-  if (content.type === "video") return content.url.trim() ? "Video" : "Video (empty)";
+  if (content.type === "video") {
+    if (!content.url.trim()) return "Video (empty)";
+    const parts = ["Video"];
+    if (content.playbackRate !== 1) parts.push(`${content.playbackRate}x`);
+    if (content.volume !== 1) parts.push(`${Math.round(content.volume * 100)}% vol`);
+    if (content.trimBeforeFrames > 0 || content.trimAfterFrames != null) parts.push("trimmed");
+    return parts.join(" · ");
+  }
   if (content.type === "image") return content.url.trim() ? "Image" : "Image (empty)";
+  if (content.type === "audio") {
+    if (!content.url.trim()) return "Audio (empty)";
+    const parts = ["Audio"];
+    if (content.playbackRate !== 1) parts.push(`${content.playbackRate}x`);
+    if (content.volume !== 1) parts.push(`${Math.round(content.volume * 100)}% vol`);
+    if (content.trimBeforeFrames > 0 || content.trimAfterFrames != null) parts.push("trimmed");
+    return parts.join(" · ");
+  }
   if (content.type === "animatedText") {
     return content.text.trim() ? `Animated: ${content.text.trim()}` : "Animated text (empty)";
   }

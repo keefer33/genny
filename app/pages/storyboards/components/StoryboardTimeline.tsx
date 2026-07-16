@@ -182,17 +182,21 @@ export function StoryboardTimeline({
   return (
     <Box
       style={{
-        flex: 1,
-        minHeight: 140,
+        height: "100%",
+        minHeight: 0,
         display: "flex",
         flexDirection: "column",
-        borderTop: "1px solid var(--mantine-color-default-border)",
         background: "var(--mantine-color-body)",
         overflow: "hidden",
       }}
     >
-      <Box px="xs" py={6} style={{ borderBottom: "1px solid var(--mantine-color-default-border)" }}>
-        <Text size="xs" c="dimmed">
+      <Box
+        px="xs"
+        py={6}
+        bg="var(--mantine-color-default)"
+        style={{ borderBottom: "1px solid var(--mantine-color-default-border)" }}
+      >
+        <Text size="xs">
           Timeline · frame {currentFrame} / {Math.max(0, totalDurationInFrames - 1)} ·{" "}
           {(currentFrame / fps).toFixed(2)}s
         </Text>

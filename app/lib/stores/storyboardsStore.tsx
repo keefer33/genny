@@ -102,6 +102,7 @@ type StoryboardsState = {
   openEditSceneModal: (scene: UserStoryboardScene) => void;
   closeEditSceneModal: () => void;
   openTransitionModal: (
+    storyboardId: string,
     scene: UserStoryboardScene,
     sceneDuration: number,
     nextSceneDuration: number
@@ -218,22 +219,45 @@ const useStoryboardsStore = create<StoryboardsState>((set, get) => ({
       sceneCreateModalOpened: false,
     }),
 
-  openCreateSceneModal: () => set({ sceneCreateModalOpened: true }),
+  openCreateSceneModal: () =>
+    set({
+      sceneCreateModalOpened: true,
+      editingTransitionScene: null,
+      selectedLayerId: null,
+    }),
 
   closeCreateSceneModal: () => set({ sceneCreateModalOpened: false }),
 
-  openEditSceneModal: (scene) => set({ editingScene: scene }),
+  openEditSceneModal: (scene) =>
+    set({
+      editingScene: scene,
+      selectedSceneId: scene.id,
+      selectedLayerId: null,
+      sceneCreateModalOpened: false,
+      editingTransitionScene: null,
+    }),
 
   closeEditSceneModal: () => set({ editingScene: null }),
 
-  openTransitionModal: (scene, sceneDuration, nextSceneDuration) =>
+  openTransitionModal: (storyboardId, scene, sceneDuration, nextSceneDuration) => {
+    const { selectedSceneId, layerItems, saveStoryboardSceneLayers } = get();
+    if (selectedSceneId && selectedSceneId !== scene.id) {
+      void saveStoryboardSceneLayers(storyboardId, selectedSceneId, layerItems, { silent: true });
+    }
+    const layers =
+      selectedSceneId === scene.id ? layerItems : parseSceneLayers(scene.scene);
     set({
+      selectedSceneId: scene.id,
+      layerItems: layers,
+      selectedLayerId: null,
+      sceneCreateModalOpened: false,
       editingTransitionScene: {
         sceneId: scene.id,
         sceneDuration,
         nextSceneDuration,
       },
-    }),
+    });
+  },
 
   closeTransitionModal: () => set({ editingTransitionScene: null }),
 
@@ -341,6 +365,8 @@ const useStoryboardsStore = create<StoryboardsState>((set, get) => ({
       selectedSceneId: sceneId,
       selectedLayerId: null,
       layerItems: parseSceneLayers(scene?.scene),
+      sceneCreateModalOpened: false,
+      editingTransitionScene: null,
     });
   },
 
@@ -362,6 +388,8 @@ const useStoryboardsStore = create<StoryboardsState>((set, get) => ({
       selectedSceneId: sceneId,
       selectedLayerId: layerId,
       layerItems: nextLayerItems,
+      sceneCreateModalOpened: false,
+      editingTransitionScene: null,
     });
   },
 
@@ -431,27 +459,7 @@ const useStoryboardsStore = create<StoryboardsState>((set, get) => ({
   },
 
   openStoryboardLayerEditor: async (storyboardId, sceneId, layerId) => {
-    const {
-      selectedSceneId,
-      layerItems,
-      saveStoryboardSceneLayers,
-      setSelectedSceneId,
-      setSelectedLayerId,
-      setLayerItems,
-      setEditingLayerId,
-      openLayerEditor,
-    } = get();
-    if (selectedSceneId && selectedSceneId !== sceneId) {
-      await saveStoryboardSceneLayers(storyboardId, selectedSceneId, layerItems, { silent: true });
-    }
-    if (sceneId !== selectedSceneId) {
-      const scene = get().storyboardScenes.find((row) => row.id === sceneId);
-      setSelectedSceneId(sceneId);
-      setLayerItems(parseSceneLayers(scene?.scene));
-    }
-    setSelectedLayerId(layerId);
-    setEditingLayerId(layerId);
-    openLayerEditor();
+    get().selectStoryboardLayer(storyboardId, sceneId, layerId);
   },
 
   saveEditingLayer: async (storyboardId, layer) => {

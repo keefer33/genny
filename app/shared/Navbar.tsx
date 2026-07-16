@@ -24,6 +24,7 @@ import {
   RiChatAi2Line,
   RiTeamLine,
   RiAiGenerate2,
+  RiFilmLine,
 } from "@remixicon/react";
 import { NavLink, useLocation } from "react-router";
 import useAppStore from "~/lib/stores/appStore";
@@ -52,6 +53,12 @@ export function Navbar({ toggleMobile, collapsed }: NavbarProps) {
       matchPrefix: "/dashboard",
     },
     {
+      to: "/agents",
+      icon: RiChatAi2Line,
+      label: "Agents",
+      description: "Agents",
+    },
+    {
       to: "generate",
       icon: RiAiGenerate2,
       label: "Playground",
@@ -63,12 +70,6 @@ export function Navbar({ toggleMobile, collapsed }: NavbarProps) {
       icon: RiHistoryLine,
       label: "Generations",
       description: "Generation History",
-    },
-    {
-      to: "/agents",
-      icon: RiChatAi2Line,
-      label: "Agents",
-      description: "Agents",
     },
     {
       to: "/characters",
@@ -83,6 +84,13 @@ export function Navbar({ toggleMobile, collapsed }: NavbarProps) {
       label: "Voices",
       description: "Design and manage voices",
       matchPrefix: "/voices",
+    },
+    {
+      to: "/storyboards",
+      icon: RiFilmLine,
+      label: "Storyboards",
+      description: "Create and edit storyboards",
+      matchPrefix: "/storyboards",
     },
     // Add login item if not logged in
     ...(!isLoggedIn

@@ -15,8 +15,8 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ActionIcon, Box, Button, Card, Group, Stack, Text, Tooltip } from "@mantine/core";
-import { RiAddLine, RiDeleteBinLine, RiPencilLine } from "@remixicon/react";
+import { Box, Button, Card, Group, Stack, Text, Tooltip } from "@mantine/core";
+import { RiAddLine } from "@remixicon/react";
 import useStoryboardsStore from "~/lib/stores/storyboardsStore";
 import { layerContentLabel, normalizeLayerContent } from "~/pages/storyboards/layerContentTypes";
 import { SortableDragHandle } from "~/pages/storyboards/components/SortableDragHandle";
@@ -36,24 +36,13 @@ type SceneLayersSectionProps = {
 };
 
 type SortableLayerRowProps = {
-  storyboardId: string;
-  sceneId: string;
   layer: SceneLayer;
   index: number;
   selected: boolean;
   onSelect: () => void;
-  onEdit: () => void;
-  onDelete: () => void;
 };
 
-function SortableLayerRow({
-  layer,
-  index,
-  selected,
-  onSelect,
-  onEdit,
-  onDelete,
-}: SortableLayerRowProps) {
+function SortableLayerRow({ layer, index, selected, onSelect }: SortableLayerRowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: layer.id,
   });
@@ -73,9 +62,12 @@ function SortableLayerRow({
         opacity: isDragging ? 0.65 : 1,
         zIndex: isDragging ? 1 : undefined,
       }}
-      onClick={onSelect}
+      onClick={(event) => {
+        event.stopPropagation();
+        onSelect();
+      }}
     >
-      <Group justify="space-between" wrap="nowrap" gap="xs" p="xs">
+      <Group justify="space-between" wrap="nowrap" gap="xs" p={2}>
         <Group gap="xs" wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
           <SortableDragHandle listeners={listeners} attributes={attributes} />
           <Box
@@ -96,35 +88,6 @@ function SortableLayerRow({
             {layerEndFrame(layer)}
           </Text>
         </Group>
-        <Group gap={4} wrap="nowrap">
-          <Tooltip label="Edit layer">
-            <ActionIcon
-              size="sm"
-              variant="subtle"
-              aria-label="Edit layer"
-              onClick={(event) => {
-                event.stopPropagation();
-                onEdit();
-              }}
-            >
-              <RiPencilLine size={14} />
-            </ActionIcon>
-          </Tooltip>
-          <Tooltip label="Delete layer">
-            <ActionIcon
-              size="sm"
-              variant="subtle"
-              color="red"
-              aria-label="Delete layer"
-              onClick={(event) => {
-                event.stopPropagation();
-                onDelete();
-              }}
-            >
-              <RiDeleteBinLine size={14} />
-            </ActionIcon>
-          </Tooltip>
-        </Group>
       </Group>
     </Card>
   );
@@ -138,8 +101,6 @@ export function SceneLayersSection({ storyboardId, sceneId }: SceneLayersSection
   const saveLayersLoading = useStoryboardsStore((s) => s.saveLayersLoading);
   const selectStoryboardLayer = useStoryboardsStore((s) => s.selectStoryboardLayer);
   const addStoryboardLayer = useStoryboardsStore((s) => s.addStoryboardLayer);
-  const deleteStoryboardLayer = useStoryboardsStore((s) => s.deleteStoryboardLayer);
-  const openStoryboardLayerEditor = useStoryboardsStore((s) => s.openStoryboardLayerEditor);
   const reorderStoryboardLayers = useStoryboardsStore((s) => s.reorderStoryboardLayers);
 
   const sensors = useSensors(
@@ -176,7 +137,7 @@ export function SceneLayersSection({ storyboardId, sceneId }: SceneLayersSection
   };
 
   return (
-    <Stack gap="xs" px="sm" pb="xs">
+    <Stack gap="xs" pl="xs">
       {layers.length === 0 ? (
         <Text size="xs" c="dimmed" pl={4}>
           {addLayerDisabledReason ?? "No layers"}
@@ -190,14 +151,10 @@ export function SceneLayersSection({ storyboardId, sceneId }: SceneLayersSection
             {layers.map((layer, index) => (
               <SortableLayerRow
                 key={layer.id}
-                storyboardId={storyboardId}
-                sceneId={sceneId}
                 layer={layer}
                 index={index}
                 selected={isSelected && layer.id === selectedLayerId}
                 onSelect={() => selectStoryboardLayer(storyboardId, sceneId, layer.id)}
-                onEdit={() => void openStoryboardLayerEditor(storyboardId, sceneId, layer.id)}
-                onDelete={() => void deleteStoryboardLayer(storyboardId, sceneId, layer.id)}
               />
             ))}
           </SortableContext>
@@ -209,7 +166,10 @@ export function SceneLayersSection({ storyboardId, sceneId }: SceneLayersSection
             size="compact-xs"
             variant="subtle"
             leftSection={<RiAddLine size={14} />}
-            onClick={() => void addStoryboardLayer(storyboardId, sceneId)}
+            onClick={(event) => {
+              event.stopPropagation();
+              void addStoryboardLayer(storyboardId, sceneId);
+            }}
             loading={savingLayers}
             disabled={!canAddLayer}
           >

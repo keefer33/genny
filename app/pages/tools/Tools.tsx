@@ -230,7 +230,7 @@ export default function Tools() {
   };
 
   return (
-    <Mounted>
+    <Mounted size="xl">
       <Stack gap="sm">
         <Stack gap="xs">
           <Group gap="xs">
@@ -337,7 +337,7 @@ export default function Tools() {
                   ? `${displayConnectedCount} connected`
                   : `${displayBrowseCount}${totalItems > items.length ? ` of ${totalItems}` : ""} toolkits`}
               </Text>
-              <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="md">
+              <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="md">
                 {showConnectedList
                   ? connectedAccounts.map((acc) => {
                       const slug = acc.toolkit?.slug ?? "unknown";

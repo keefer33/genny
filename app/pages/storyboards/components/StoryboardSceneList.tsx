@@ -15,8 +15,8 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ActionIcon, Box, Button, Card, Group, Stack, Text, Tooltip } from "@mantine/core";
-import { RiAddLine, RiDeleteBinLine, RiPencilLine, RiShuffleLine } from "@remixicon/react";
+import { Box, Button, Group, ScrollArea, Stack, Text } from "@mantine/core";
+import { RiAddLine } from "@remixicon/react";
 import useStoryboardsStore from "~/lib/stores/storyboardsStore";
 import { SceneLayersSection } from "~/pages/storyboards/components/SceneLayersSection";
 import { SortableDragHandle } from "~/pages/storyboards/components/SortableDragHandle";
@@ -51,8 +51,11 @@ function BaseSceneCard({
 
   return (
     <Stack gap="xs">
-      <Card
-        p={0}
+      <Group
+        justify="space-between"
+        wrap="nowrap"
+        gap="xs"
+        p={2}
         style={{
           cursor: "pointer",
           backgroundColor: isSelected
@@ -61,18 +64,16 @@ function BaseSceneCard({
         }}
         onClick={() => selectStoryboardScene(storyboardId, scene.id)}
       >
-        <Group justify="space-between" wrap="nowrap" gap="xs" p="xs">
-          <Stack gap={2} style={{ flex: 1, minWidth: 0 }}>
-            <Text size="sm" fw={600} lineClamp={1}>
-              {scene.title?.trim() || BASE_SCENE_TITLE}
-            </Text>
-            <Text size="xs" c="dimmed">
-              Global layers · spans all scenes
-            </Text>
-          </Stack>
-        </Group>
-        <SceneLayersSection storyboardId={storyboardId} sceneId={scene.id} />
-      </Card>
+        <Stack gap={2} style={{ flex: 1, minWidth: 0 }}>
+          <Text size="sm" fw={600} lineClamp={1}>
+            {scene.title?.trim() || BASE_SCENE_TITLE}
+          </Text>
+          <Text size="xs" c="dimmed">
+            Global layers · spans all scenes
+          </Text>
+        </Stack>
+      </Group>
+      <SceneLayersSection storyboardId={storyboardId} sceneId={scene.id} />
     </Stack>
   );
 }
@@ -81,20 +82,16 @@ function SortableRegularSceneCard({
   storyboardId,
   scene,
   index,
-  nextScene,
+  nextSceneDuration,
   isSelected,
 }: {
   storyboardId: string;
   scene: UserStoryboardScene;
   index: number;
-  nextScene?: UserStoryboardScene;
+  nextSceneDuration: number;
   isSelected: boolean;
 }) {
-  const deletingSceneId = useStoryboardsStore((s) => s.deletingSceneId);
-  const openEditSceneModal = useStoryboardsStore((s) => s.openEditSceneModal);
-  const openTransitionModal = useStoryboardsStore((s) => s.openTransitionModal);
   const selectStoryboardScene = useStoryboardsStore((s) => s.selectStoryboardScene);
-  const deleteStoryboardScene = useStoryboardsStore((s) => s.deleteStoryboardScene);
 
   const {
     attributes,
@@ -108,7 +105,6 @@ function SortableRegularSceneCard({
   });
 
   const sceneDuration = parseSceneDurationInFrames(scene.scene);
-  const nextSceneDuration = nextScene ? parseSceneDurationInFrames(nextScene.scene) : sceneDuration;
   const sceneTransition = parseTransitionToNext(scene.scene) ?? defaultTransitionToNext();
   const transitionLabel = transitionSummaryLabel(
     normalizeTransitionToNext(sceneTransition, sceneDuration, nextSceneDuration)
@@ -124,8 +120,11 @@ function SortableRegularSceneCard({
       }}
     >
       <Stack gap="xs">
-        <Card
-          p={0}
+        <Group
+          justify="space-between"
+          wrap="nowrap"
+          gap="xs"
+          p={2}
           style={{
             cursor: "pointer",
             backgroundColor: isSelected
@@ -134,61 +133,16 @@ function SortableRegularSceneCard({
           }}
           onClick={() => selectStoryboardScene(storyboardId, scene.id)}
         >
-          <Group justify="space-between" wrap="nowrap" gap="xs" p="xs">
-            <Group gap="xs" wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
-              <SortableDragHandle listeners={listeners} attributes={attributes} />
-              <Text size="sm" style={{ flex: 1, minWidth: 0 }} lineClamp={1}>
-                {scene.title?.trim() || `Scene ${index + 1}`}
-                {" · "}
-                {sceneDuration}f{transitionLabel ? ` ${transitionLabel}` : ""}
-              </Text>
-            </Group>
-            <Group gap={4} wrap="nowrap">
-              {nextScene ? (
-                <Tooltip label="Edit transition">
-                  <ActionIcon
-                    variant="subtle"
-                    aria-label="Edit transition"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      openTransitionModal(scene, sceneDuration, nextSceneDuration);
-                    }}
-                  >
-                    <RiShuffleLine size={18} />
-                  </ActionIcon>
-                </Tooltip>
-              ) : null}
-              <Tooltip label="Edit scene">
-                <ActionIcon
-                  variant="subtle"
-                  aria-label="Edit scene"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    openEditSceneModal(scene);
-                  }}
-                >
-                  <RiPencilLine size={18} />
-                </ActionIcon>
-              </Tooltip>
-              <Tooltip label="Delete scene">
-                <ActionIcon
-                  variant="subtle"
-                  color="red"
-                  aria-label="Delete scene"
-                  loading={deletingSceneId === scene.id}
-                  disabled={Boolean(deletingSceneId && deletingSceneId !== scene.id)}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    void deleteStoryboardScene(storyboardId, scene.id);
-                  }}
-                >
-                  <RiDeleteBinLine size={18} />
-                </ActionIcon>
-              </Tooltip>
-            </Group>
+          <Group gap="xs" wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
+            <SortableDragHandle listeners={listeners} attributes={attributes} />
+            <Text size="sm" style={{ flex: 1, minWidth: 0 }} lineClamp={1}>
+              {scene.title?.trim() || `Scene ${index + 1}`}
+              {" · "}
+              {sceneDuration}f{transitionLabel ? ` ${transitionLabel}` : ""}
+            </Text>
           </Group>
-          <SceneLayersSection storyboardId={storyboardId} sceneId={scene.id} />
-        </Card>
+        </Group>
+        <SceneLayersSection storyboardId={storyboardId} sceneId={scene.id} />
       </Stack>
     </Box>
   );
@@ -222,51 +176,57 @@ export function StoryboardSceneList({ storyboardId }: StoryboardSceneListProps) 
   };
 
   return (
-    <Stack gap="xs" p="xs">
-      {baseScene ? (
-        <BaseSceneCard
-          storyboardId={storyboardId}
-          scene={baseScene}
-          isSelected={baseScene.id === selectedSceneId}
-        />
-      ) : null}
+    <ScrollArea h="100%" type="auto">
+      <Stack gap="xs" p="xs">
+        {baseScene ? (
+          <BaseSceneCard
+            storyboardId={storyboardId}
+            scene={baseScene}
+            isSelected={baseScene.id === selectedSceneId}
+          />
+        ) : null}
 
-      {regularScenes.length === 0 ? (
-        <Text size="sm" c="dimmed">
-          No scenes yet.
-        </Text>
-      ) : (
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleSceneDragEnd}
-        >
-          <SortableContext
-            items={regularScenes.map((scene) => scene.id)}
-            strategy={verticalListSortingStrategy}
+        {regularScenes.length === 0 ? (
+          <Text size="sm" c="dimmed">
+            No scenes yet.
+          </Text>
+        ) : (
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleSceneDragEnd}
           >
-            {regularScenes.map((scene, index) => (
-              <SortableRegularSceneCard
-                key={scene.id}
-                storyboardId={storyboardId}
-                scene={scene}
-                index={index}
-                nextScene={regularScenes[index + 1]}
-                isSelected={scene.id === selectedSceneId}
-              />
-            ))}
-          </SortableContext>
-        </DndContext>
-      )}
+            <SortableContext
+              items={regularScenes.map((scene) => scene.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              {regularScenes.map((scene, index) => (
+                <SortableRegularSceneCard
+                  key={scene.id}
+                  storyboardId={storyboardId}
+                  scene={scene}
+                  index={index}
+                  nextSceneDuration={
+                    regularScenes[index + 1]
+                      ? parseSceneDurationInFrames(regularScenes[index + 1].scene)
+                      : parseSceneDurationInFrames(scene.scene)
+                  }
+                  isSelected={scene.id === selectedSceneId}
+                />
+              ))}
+            </SortableContext>
+          </DndContext>
+        )}
 
-      <Button
-        leftSection={<RiAddLine size={18} />}
-        onClick={openCreateSceneModal}
-        loading={createSceneLoading}
-        fullWidth
-      >
-        Add scene
-      </Button>
-    </Stack>
+        <Button
+          leftSection={<RiAddLine size={18} />}
+          onClick={openCreateSceneModal}
+          loading={createSceneLoading}
+          fullWidth
+        >
+          Add scene
+        </Button>
+      </Stack>
+    </ScrollArea>
   );
 }

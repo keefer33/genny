@@ -1,47 +1,12 @@
-import {
-  Button,
-  ColorInput,
-  Group,
-  Input,
-  Loader,
-  Modal,
-  NumberInput,
-  SegmentedControl,
-  Stack,
-  TextInput,
-} from "@mantine/core";
-import { useForm } from "@mantine/form";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { getVideoDurationInFrames } from "~/lib/mediaMetadata";
+import { Modal } from "@mantine/core";
 import useAppStore from "~/lib/stores/appStore";
 import useStoryboardsStore from "~/lib/stores/storyboardsStore";
-import { SceneBackgroundMediaField } from "~/pages/storyboards/components/SceneBackgroundMediaField";
-import {
-  DEFAULT_SCENE_BACKGROUND_COLOR,
-  DEFAULT_STORYBOARD_FPS,
-  emptySceneFormValues,
-  parseStoryboardSettings,
-  sceneFormFromRow,
-  type SceneBackgroundType,
-  type StoryboardSceneFormValues,
-} from "~/pages/storyboards/storyboardUtils";
+import { StoryboardSceneUpsertForm } from "~/pages/storyboards/components/StoryboardSceneUpsertForm";
 
 type StoryboardSceneUpsertModalProps = {
   mode: "create" | "edit";
   storyboardId: string;
 };
-
-const BACKGROUND_TYPE_OPTIONS = [
-  { label: "Video", value: "video" },
-  { label: "Image", value: "image" },
-  { label: "Color", value: "color" },
-] as const;
-
-function backgroundValueLabel(type: SceneBackgroundType): string {
-  if (type === "video") return "Background video";
-  if (type === "image") return "Background image";
-  return "Background color";
-}
 
 export function StoryboardSceneUpsertModal({
   mode,
@@ -51,174 +16,23 @@ export function StoryboardSceneUpsertModal({
   const isEdit = mode === "edit";
   const sceneCreateModalOpened = useStoryboardsStore((s) => s.sceneCreateModalOpened);
   const editingScene = useStoryboardsStore((s) => s.editingScene);
-  const storyboardScenes = useStoryboardsStore((s) => s.storyboardScenes);
-  const selectedStoryboard = useStoryboardsStore((s) => s.selectedStoryboard);
-  const createSceneLoading = useStoryboardsStore((s) => s.createSceneLoading);
-  const updateSceneLoading = useStoryboardsStore((s) => s.updateSceneLoading);
-  const createStoryboardScene = useStoryboardsStore((s) => s.createStoryboardScene);
-  const updateStoryboardScene = useStoryboardsStore((s) => s.updateStoryboardScene);
   const closeCreateSceneModal = useStoryboardsStore((s) => s.closeCreateSceneModal);
   const closeEditSceneModal = useStoryboardsStore((s) => s.closeEditSceneModal);
-  const setSelectedSceneId = useStoryboardsStore((s) => s.setSelectedSceneId);
 
   const scene = isEdit ? editingScene : null;
   const opened = isEdit ? Boolean(editingScene) : sceneCreateModalOpened;
-  const sceneCount = storyboardScenes.length;
-  const storyboardFps =
-    parseStoryboardSettings(selectedStoryboard?.settings).fps ?? DEFAULT_STORYBOARD_FPS;
   const onClose = isEdit ? closeEditSceneModal : closeCreateSceneModal;
-  const submitting = isEdit ? updateSceneLoading : createSceneLoading;
-  const [durationLoading, setDurationLoading] = useState(false);
-  const durationRequestRef = useRef(0);
-
-  const form = useForm<StoryboardSceneFormValues>({
-    initialValues: emptySceneFormValues(sceneCount),
-    validate: {
-      durationInFrames: (value) => {
-        if (!Number.isFinite(value) || value < 1) {
-          return "Duration must be at least 1 frame";
-        }
-        return null;
-      },
-      backgroundValue: (value, values) => {
-        if (!value.trim()) {
-          return `${backgroundValueLabel(values.backgroundType)} is required`;
-        }
-        return null;
-      },
-    },
-  });
-
-  useEffect(() => {
-    if (!opened) return;
-    form.setValues(scene ? sceneFormFromRow(scene) : emptySceneFormValues(sceneCount));
-    form.resetDirty();
-  }, [opened, scene, sceneCount]);
-
-  const syncDurationFromVideo = useCallback(
-    async (url: string) => {
-      const trimmed = url.trim();
-      if (!trimmed) return;
-
-      const requestId = ++durationRequestRef.current;
-      setDurationLoading(true);
-      try {
-        const frames = await getVideoDurationInFrames(trimmed, storyboardFps);
-        if (requestId !== durationRequestRef.current) return;
-        form.setFieldValue("durationInFrames", frames);
-      } finally {
-        if (requestId === durationRequestRef.current) {
-          setDurationLoading(false);
-        }
-      }
-    },
-    [form, storyboardFps]
-  );
-
-  const handleClose = () => {
-    if (submitting) return;
-    onClose();
-    form.reset();
-  };
-
-  const handleBackgroundTypeChange = (value: string) => {
-    const type = value as SceneBackgroundType;
-    form.setFieldValue("backgroundType", type);
-    form.setFieldValue("backgroundValue", type === "color" ? DEFAULT_SCENE_BACKGROUND_COLOR : "");
-    if (type !== "video") {
-      durationRequestRef.current += 1;
-      setDurationLoading(false);
-    }
-  };
-
-  const handleVideoUrlChange = (url: string) => {
-    form.setFieldValue("backgroundValue", url);
-    void syncDurationFromVideo(url);
-  };
-
-  const handleSubmit = form.onSubmit(async (values) => {
-    if (isEdit && scene?.id) {
-      const ok = await updateStoryboardScene(storyboardId, scene.id, values, scene.scene);
-      if (ok) handleClose();
-      return;
-    }
-
-    const created = await createStoryboardScene(storyboardId, values);
-    if (created?.id) {
-      setSelectedSceneId(created.id);
-      handleClose();
-    }
-  });
-
-  const backgroundType = form.values.backgroundType;
 
   return (
-    <Modal
-      opened={opened}
-      onClose={handleClose}
-      title={isEdit ? "Edit scene" : "Add scene"}
-      centered
-      size={isMobile ? "100%" : "md"}
-    >
-      <form onSubmit={handleSubmit}>
-        <Stack gap="md">
-          <TextInput label="Title" disabled={submitting} {...form.getInputProps("title")} />
-          <SegmentedControl
-            fullWidth
-            data={[...BACKGROUND_TYPE_OPTIONS]}
-            value={backgroundType}
-            onChange={handleBackgroundTypeChange}
-            disabled={submitting}
-          />
-          {backgroundType === "video" ? (
-            <SceneBackgroundMediaField
-              label="video"
-              allowedTypes="videos"
-              value={form.values.backgroundValue}
-              onChange={handleVideoUrlChange}
-            />
-          ) : null}
-          {backgroundType === "image" ? (
-            <SceneBackgroundMediaField
-              label="image"
-              allowedTypes="images"
-              value={form.values.backgroundValue}
-              onChange={(url) => form.setFieldValue("backgroundValue", url)}
-            />
-          ) : null}
-          {backgroundType === "color" ? (
-            <ColorInput
-              label="Background color"
-              format="hex"
-              disabled={submitting}
-              {...form.getInputProps("backgroundValue")}
-            />
-          ) : null}
-          {form.errors.backgroundValue ? (
-            <Input.Error>{form.errors.backgroundValue}</Input.Error>
-          ) : null}
-          <NumberInput
-            label="Duration (frames)"
-            description={
-              backgroundType === "video"
-                ? "Auto-set from video duration when a video is selected"
-                : undefined
-            }
-            min={1}
-            disabled={submitting || (backgroundType === "video" && durationLoading)}
-            rightSection={durationLoading ? <Loader size="xs" /> : undefined}
-            {...form.getInputProps("durationInFrames")}
-          />
-          <Group justify="flex-end" gap="xs">
-            <Button variant="default" onClick={handleClose} disabled={submitting} type="button">
-              Cancel
-            </Button>
-            <Button type="submit" loading={submitting}>
-              {isEdit ? "Save changes" : "Add scene"}
-            </Button>
-          </Group>
-        </Stack>
-      </form>
+    <Modal opened={opened} onClose={onClose} centered size={isMobile ? "100%" : "md"}>
+      <StoryboardSceneUpsertForm
+        storyboardId={storyboardId}
+        mode={mode}
+        active={opened}
+        scene={scene}
+        onCancel={onClose}
+        onCreated={() => onClose()}
+      />
     </Modal>
   );
 }

@@ -380,7 +380,7 @@ export default function CharacterLooksPanel({ characterId }: CharacterLooksPanel
                       return (
                         <Carousel.Slide key={view}>
                           <Box
-                            // h={200}
+                            mih={200}
                             w="100%"
                             pos="relative"
                             style={{

@@ -7,12 +7,14 @@ export function AddMediaZone({
   selectLabel,
   modalTitle,
   allowedTypes,
+  genModelId,
   onPickPath,
   onAddUrl,
 }: {
   selectLabel: string;
   modalTitle: string;
   allowedTypes: FileTypeFilter;
+  genModelId?: string;
   onPickPath: (path: string) => void;
   onAddUrl: (url: string) => void;
 }) {
@@ -30,6 +32,7 @@ export function AddMediaZone({
         onPasteUrl={onAddUrl}
         title={modalTitle}
         allowedTypes={allowedTypes}
+        genModelId={genModelId}
       />
     </Stack>
   );

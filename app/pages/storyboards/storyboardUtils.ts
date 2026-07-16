@@ -6,6 +6,14 @@ import {
   parseTransitionToNext,
   transitionOverlapFrames,
 } from "./sceneTransitionTypes";
+import {
+  defaultVideoPlaybackFormValues,
+  defaultVideoPlaybackOptions,
+  normalizeVideoPlaybackOptions,
+  videoPlaybackFormValuesFromOptions,
+  videoPlaybackOptionsFromForm,
+  type VideoPlaybackOptions,
+} from "./videoPlaybackOptions";
 export {
   defaultTransitionToNext,
   normalizeTransitionToNext,
@@ -210,22 +218,49 @@ export function nextSceneTitle(scenes: UserStoryboardScene[]): string {
 
 export type SceneBackgroundType = "video" | "image" | "color";
 
+export type SceneBackgroundData = {
+  type: SceneBackgroundType;
+  value: string;
+} & VideoPlaybackOptions;
+
 export type StoryboardSceneFormValues = {
   title: string;
   durationInFrames: number;
   backgroundType: SceneBackgroundType;
   backgroundValue: string;
+  backgroundVideoTrimBefore: number;
+  backgroundVideoTrimAfter: number | null;
+  backgroundVideoVolume: number;
+  backgroundVideoPlaybackRate: number;
 };
 
 export const DEFAULT_SCENE_BACKGROUND_COLOR = "#000000";
 export const DEFAULT_SCENE_DURATION_FRAMES = 90;
 
+export function sceneBackgroundData(
+  type: SceneBackgroundType,
+  value: string,
+  playback?: Partial<VideoPlaybackOptions>
+): SceneBackgroundData {
+  return {
+    type,
+    value,
+    ...defaultVideoPlaybackOptions(),
+    ...playback,
+  };
+}
+
 export function emptySceneFormValues(sceneIndex: number): StoryboardSceneFormValues {
+  const videoDefaults = defaultVideoPlaybackFormValues();
   return {
     title: `Scene ${sceneIndex + 1}`,
     durationInFrames: DEFAULT_SCENE_DURATION_FRAMES,
     backgroundType: "video",
     backgroundValue: "",
+    backgroundVideoTrimBefore: videoDefaults.trimBefore,
+    backgroundVideoTrimAfter: videoDefaults.trimAfter,
+    backgroundVideoVolume: videoDefaults.volume,
+    backgroundVideoPlaybackRate: videoDefaults.playbackRate,
   };
 }
 
@@ -252,9 +287,7 @@ export function layerDisplayTitle(layer: Pick<SceneLayer, "title">, index: numbe
   return layer.title?.trim() || defaultLayerTitle(index);
 }
 
-export type StoryboardSceneBackground = {
-  type: SceneBackgroundType;
-  value: string;
+export type StoryboardSceneBackground = SceneBackgroundData & {
   layers: SceneLayer[];
 };
 
@@ -272,6 +305,18 @@ export function parseSceneDurationInFrames(scene: unknown): number {
   return parsePositiveInt(raw.durationInFrames, DEFAULT_SCENE_DURATION_FRAMES);
 }
 
+function sceneBackgroundVideoFieldsFromForm(
+  values: StoryboardSceneFormValues
+): Partial<VideoPlaybackOptions> {
+  if (values.backgroundType !== "video") return {};
+  return videoPlaybackOptionsFromForm({
+    trimBefore: values.backgroundVideoTrimBefore,
+    trimAfter: values.backgroundVideoTrimAfter,
+    volume: values.backgroundVideoVolume,
+    playbackRate: values.backgroundVideoPlaybackRate,
+  });
+}
+
 export function scenePayloadFromForm(
   values: StoryboardSceneFormValues,
   existingScene?: unknown | null,
@@ -282,6 +327,8 @@ export function scenePayloadFromForm(
     background: {
       type: values.backgroundType,
       value: values.backgroundValue.trim(),
+      ...defaultVideoPlaybackOptions(),
+      ...sceneBackgroundVideoFieldsFromForm(values),
       layers: existingScene != null ? parseExistingSceneLayers(existingScene) : [],
     },
   };
@@ -298,24 +345,23 @@ export function scenePayloadFromForm(
   return payload;
 }
 
-export function parseSceneBackground(scene: unknown): {
-  type: SceneBackgroundType;
-  value: string;
-} {
+export function parseSceneBackground(scene: unknown): SceneBackgroundData {
+  const defaults = defaultVideoPlaybackOptions();
   if (!scene || typeof scene !== "object" || Array.isArray(scene)) {
-    return { type: "video", value: "" };
+    return { type: "video", value: "", ...defaults };
   }
   const background = (scene as Record<string, unknown>).background;
   if (!background || typeof background !== "object" || Array.isArray(background)) {
-    return { type: "video", value: "" };
+    return { type: "video", value: "", ...defaults };
   }
   const raw = background as Record<string, unknown>;
   const type = raw.type;
   const value = typeof raw.value === "string" ? raw.value : "";
+  const playback = type === "video" ? normalizeVideoPlaybackOptions(raw) : defaults;
   if (type === "video" || type === "image" || type === "color") {
-    return { type, value };
+    return { type, value, ...playback };
   }
-  return { type: "video", value };
+  return { type: "video", value, ...defaults };
 }
 
 function parseExistingSceneLayers(scene: unknown): SceneLayer[] {
@@ -348,6 +394,10 @@ export function buildScenePayloadFromExisting(
     background: {
       type: background.type,
       value: background.value,
+      trimBeforeFrames: background.trimBeforeFrames,
+      trimAfterFrames: background.trimAfterFrames,
+      volume: background.volume,
+      playbackRate: background.playbackRate,
       layers: sanitizeLayersForSave(layers),
     },
   };
@@ -448,21 +498,23 @@ export function createDefaultSceneLayer(
 
 export function sceneFormFromRow(scene: UserStoryboardScene): StoryboardSceneFormValues {
   const background = parseSceneBackground(scene.scene);
+  const videoForm = videoPlaybackFormValuesFromOptions(background);
   return {
     title: scene.title?.trim() || "Untitled scene",
     durationInFrames: parseSceneDurationInFrames(scene.scene),
     backgroundType: background.type,
     backgroundValue:
       background.value || (background.type === "color" ? DEFAULT_SCENE_BACKGROUND_COLOR : ""),
+    backgroundVideoTrimBefore: videoForm.trimBefore,
+    backgroundVideoTrimAfter: videoForm.trimAfter,
+    backgroundVideoVolume: videoForm.volume,
+    backgroundVideoPlaybackRate: videoForm.playbackRate,
   };
 }
 
 export type StoryboardPlayerScene = {
   durationInFrames: number;
-  background: {
-    type: SceneBackgroundType;
-    value: string;
-  };
+  background: SceneBackgroundData;
   layers: SceneLayer[];
   transitionToNext?: SceneTransitionToNext;
 };

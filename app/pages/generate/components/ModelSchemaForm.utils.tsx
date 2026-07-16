@@ -712,9 +712,17 @@ export function isMediaFieldName(
 export function resolveMediaPickerSettings(
   key: string,
   prop: JsonSchemaProperty
-): { min: number; max: number; allowed_file_types: Array<"image" | "video" | "audio"> } {
+): {
+  min: number;
+  max: number;
+  allowed_file_types: Array<"image" | "video" | "audio">;
+  gen_model_id?: string;
+} {
   const normalized = normalizedFieldName(key);
   const settings = getXUiSettings(prop);
+  const genModelIdRaw = settings.gen_model_id ?? settings.genModelId;
+  const gen_model_id =
+    typeof genModelIdRaw === "string" && genModelIdRaw.trim() ? genModelIdRaw.trim() : undefined;
   const allowed_file_types: Array<"image" | "video" | "audio"> =
     resolveExplicitAllowedFileTypes(prop) ??
     (normalized === "image" ||
@@ -764,7 +772,7 @@ export function resolveMediaPickerSettings(
     max = min;
   }
 
-  return { min, max, allowed_file_types };
+  return { min, max, allowed_file_types, ...(gen_model_id ? { gen_model_id } : {}) };
 }
 
 /** Field schema for `MediaFilePicker`: keep structured `x-ui-component` or synthesize from `resolveMediaPickerSettings`. */
