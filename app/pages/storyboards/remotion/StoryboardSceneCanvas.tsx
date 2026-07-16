@@ -28,7 +28,7 @@ export function StoryboardSceneCanvas({
 
   return (
     <AbsoluteFill onPointerDown={onPointerDown}>
-      <SceneBackground type={background.type} value={background.value} />
+      <SceneBackground {...background} />
       <AbsoluteFill style={layerContainer}>
         {layers.map((layer) => (
           <SceneLayerItem key={layer.id} layer={layer} />

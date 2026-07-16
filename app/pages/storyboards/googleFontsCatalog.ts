@@ -143,8 +143,13 @@ export function getGoogleFontCatalogEntry(importName: string): GoogleFontCatalog
 
 const loadedFontFamilies = new Map<string, string>();
 
-export async function loadGoogleFontFamily(importName: string): Promise<string> {
-  const cached = loadedFontFamilies.get(importName);
+export async function loadGoogleFontFamily(
+  importName: string,
+  options?: { bold?: boolean }
+): Promise<string> {
+  const weights = options?.bold ? (["400", "700"] as const) : (["400"] as const);
+  const cacheKey = `${importName}:${weights.join(",")}`;
+  const cached = loadedFontFamilies.get(cacheKey);
   if (cached) return cached;
 
   const entry = getGoogleFontCatalogEntry(importName);
@@ -152,9 +157,9 @@ export async function loadGoogleFontFamily(importName: string): Promise<string> 
 
   const mod = await entry.load();
   const { fontFamily } = mod.loadFont("normal", {
-    weights: ["400"],
+    weights: [...weights],
     subsets: ["latin"],
   });
-  loadedFontFamilies.set(importName, fontFamily);
+  loadedFontFamilies.set(cacheKey, fontFamily);
   return fontFamily;
 }

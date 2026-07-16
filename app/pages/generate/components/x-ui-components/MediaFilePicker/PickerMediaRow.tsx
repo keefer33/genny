@@ -13,6 +13,7 @@ import { buildMinimalFile, fetchUserFileByPath } from "./mediaFilePickerByPath";
 export function PickerMediaRow({
   fileUrl,
   allowedTypes,
+  genModelId,
   modalTitle,
   onReplace,
   onRemove,
@@ -20,6 +21,7 @@ export function PickerMediaRow({
 }: {
   fileUrl: string;
   allowedTypes: FileTypeFilter;
+  genModelId?: string;
   modalTitle: string;
   onReplace: (path: string, file?: any) => void;
   onRemove: () => void;
@@ -165,6 +167,7 @@ export function PickerMediaRow({
         }}
         title={modalTitle}
         allowedTypes={allowedTypes}
+        genModelId={genModelId}
       />
 
       {previewOpen && selectedFile && (

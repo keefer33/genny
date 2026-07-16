@@ -275,7 +275,6 @@ const useGenerationsStoreBase = create<GenerationsStoreState>((set, get) => ({
     }
   },
   calculateGenerateCost: async (input) => {
-    console.log("input", input);
     set({ costLoading: true, costError: null });
     try {
       const data = await authFetchJson<GenerateCostResponse>(

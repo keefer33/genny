@@ -1,4 +1,4 @@
-import { DEFAULT_SCENE_BACKGROUND_COLOR } from "../storyboardUtils";
+import { DEFAULT_SCENE_BACKGROUND_COLOR, sceneBackgroundData } from "../storyboardUtils";
 import type { StoryboardCompositionProps } from "./sceneLayerTypes";
 import { StoryboardMultiSceneCanvas } from "./StoryboardMultiSceneCanvas";
 import { StoryboardSceneCanvas } from "./StoryboardSceneCanvas";
@@ -6,7 +6,7 @@ import { StoryboardSceneCanvas } from "./StoryboardSceneCanvas";
 const noop = () => undefined;
 
 const defaultProps: StoryboardCompositionProps = {
-  background: { type: "color", value: DEFAULT_SCENE_BACKGROUND_COLOR },
+  background: sceneBackgroundData("color", DEFAULT_SCENE_BACKGROUND_COLOR),
   layers: [],
   selectedLayerId: null,
   setSelectedLayerId: noop,
@@ -16,7 +16,20 @@ const defaultProps: StoryboardCompositionProps = {
 
 export function MyComposition(props: StoryboardCompositionProps) {
   if (props.scenes && props.scenes.length > 0) {
-    return <StoryboardMultiSceneCanvas scenes={props.scenes} />;
+    return (
+      <StoryboardMultiSceneCanvas
+        scenes={props.scenes}
+        baseLayers={props.baseLayers}
+        width={props.width}
+        height={props.height}
+        selectedSceneIndex={props.selectedSceneIndex ?? null}
+        isBaseSceneSelected={props.isBaseSceneSelected ?? false}
+        selectedLayerId={props.selectedLayerId}
+        setSelectedLayerId={props.setSelectedLayerId}
+        changeLayer={props.changeLayer}
+        onLayersPersist={props.onLayersPersist}
+      />
+    );
   }
 
   return <StoryboardSceneCanvas {...props} />;
