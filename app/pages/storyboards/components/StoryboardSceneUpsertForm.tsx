@@ -35,10 +35,22 @@ const BACKGROUND_TYPE_OPTIONS = [
   { label: "Color", value: "color" },
 ] as const;
 
+const AUTOSAVE_MS = 400;
+
 function backgroundValueLabel(type: SceneBackgroundType): string {
   if (type === "video") return "Background video";
   if (type === "image") return "Background image";
   return "Background color";
+}
+
+function sceneFormSignature(values: StoryboardSceneFormValues): string {
+  return JSON.stringify(values);
+}
+
+function isSceneFormValid(values: StoryboardSceneFormValues): boolean {
+  if (!Number.isFinite(values.durationInFrames) || values.durationInFrames < 1) return false;
+  if (!values.backgroundValue.trim()) return false;
+  return true;
 }
 
 type StoryboardSceneUpsertFormProps = {
@@ -78,6 +90,13 @@ export function StoryboardSceneUpsertForm({
   const submitting = isEdit ? updateSceneLoading : createSceneLoading;
   const [durationLoading, setDurationLoading] = useState(false);
   const durationRequestRef = useRef(0);
+  const skipAutosaveRef = useRef(false);
+  const saveTimerRef = useRef<number | null>(null);
+  const lastSavedRef = useRef("");
+  const pendingValuesRef = useRef<StoryboardSceneFormValues | null>(null);
+  const existingSceneRef = useRef(scene?.scene);
+
+  existingSceneRef.current = scene?.scene;
 
   const form = useForm<StoryboardSceneFormValues>({
     initialValues: emptySceneFormValues(sceneCount),
@@ -97,11 +116,68 @@ export function StoryboardSceneUpsertForm({
     },
   });
 
+  const clearSaveTimer = () => {
+    if (saveTimerRef.current != null) {
+      window.clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+  };
+
+  const persistScene = useCallback(
+    (values: StoryboardSceneFormValues) => {
+      if (!isEdit || !scene?.id) return;
+      const signature = sceneFormSignature(values);
+      if (signature === lastSavedRef.current) return;
+
+      pendingValuesRef.current = values;
+      clearSaveTimer();
+      saveTimerRef.current = window.setTimeout(() => {
+        saveTimerRef.current = null;
+        pendingValuesRef.current = null;
+        lastSavedRef.current = signature;
+        void updateStoryboardScene(storyboardId, scene.id, values, existingSceneRef.current, {
+          silent: true,
+        });
+      }, AUTOSAVE_MS);
+    },
+    [isEdit, scene?.id, storyboardId, updateStoryboardScene]
+  );
+
   useEffect(() => {
     if (!active) return;
-    form.setValues(scene ? sceneFormFromRow(scene) : emptySceneFormValues(sceneCount));
+    skipAutosaveRef.current = true;
+    clearSaveTimer();
+    pendingValuesRef.current = null;
+
+    const nextValues = scene ? sceneFormFromRow(scene) : emptySceneFormValues(sceneCount);
+    lastSavedRef.current = scene ? sceneFormSignature(nextValues) : "";
+    form.setValues(nextValues);
     form.resetDirty();
-  }, [active, scene, sceneCount]);
+    queueMicrotask(() => {
+      skipAutosaveRef.current = false;
+    });
+    // Rehydrate on open / scene switch only — not on every server echo after autosave.
+  }, [active, scene?.id, mode, sceneCount]);
+
+  useEffect(() => {
+    if (!active || !isEdit || !scene?.id || skipAutosaveRef.current) return;
+    if (!isSceneFormValid(form.values)) return;
+    persistScene(form.values);
+  }, [active, isEdit, scene?.id, form.values, persistScene]);
+
+  useEffect(() => {
+    if (!isEdit || !scene?.id) return;
+    return () => {
+      clearSaveTimer();
+      const pending = pendingValuesRef.current;
+      if (!pending) return;
+      lastSavedRef.current = sceneFormSignature(pending);
+      void updateStoryboardScene(storyboardId, scene.id, pending, existingSceneRef.current, {
+        silent: true,
+      });
+      pendingValuesRef.current = null;
+    };
+  }, [isEdit, scene?.id, storyboardId, updateStoryboardScene]);
 
   const syncDurationFromVideo = useCallback(
     async (url: string) => {
@@ -139,10 +215,7 @@ export function StoryboardSceneUpsertForm({
   };
 
   const handleSubmit = form.onSubmit(async (values) => {
-    if (isEdit && scene?.id) {
-      await updateStoryboardScene(storyboardId, scene.id, values, scene.scene);
-      return;
-    }
+    if (isEdit) return;
 
     const created = await createStoryboardScene(storyboardId, values);
     if (created?.id) {
@@ -153,6 +226,8 @@ export function StoryboardSceneUpsertForm({
 
   const handleDelete = async () => {
     if (!isEdit || !scene?.id) return;
+    clearSaveTimer();
+    pendingValuesRef.current = null;
     const ok = await deleteStoryboardScene(storyboardId, scene.id);
     if (ok) onDeleted?.();
   };
@@ -169,13 +244,17 @@ export function StoryboardSceneUpsertForm({
     <form onSubmit={handleSubmit}>
       <Stack gap="md">
         <Title order={5}>{isEdit ? "Edit scene" : "Add scene"}</Title>
-        <TextInput label="Title" disabled={submitting} {...form.getInputProps("title")} />
+        <TextInput
+          label="Title"
+          disabled={!isEdit && submitting}
+          {...form.getInputProps("title")}
+        />
         <SegmentedControl
           fullWidth
           data={[...BACKGROUND_TYPE_OPTIONS]}
           value={backgroundType}
           onChange={handleBackgroundTypeChange}
-          disabled={submitting}
+          disabled={!isEdit && submitting}
         />
         {backgroundType === "video" ? (
           <Stack gap="sm">
@@ -186,7 +265,7 @@ export function StoryboardSceneUpsertForm({
               onChange={handleVideoUrlChange}
             />
             <VideoPlaybackOptionsFields
-              disabled={submitting}
+              disabled={!isEdit && submitting}
               values={{
                 trimBefore: form.values.backgroundVideoTrimBefore,
                 trimAfter: form.values.backgroundVideoTrimAfter,
@@ -222,7 +301,7 @@ export function StoryboardSceneUpsertForm({
           <ColorInput
             label="Background color"
             format="hex"
-            disabled={submitting}
+            disabled={!isEdit && submitting}
             {...form.getInputProps("backgroundValue")}
           />
         ) : null}
@@ -237,7 +316,7 @@ export function StoryboardSceneUpsertForm({
               : undefined
           }
           min={1}
-          disabled={submitting || (backgroundType === "video" && durationLoading)}
+          disabled={(!isEdit && submitting) || (backgroundType === "video" && durationLoading)}
           rightSection={durationLoading ? <Loader size="xs" /> : undefined}
           {...form.getInputProps("durationInFrames")}
         />
@@ -245,7 +324,6 @@ export function StoryboardSceneUpsertForm({
           <Button
             type="button"
             variant="light"
-            disabled={submitting}
             onClick={() =>
               openTransitionModal(
                 storyboardId,
@@ -264,7 +342,7 @@ export function StoryboardSceneUpsertForm({
               type="button"
               variant="light"
               color="red"
-              disabled={submitting || deletingSceneId === scene?.id}
+              disabled={deletingSceneId === scene?.id}
               loading={deletingSceneId === scene?.id}
               onClick={() => void handleDelete()}
             >
@@ -275,13 +353,20 @@ export function StoryboardSceneUpsertForm({
           )}
           <Group gap="xs" justify="flex-end">
             {onCancel ? (
-              <Button variant="default" onClick={onCancel} disabled={submitting} type="button">
-                Cancel
+              <Button
+                variant="default"
+                onClick={onCancel}
+                disabled={!isEdit && submitting}
+                type="button"
+              >
+                {isEdit ? "Close" : "Cancel"}
               </Button>
             ) : null}
-            <Button type="submit" loading={submitting}>
-              {isEdit ? "Save changes" : "Add scene"}
-            </Button>
+            {!isEdit ? (
+              <Button type="submit" loading={submitting}>
+                Add scene
+              </Button>
+            ) : null}
           </Group>
         </Group>
       </Stack>

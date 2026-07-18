@@ -13,12 +13,14 @@ const noop = () => undefined;
 type StoryboardMultiSceneCanvasProps = {
   scenes: StoryboardRenderScene[];
   baseLayers?: StoryboardCompositionProps["baseLayers"];
+  baseSceneId?: string | null;
   width?: number;
   height?: number;
   selectedSceneIndex: number | null;
   isBaseSceneSelected?: boolean;
   selectedLayerId: string | null;
   setSelectedLayerId: (id: string | null) => void;
+  onSelectLayer: (sceneId: string, layerId: string) => void;
   changeLayer: StoryboardCompositionProps["changeLayer"];
   onLayersPersist: () => void;
 };
@@ -26,12 +28,14 @@ type StoryboardMultiSceneCanvasProps = {
 export function StoryboardMultiSceneCanvas({
   scenes,
   baseLayers = [],
+  baseSceneId = null,
   width,
   height,
   selectedSceneIndex,
   isBaseSceneSelected = false,
   selectedLayerId,
   setSelectedLayerId,
+  onSelectLayer,
   changeLayer,
   onLayersPersist,
 }: StoryboardMultiSceneCanvasProps) {
@@ -44,13 +48,26 @@ export function StoryboardMultiSceneCanvas({
     scenes.forEach((scene, index) => {
       const isActiveScene = !isBaseSceneSelected && selectedSceneIndex === index;
 
+      const handleSetSelectedLayerId = (layerId: string | null) => {
+        if (!layerId) {
+          // Only the active scene may clear selection via background click.
+          if (isActiveScene) setSelectedLayerId(null);
+          return;
+        }
+        // Selecting a layer in any scene switches to that scene and opens the editor.
+        onSelectLayer(scene.id, layerId);
+      };
+
       nodes.push(
-        <TransitionSeries.Sequence key={`scene-${index}`} durationInFrames={scene.durationInFrames}>
+        <TransitionSeries.Sequence
+          key={`scene-${scene.id}`}
+          durationInFrames={scene.durationInFrames}
+        >
           <StoryboardSceneCanvas
             background={scene.background}
             layers={scene.layers}
             selectedLayerId={isActiveScene ? selectedLayerId : null}
-            setSelectedLayerId={isActiveScene ? setSelectedLayerId : noop}
+            setSelectedLayerId={handleSetSelectedLayerId}
             changeLayer={isActiveScene ? changeLayer : noop}
             onLayersPersist={isActiveScene ? onLayersPersist : noop}
           />
@@ -61,7 +78,7 @@ export function StoryboardMultiSceneCanvas({
         const transition = scene.transitionToNext;
         nodes.push(
           <TransitionSeries.Transition
-            key={`transition-${index}`}
+            key={`transition-${scene.id}`}
             presentation={
               resolveTransitionPresentation(transition, resolveContext) as TransitionPresentation<
                 Record<string, unknown>
@@ -78,6 +95,7 @@ export function StoryboardMultiSceneCanvas({
     changeLayer,
     isBaseSceneSelected,
     onLayersPersist,
+    onSelectLayer,
     resolveContext,
     scenes,
     selectedLayerId,
@@ -88,7 +106,7 @@ export function StoryboardMultiSceneCanvas({
   return (
     <AbsoluteFill>
       <TransitionSeries>{children}</TransitionSeries>
-      {baseLayers.length > 0 ? (
+      {baseLayers.length > 0 && baseSceneId ? (
         <AbsoluteFill style={{ pointerEvents: isBaseSceneSelected ? "auto" : "none" }}>
           {baseLayers.map((layer) => (
             <SceneLayerItem key={layer.id} layer={layer} />
@@ -98,7 +116,13 @@ export function StoryboardMultiSceneCanvas({
               layers={baseLayers}
               selectedLayerId={selectedLayerId}
               changeLayer={changeLayer}
-              setSelectedLayerId={setSelectedLayerId}
+              setSelectedLayerId={(layerId) => {
+                if (!layerId) {
+                  setSelectedLayerId(null);
+                  return;
+                }
+                onSelectLayer(baseSceneId, layerId);
+              }}
               onLayersPersist={onLayersPersist}
             />
           ) : null}

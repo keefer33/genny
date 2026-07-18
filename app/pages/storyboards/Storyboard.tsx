@@ -1,6 +1,6 @@
 import type { StoryboardCompositionProps } from "./remotion/sceneLayerTypes";
 import { AppShell, Box, Button, Center, Group, Loader, Stack, Text, Title } from "@mantine/core";
-import { RiArrowLeftLine, RiFilmLine } from "@remixicon/react";
+import { RiArrowLeftLine, RiFilmLine, RiHistoryLine } from "@remixicon/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router";
 import { useUserProfileUsageBalanceRealtime } from "~/lib/hooks/useUserRealtimeChannels";
@@ -56,15 +56,22 @@ export default function Storyboard() {
   const saveStoryboardSceneLayers = useStoryboardsStore((s) => s.saveStoryboardSceneLayers);
   const renderStoryboard = useStoryboardsStore((s) => s.renderStoryboard);
   const renderStoryboardLoading = useStoryboardsStore((s) => s.renderStoryboardLoading);
+  const openRendersPanel = useStoryboardsStore((s) => s.openRendersPanel);
+  const loadStoryboardRenders = useStoryboardsStore((s) => s.loadStoryboardRenders);
+  const rendersPanelOpened = useStoryboardsStore((s) => s.rendersPanelOpened);
+  const storyboardRenders = useStoryboardsStore((s) => s.storyboardRenders);
   const selectedSceneId = useStoryboardsStore((s) => s.selectedSceneId);
   const selectedLayerId = useStoryboardsStore((s) => s.selectedLayerId);
   const layerItems = useStoryboardsStore((s) => s.layerItems);
   const setSelectedLayerId = useStoryboardsStore((s) => s.setSelectedLayerId);
+  const selectStoryboardLayer = useStoryboardsStore((s) => s.selectStoryboardLayer);
   const changeLayer = useStoryboardsStore((s) => s.changeLayer);
   const syncSceneSelection = useStoryboardsStore((s) => s.syncSceneSelection);
   const syncLayersFromSelectedScene = useStoryboardsStore((s) => s.syncLayersFromSelectedScene);
   const clearTransitionSaveTimers = useStoryboardsStore((s) => s.clearTransitionSaveTimers);
   const playerRef = useRef<PlayerRef>(null);
+  /** Hide timeline playhead jitter while the first-frame paint nudge seeks. */
+  const suppressPlayheadSyncRef = useRef(false);
   const [playerZoom, setPlayerZoom] = useState(1);
 
   const handlePlayerZoomIn = useCallback(() => {
@@ -133,17 +140,56 @@ export default function Storyboard() {
     return Boolean(baseScene && baseScene.id === selectedSceneId);
   }, [storyboardScenes, selectedSceneId]);
 
+  const lastSeekSelectionRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    lastSeekSelectionRef.current = null;
+  }, [id]);
+
+  // Seek the player when scene/layer selection changes. Retry until Player is mounted
+  // (viewport measure can lag behind selection sync on refresh). Do not re-seek on
+  // scene data reloads — that cancels the first-frame paint nudge.
   useEffect(() => {
     if (!selectedSceneId) return;
 
-    const layer =
-      selectedLayerId && selectedSceneId
-        ? layerItems.find((row) => row.id === selectedLayerId)
-        : undefined;
-    const frame = storyboardSeekFrameForSceneId(storyboardScenes, selectedSceneId, layer?.from);
-    const clampedFrame = Math.min(Math.max(0, frame), Math.max(0, totalDurationInFrames - 1));
-    playerRef.current?.seekTo(clampedFrame);
-  }, [selectedSceneId, selectedLayerId, storyboardScenes, totalDurationInFrames]);
+    const selectionKey = `${selectedSceneId}:${selectedLayerId ?? ""}`;
+    let cancelled = false;
+    let intervalId: number | undefined;
+
+    const trySeek = (): boolean => {
+      if (cancelled) return true;
+      if (lastSeekSelectionRef.current === selectionKey) return true;
+
+      const player = playerRef.current;
+      if (!player) return false;
+
+      const layer =
+        selectedLayerId && selectedSceneId
+          ? layerItems.find((row) => row.id === selectedLayerId)
+          : undefined;
+      const frame = storyboardSeekFrameForSceneId(storyboardScenes, selectedSceneId, layer?.from);
+      const clampedFrame = Math.min(Math.max(0, frame), Math.max(0, totalDurationInFrames - 1));
+
+      lastSeekSelectionRef.current = selectionKey;
+      if (player.getCurrentFrame() !== clampedFrame) {
+        player.seekTo(clampedFrame);
+      }
+      return true;
+    };
+
+    if (!trySeek()) {
+      intervalId = window.setInterval(() => {
+        if (trySeek() && intervalId !== undefined) {
+          window.clearInterval(intervalId);
+        }
+      }, 50);
+    }
+
+    return () => {
+      cancelled = true;
+      if (intervalId !== undefined) window.clearInterval(intervalId);
+    };
+  }, [selectedSceneId, selectedLayerId, storyboardScenes, totalDurationInFrames, layerItems]);
 
   const settings = useMemo(
     () => parseStoryboardSettings(selectedStoryboard?.settings),
@@ -166,6 +212,18 @@ export default function Storyboard() {
     void saveStoryboardSceneLayers(id, selectedSceneId, layers, { silent: true });
   }, [id, saveStoryboardSceneLayers, selectedSceneId]);
 
+  const handleSelectLayerFromCanvas = useCallback(
+    (sceneId: string, layerId: string) => {
+      selectStoryboardLayer(id, sceneId, layerId);
+    },
+    [id, selectStoryboardLayer]
+  );
+
+  const baseSceneId = useMemo(
+    () => getBaseStoryboardScene(storyboardScenes)?.id ?? null,
+    [storyboardScenes]
+  );
+
   const playerInputProps = useMemo<StoryboardCompositionProps>(
     () => ({
       width: settings.width ?? 1920,
@@ -174,23 +232,28 @@ export default function Storyboard() {
       durationInFrames: totalDurationInFrames,
       scenes: playerScenes,
       baseLayers,
+      baseSceneId,
       selectedSceneIndex: selectedRegularSceneIndex >= 0 ? selectedRegularSceneIndex : null,
       isBaseSceneSelected,
       background: sceneBackgroundData("color", "#000000"),
       layers: [],
       selectedLayerId,
       setSelectedLayerId,
+      onSelectLayer: handleSelectLayerFromCanvas,
       changeLayer,
       onLayersPersist: handleLayersPersist,
     }),
     [
       baseLayers,
+      baseSceneId,
       changeLayer,
       handleLayersPersist,
+      handleSelectLayerFromCanvas,
       isBaseSceneSelected,
       playerScenes,
       selectedLayerId,
       selectedRegularSceneIndex,
+      setSelectedLayerId,
       settings,
       totalDurationInFrames,
     ]
@@ -224,7 +287,7 @@ export default function Storyboard() {
     return null;
   }
 
-  const shellBg = themeSettings.colorScheme === "dark" ? "dark.7" : "white";
+  const shellBg = themeSettings.colorScheme === "dark" ? "dark.6" : "gray.0";
 
   return (
     <>
@@ -236,9 +299,9 @@ export default function Storyboard() {
         aside={{ width: EDITOR_ASIDE_WIDTH, breakpoint: "md" }}
         footer={{ height: EDITOR_FOOTER_HEIGHT }}
         padding="0"
-        withBorder={false}
+        withBorder={true}
       >
-        <AppShell.Header bg={shellBg} withBorder>
+        <AppShell.Header bg={shellBg}>
           <Group h="100%" px="md" justify="space-between" wrap="nowrap" gap="md">
             <Group gap="md" wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
               <Group gap="xs" wrap="nowrap">
@@ -260,6 +323,17 @@ export default function Storyboard() {
                   onClick={() => void renderStoryboard(id)}
                 >
                   Render video
+                </Button>
+                <Button
+                  size="compact-sm"
+                  variant={rendersPanelOpened ? "filled" : "default"}
+                  leftSection={<RiHistoryLine size={16} />}
+                  onClick={() => {
+                    openRendersPanel();
+                    void loadStoryboardRenders(id, { silent: true });
+                  }}
+                >
+                  Renders{storyboardRenders.length > 0 ? ` (${storyboardRenders.length})` : ""}
                 </Button>
               </Group>
               <Stack gap={0} style={{ flex: 1, minWidth: 0 }}>
@@ -287,11 +361,11 @@ export default function Storyboard() {
           </Group>
         </AppShell.Header>
 
-        <AppShell.Navbar p={0} bg={shellBg} withBorder>
+        <AppShell.Navbar p={0} bg={shellBg}>
           <StoryboardSceneList storyboardId={id} />
         </AppShell.Navbar>
 
-        <AppShell.Aside p={0} bg={shellBg} withBorder>
+        <AppShell.Aside p={0} bg={shellBg}>
           <StoryboardEditorAside storyboardId={id} />
         </AppShell.Aside>
 
@@ -316,6 +390,8 @@ export default function Storyboard() {
               playerRef={playerRef}
               zoom={playerZoom}
               playerKey={`${id}-${storyboardScenes.length}`}
+              paintNudgeKey={`${selectedSceneId ?? ""}:${selectedLayerId ?? ""}`}
+              suppressPlayheadSyncRef={suppressPlayheadSyncRef}
             />
           ) : (
             <Center h="100%">
@@ -334,6 +410,8 @@ export default function Storyboard() {
                 playerRef={playerRef}
                 totalDurationInFrames={totalDurationInFrames}
                 fps={playerProps.fps}
+                playerKey={`${id}-${storyboardScenes.length}`}
+                suppressPlayheadSyncRef={suppressPlayheadSyncRef}
               />
             ) : null}
           </Box>
