@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { Audio, Video } from "@remotion/media";
+import { Audio } from "@remotion/media";
 import { Img, continueRender, delayRender } from "remotion";
 import { AnimatedText } from "remotion-bits";
 import { loadGoogleFontFamily } from "../googleFontsCatalog";
 import type { LayerContent } from "../layerContentTypes";
-import { html5AudioPlaybackProps, offthreadVideoPlaybackProps } from "../videoPlaybackOptions";
+import { html5AudioPlaybackProps } from "../videoPlaybackOptions";
+import { StoryboardVideo } from "./StoryboardVideo";
 
 const fillStyle: React.CSSProperties = {
   width: "100%",
@@ -77,7 +78,14 @@ function LayerAudioContent({ content }: { content: Extract<LayerContent, { type:
 
 function LayerVideoContent({ content }: { content: Extract<LayerContent, { type: "video" }> }) {
   return (
-    <Video src={content.url.trim()} style={fillStyle} {...offthreadVideoPlaybackProps(content)} />
+    <StoryboardVideo
+      src={content.url.trim()}
+      objectFit="cover"
+      trimBeforeFrames={content.trimBeforeFrames}
+      trimAfterFrames={content.trimAfterFrames}
+      volume={content.volume}
+      playbackRate={content.playbackRate}
+    />
   );
 }
 

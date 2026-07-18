@@ -1,5 +1,5 @@
 import { DEFAULT_GOOGLE_FONT_IMPORT_NAME, getGoogleFontCatalogEntry } from "./googleFontsCatalog";
-import type { SceneLayer } from "./storyboardUtils";
+import { defaultLayerBoxStyle, type SceneLayer } from "./storyboardUtils";
 import {
   defaultVideoPlaybackFormValues,
   defaultVideoPlaybackOptions,
@@ -85,6 +85,17 @@ export type LayerEditFormValues = {
   from: number;
   to: number;
   color: string;
+  padding: number;
+  border: boolean;
+  borderWidth: number;
+  borderColor: string;
+  borderRadius: number;
+  shadow: boolean;
+  shadowOffsetX: number;
+  shadowOffsetY: number;
+  shadowBlur: number;
+  shadowSpread: number;
+  shadowColor: string;
   contentType: LayerContentType;
   videoUrl: string;
   videoTrimBefore: number;
@@ -345,11 +356,32 @@ export function layerEditFormFromLayer(layer: SceneLayer): LayerEditFormValues {
   const transition =
     content.type === "animatedText" ? content.transition : animatedDefaults.transition;
 
+  const box = defaultLayerBoxStyle();
+
   return {
     title: layer.title,
     from: layer.from,
     to: layerEndFrameFromLayer(layer),
     color: layer.color,
+    padding: typeof layer.padding === "number" ? layer.padding : box.padding,
+    border: layer.border === true,
+    borderWidth: typeof layer.borderWidth === "number" ? layer.borderWidth : box.borderWidth,
+    borderColor:
+      typeof layer.borderColor === "string" && layer.borderColor.trim()
+        ? layer.borderColor
+        : box.borderColor,
+    borderRadius: typeof layer.borderRadius === "number" ? layer.borderRadius : box.borderRadius,
+    shadow: layer.shadow === true,
+    shadowOffsetX:
+      typeof layer.shadowOffsetX === "number" ? layer.shadowOffsetX : box.shadowOffsetX,
+    shadowOffsetY:
+      typeof layer.shadowOffsetY === "number" ? layer.shadowOffsetY : box.shadowOffsetY,
+    shadowBlur: typeof layer.shadowBlur === "number" ? layer.shadowBlur : box.shadowBlur,
+    shadowSpread: typeof layer.shadowSpread === "number" ? layer.shadowSpread : box.shadowSpread,
+    shadowColor:
+      typeof layer.shadowColor === "string" && layer.shadowColor.trim()
+        ? layer.shadowColor
+        : box.shadowColor,
     contentType: content.type,
     videoUrl: content.type === "video" ? content.url : "",
     videoTrimBefore:
@@ -457,6 +489,17 @@ export function layerFromEditForm(layer: SceneLayer, values: LayerEditFormValues
     from: timing.from,
     durationInFrames: timing.durationInFrames,
     color: values.color,
+    padding: Math.max(0, Math.round(values.padding)),
+    border: values.border,
+    borderWidth: Math.max(0, Math.round(values.borderWidth)),
+    borderColor: values.borderColor.trim() || defaultLayerBoxStyle().borderColor,
+    borderRadius: Math.max(0, Math.round(values.borderRadius)),
+    shadow: values.shadow,
+    shadowOffsetX: Math.round(values.shadowOffsetX),
+    shadowOffsetY: Math.round(values.shadowOffsetY),
+    shadowBlur: Math.max(0, Math.round(values.shadowBlur)),
+    shadowSpread: Math.round(values.shadowSpread),
+    shadowColor: values.shadowColor.trim() || defaultLayerBoxStyle().shadowColor,
     content: contentFromEditForm(values),
   };
 }
@@ -464,11 +507,23 @@ export function layerFromEditForm(layer: SceneLayer, values: LayerEditFormValues
 export function emptyLayerEditForm(sceneDurationInFrames = 90): LayerEditFormValues {
   const textDefaults = defaultLayerTextContent();
   const maxFrame = Math.max(0, sceneDurationInFrames - 1);
+  const box = defaultLayerBoxStyle();
   return {
     title: "Layer 1",
     from: 0,
     to: maxFrame,
     color: "transparent",
+    padding: box.padding,
+    border: box.border,
+    borderWidth: box.borderWidth,
+    borderColor: box.borderColor,
+    borderRadius: box.borderRadius,
+    shadow: box.shadow,
+    shadowOffsetX: box.shadowOffsetX,
+    shadowOffsetY: box.shadowOffsetY,
+    shadowBlur: box.shadowBlur,
+    shadowSpread: box.shadowSpread,
+    shadowColor: box.shadowColor,
     contentType: "text",
     videoUrl: "",
     ...videoFormDefaults(),

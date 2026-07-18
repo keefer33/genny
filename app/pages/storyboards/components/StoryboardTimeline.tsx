@@ -16,6 +16,10 @@ type StoryboardTimelineProps = {
   playerRef: React.RefObject<PlayerRef | null>;
   totalDurationInFrames: number;
   fps: number;
+  /** Remount / ready signal so listeners attach after Player exists. */
+  playerKey?: string;
+  /** Skip playhead updates while paint-nudge seeks are in flight. */
+  suppressPlayheadSyncRef?: React.RefObject<boolean>;
 };
 
 function frameFromPointerX(
@@ -34,6 +38,8 @@ export function StoryboardTimeline({
   playerRef,
   totalDurationInFrames,
   fps,
+  playerKey,
+  suppressPlayheadSyncRef,
 }: StoryboardTimelineProps) {
   const storyboardScenes = useStoryboardsStore((s) => s.storyboardScenes);
   const selectedSceneId = useStoryboardsStore((s) => s.selectedSceneId);
@@ -44,8 +50,11 @@ export function StoryboardTimeline({
 
   const [currentFrame, setCurrentFrame] = useState(0);
   const [isScrubbing, setIsScrubbing] = useState(false);
+  const isScrubbingRef = useRef(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+
+  isScrubbingRef.current = isScrubbing;
 
   const tracks = useMemo(
     () => buildStoryboardTimelineTracks(storyboardScenes, selectedSceneId, layerItems),
@@ -130,24 +139,46 @@ export function StoryboardTimeline({
   );
 
   useEffect(() => {
-    const player = playerRef.current;
-    if (!player) return;
+    let cancelled = false;
+    let remove: (() => void) | undefined;
+    let intervalId: number | undefined;
 
-    const onFrameUpdate = (event: { detail: { frame: number } }) => {
-      if (!isScrubbing) {
+    const attach = (): boolean => {
+      if (cancelled) return true;
+      const player = playerRef.current;
+      if (!player) return false;
+
+      const onFrameUpdate = (event: { detail: { frame: number } }) => {
+        if (isScrubbingRef.current) return;
+        if (suppressPlayheadSyncRef?.current) return;
         setCurrentFrame(event.detail.frame);
-      }
+      };
+
+      player.addEventListener("frameupdate", onFrameUpdate);
+      player.addEventListener("seeked", onFrameUpdate);
+      setCurrentFrame(player.getCurrentFrame());
+      remove = () => {
+        player.removeEventListener("frameupdate", onFrameUpdate);
+        player.removeEventListener("seeked", onFrameUpdate);
+      };
+      return true;
     };
 
-    player.addEventListener("frameupdate", onFrameUpdate);
-    player.addEventListener("seeked", onFrameUpdate);
-    setCurrentFrame(player.getCurrentFrame());
+    if (!attach()) {
+      // Player mounts after viewport measure — retry until ref is set.
+      intervalId = window.setInterval(() => {
+        if (attach() && intervalId !== undefined) {
+          window.clearInterval(intervalId);
+        }
+      }, 50);
+    }
 
     return () => {
-      player.removeEventListener("frameupdate", onFrameUpdate);
-      player.removeEventListener("seeked", onFrameUpdate);
+      cancelled = true;
+      if (intervalId !== undefined) window.clearInterval(intervalId);
+      remove?.();
     };
-  }, [playerRef, isScrubbing, storyboardScenes.length]);
+  }, [playerRef, playerKey, storyboardScenes.length, suppressPlayheadSyncRef]);
 
   useEffect(() => {
     if (!isScrubbing) return;

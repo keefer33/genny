@@ -1,7 +1,6 @@
 import { AbsoluteFill } from "remotion";
-import { Video } from "@remotion/media";
 import type { SceneBackgroundData } from "../storyboardUtils";
-import { offthreadVideoPlaybackProps } from "../videoPlaybackOptions";
+import { StoryboardVideo } from "./StoryboardVideo";
 
 export function SceneBackground({ type, value, ...videoOptions }: SceneBackgroundData) {
   if (type === "color") {
@@ -22,11 +21,7 @@ export function SceneBackground({ type, value, ...videoOptions }: SceneBackgroun
 
   return (
     <AbsoluteFill>
-      <Video
-        src={value}
-        style={{ width: "100%", height: "100%", objectFit: "contain" }}
-        {...offthreadVideoPlaybackProps(videoOptions)}
-      />
+      <StoryboardVideo src={value} objectFit="contain" {...videoOptions} />
     </AbsoluteFill>
   );
 }

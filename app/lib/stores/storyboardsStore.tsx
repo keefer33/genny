@@ -33,6 +33,7 @@ import {
   defaultTransitionToNext,
   normalizeTransitionToNext,
 } from "~/pages/storyboards/sceneTransitionTypes";
+import type { StoryboardRender } from "~/pages/storyboards/storyboardRenderUtils";
 
 export type EditingTransitionScene = {
   sceneId: string;
@@ -85,6 +86,9 @@ type StoryboardsState = {
   saveLayersLoading: boolean;
   saveTransitionLoading: boolean;
   renderStoryboardLoading: boolean;
+  storyboardRenders: StoryboardRender[];
+  storyboardRendersLoading: boolean;
+  deletingRenderId: string | null;
   deletingSceneId: string | null;
   error: string | null;
   editingScene: UserStoryboardScene | null;
@@ -95,10 +99,13 @@ type StoryboardsState = {
   layerItems: SceneLayer[];
   layerEditorOpened: boolean;
   sceneCreateModalOpened: boolean;
+  rendersPanelOpened: boolean;
   setSelectedStoryboard: (storyboard: UserStoryboard | null) => void;
   resetStoryboardEditor: () => void;
   openCreateSceneModal: () => void;
   closeCreateSceneModal: () => void;
+  openRendersPanel: () => void;
+  closeRendersPanel: () => void;
   openEditSceneModal: (scene: UserStoryboardScene) => void;
   closeEditSceneModal: () => void;
   openTransitionModal: (
@@ -134,7 +141,11 @@ type StoryboardsState = {
     sceneId: string,
     layerId: string
   ) => Promise<void>;
-  saveEditingLayer: (storyboardId: string, layer: SceneLayer) => Promise<void>;
+  saveEditingLayer: (
+    storyboardId: string,
+    layer: SceneLayer,
+    options?: { silent?: boolean }
+  ) => Promise<void>;
   loadStoryboards: () => Promise<void>;
   loadStoryboardDetail: (storyboardId: string) => Promise<UserStoryboard | null>;
   createStoryboard: (values: StoryboardFormValues) => Promise<UserStoryboard | null>;
@@ -148,7 +159,8 @@ type StoryboardsState = {
     storyboardId: string,
     sceneId: string,
     values: StoryboardSceneFormValues,
-    existingScene?: unknown | null
+    existingScene?: unknown | null,
+    options?: { silent?: boolean }
   ) => Promise<boolean>;
   saveStoryboardSceneLayers: (
     storyboardId: string,
@@ -165,7 +177,12 @@ type StoryboardsState = {
   ) => Promise<boolean>;
   renderStoryboard: (
     storyboardId: string
-  ) => Promise<{ file_id?: string; file_url?: string; file_name?: string } | null>;
+  ) => Promise<{ render_id?: string; status?: string } | null>;
+  loadStoryboardRenders: (
+    storyboardId: string,
+    options?: { silent?: boolean }
+  ) => Promise<void>;
+  deleteStoryboardRender: (storyboardId: string, renderId: string) => Promise<boolean>;
   deleteStoryboardScene: (storyboardId: string, sceneId: string) => Promise<boolean>;
   reorderStoryboardScenes: (storyboardId: string, orderedSceneIds: string[]) => Promise<void>;
   reorderStoryboardLayers: (
@@ -189,6 +206,9 @@ const useStoryboardsStore = create<StoryboardsState>((set, get) => ({
   saveLayersLoading: false,
   saveTransitionLoading: false,
   renderStoryboardLoading: false,
+  storyboardRenders: [],
+  storyboardRendersLoading: false,
+  deletingRenderId: null,
   deletingSceneId: null,
   error: null,
   editingScene: null,
@@ -199,6 +219,7 @@ const useStoryboardsStore = create<StoryboardsState>((set, get) => ({
   layerItems: [],
   layerEditorOpened: false,
   sceneCreateModalOpened: false,
+  rendersPanelOpened: false,
 
   setSelectedStoryboard: (storyboard) => {
     if (!storyboard) {
@@ -217,6 +238,10 @@ const useStoryboardsStore = create<StoryboardsState>((set, get) => ({
       layerItems: [],
       layerEditorOpened: false,
       sceneCreateModalOpened: false,
+      rendersPanelOpened: false,
+      storyboardRenders: [],
+      storyboardRendersLoading: false,
+      deletingRenderId: null,
     }),
 
   openCreateSceneModal: () =>
@@ -224,9 +249,20 @@ const useStoryboardsStore = create<StoryboardsState>((set, get) => ({
       sceneCreateModalOpened: true,
       editingTransitionScene: null,
       selectedLayerId: null,
+      rendersPanelOpened: false,
     }),
 
   closeCreateSceneModal: () => set({ sceneCreateModalOpened: false }),
+
+  openRendersPanel: () =>
+    set({
+      rendersPanelOpened: true,
+      sceneCreateModalOpened: false,
+      editingTransitionScene: null,
+      selectedLayerId: null,
+    }),
+
+  closeRendersPanel: () => set({ rendersPanelOpened: false }),
 
   openEditSceneModal: (scene) =>
     set({
@@ -235,6 +271,7 @@ const useStoryboardsStore = create<StoryboardsState>((set, get) => ({
       selectedLayerId: null,
       sceneCreateModalOpened: false,
       editingTransitionScene: null,
+      rendersPanelOpened: false,
     }),
 
   closeEditSceneModal: () => set({ editingScene: null }),
@@ -251,6 +288,7 @@ const useStoryboardsStore = create<StoryboardsState>((set, get) => ({
       layerItems: layers,
       selectedLayerId: null,
       sceneCreateModalOpened: false,
+      rendersPanelOpened: false,
       editingTransitionScene: {
         sceneId: scene.id,
         sceneDuration,
@@ -327,8 +365,14 @@ const useStoryboardsStore = create<StoryboardsState>((set, get) => ({
       return;
     }
 
-    const regularScenes = regularStoryboardScenes(scenes);
-    set({ selectedSceneId: regularScenes[0]?.id ?? scenes[0]?.id ?? null });
+    const baseScene = getBaseStoryboardScene(scenes);
+    const nextSceneId = baseScene?.id ?? scenes[0]?.id ?? null;
+    const nextScene = scenes.find((scene) => scene.id === nextSceneId) ?? null;
+    set({
+      selectedSceneId: nextSceneId,
+      layerItems: nextScene ? parseSceneLayers(nextScene.scene) : [],
+      selectedLayerId: null,
+    });
   },
 
   syncLayersFromSelectedScene: () => {
@@ -367,6 +411,7 @@ const useStoryboardsStore = create<StoryboardsState>((set, get) => ({
       layerItems: parseSceneLayers(scene?.scene),
       sceneCreateModalOpened: false,
       editingTransitionScene: null,
+      rendersPanelOpened: false,
     });
   },
 
@@ -390,6 +435,7 @@ const useStoryboardsStore = create<StoryboardsState>((set, get) => ({
       layerItems: nextLayerItems,
       sceneCreateModalOpened: false,
       editingTransitionScene: null,
+      rendersPanelOpened: false,
     });
   },
 
@@ -462,12 +508,14 @@ const useStoryboardsStore = create<StoryboardsState>((set, get) => ({
     get().selectStoryboardLayer(storyboardId, sceneId, layerId);
   },
 
-  saveEditingLayer: async (storyboardId, layer) => {
+  saveEditingLayer: async (storyboardId, layer, options) => {
     const { selectedSceneId, layerItems, setLayerItems, saveStoryboardSceneLayers } = get();
     if (!selectedSceneId) return;
     const nextLayers = layerItems.map((item) => (item.id === layer.id ? layer : item));
     setLayerItems(nextLayers);
-    await saveStoryboardSceneLayers(storyboardId, selectedSceneId, nextLayers);
+    await saveStoryboardSceneLayers(storyboardId, selectedSceneId, nextLayers, {
+      silent: options?.silent,
+    });
   },
 
   loadStoryboards: async () => {
@@ -497,6 +545,7 @@ const useStoryboardsStore = create<StoryboardsState>((set, get) => ({
       selectedStoryboardLoading: true,
       error: null,
       storyboardScenes: [],
+      storyboardRenders: [],
       editingScene: null,
       editingTransitionScene: null,
       editingLayerId: null,
@@ -505,6 +554,7 @@ const useStoryboardsStore = create<StoryboardsState>((set, get) => ({
       layerItems: [],
       layerEditorOpened: false,
       sceneCreateModalOpened: false,
+      rendersPanelOpened: false,
     });
     try {
       const [storyboardData, scenesData] = await Promise.all([
@@ -527,12 +577,14 @@ const useStoryboardsStore = create<StoryboardsState>((set, get) => ({
         storyboardScenes: scenes,
         selectedStoryboardLoading: false,
       });
+      void get().loadStoryboardRenders(id, { silent: true });
       return storyboard;
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to load storyboard";
       set({
         selectedStoryboard: null,
         storyboardScenes: [],
+        storyboardRenders: [],
         selectedStoryboardLoading: false,
         error: message,
       });
@@ -674,7 +726,7 @@ const useStoryboardsStore = create<StoryboardsState>((set, get) => ({
     }
   },
 
-  updateStoryboardScene: async (storyboardId, sceneId, values, existingScene) => {
+  updateStoryboardScene: async (storyboardId, sceneId, values, existingScene, options) => {
     const sbid = storyboardId.trim();
     const sid = sceneId.trim();
     if (!sbid || !sid) return false;
@@ -688,6 +740,12 @@ const useStoryboardsStore = create<StoryboardsState>((set, get) => ({
         : undefined;
 
     const title = values.title.trim() || nextSceneTitle(scenes);
+    const { selectedSceneId, layerItems } = get();
+    const existingRow = scenes.find((row) => row.id === sid);
+    const layers =
+      selectedSceneId === sid
+        ? layerItems
+        : parseSceneLayers(existingScene ?? existingRow?.scene);
     set({ updateSceneLoading: true, error: null });
     try {
       const data = await authFetchJson<{ scene?: UserStoryboardScene }>(
@@ -696,7 +754,10 @@ const useStoryboardsStore = create<StoryboardsState>((set, get) => ({
           method: "PATCH",
           body: JSON.stringify({
             title,
-            scene: scenePayloadFromForm(values, existingScene, { nextSceneDuration }),
+            scene: scenePayloadFromForm(values, existingScene ?? existingRow?.scene, {
+              nextSceneDuration,
+              layers: sanitizeLayersForSave(layers),
+            }),
           }),
         },
         { errorMessage: "Failed to update scene" }
@@ -746,11 +807,13 @@ const useStoryboardsStore = create<StoryboardsState>((set, get) => ({
         }
 
         set({ storyboardScenes: nextScenes });
-        showNotification({
-          title: "Scene updated",
-          message: "Your changes were saved.",
-          type: "success",
-        });
+        if (!options?.silent) {
+          showNotification({
+            title: "Scene updated",
+            message: "Your changes were saved.",
+            type: "success",
+          });
+        }
         return true;
       }
       return false;
@@ -873,31 +936,84 @@ const useStoryboardsStore = create<StoryboardsState>((set, get) => ({
     set({ renderStoryboardLoading: true, error: null });
     try {
       const result = await authFetchJson<{
-        file_id?: string;
-        file_url?: string;
-        file_name?: string;
+        render_id?: string;
+        status?: string;
+        storyboard_id?: string;
       }>(
-        `${endpoint}/remotion/render`,
-        {
-          method: "POST",
-          body: JSON.stringify({ storyboardId: sbid }),
-        },
-        { errorMessage: "Failed to render storyboard video" }
+        `${endpoint}/storyboards/${encodeURIComponent(sbid)}/renders`,
+        { method: "POST", body: JSON.stringify({}) },
+        { errorMessage: "Failed to start storyboard render" }
       );
       set({ renderStoryboardLoading: false });
+      get().openRendersPanel();
       showNotification({
-        title: "Video rendered",
-        message: result.file_url
-          ? `Saved ${result.file_name ?? "video"} to your files.`
-          : "Your storyboard video was rendered.",
+        title: "Render started",
+        message: "Your storyboard video is rendering.",
         type: "success",
       });
+      await get().loadStoryboardRenders(sbid, { silent: true });
       return result;
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to render storyboard video";
+      const message = error instanceof Error ? error.message : "Failed to start storyboard render";
       set({ renderStoryboardLoading: false, error: message });
       showNotification({ title: "Render video", message, type: "error" });
       return null;
+    }
+  },
+
+  loadStoryboardRenders: async (storyboardId, options) => {
+    const sbid = storyboardId.trim();
+    if (!sbid) return;
+
+    if (!options?.silent) set({ storyboardRendersLoading: true, error: null });
+    try {
+      const data = await authFetchJson<{ renders?: StoryboardRender[] }>(
+        `${endpoint}/storyboards/${encodeURIComponent(sbid)}/renders`,
+        undefined,
+        { errorMessage: "Failed to load storyboard renders" }
+      );
+      set({
+        storyboardRenders: data.renders ?? [],
+        storyboardRendersLoading: false,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to load storyboard renders";
+      if (!options?.silent) {
+        set({ storyboardRendersLoading: false, error: message });
+        showNotification({ title: "Renders", message, type: "error" });
+      } else {
+        set({ storyboardRendersLoading: false });
+      }
+    }
+  },
+
+  deleteStoryboardRender: async (storyboardId, renderId) => {
+    const sbid = storyboardId.trim();
+    const rid = renderId.trim();
+    if (!sbid || !rid) return false;
+
+    set({ deletingRenderId: rid, error: null });
+    try {
+      await authFetchJson<{ ok?: boolean }>(
+        `${endpoint}/storyboards/${encodeURIComponent(sbid)}/renders/${encodeURIComponent(rid)}`,
+        { method: "DELETE" },
+        { errorMessage: "Failed to delete render" }
+      );
+      set((state) => ({
+        storyboardRenders: state.storyboardRenders.filter((row) => row.id !== rid),
+        deletingRenderId: null,
+      }));
+      showNotification({
+        title: "Render deleted",
+        message: "The render was removed.",
+        type: "success",
+      });
+      return true;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to delete render";
+      set({ deletingRenderId: null, error: message });
+      showNotification({ title: "Delete render", message, type: "error" });
+      return false;
     }
   },
 

@@ -1,8 +1,10 @@
-import { ScrollArea, Title } from "@mantine/core";
+import { Group, ScrollArea, Title, ActionIcon } from "@mantine/core";
+import { RiCloseLine } from "@remixicon/react";
 import { useMemo } from "react";
 import useStoryboardsStore, { resolveEditingTransition } from "~/lib/stores/storyboardsStore";
 import { EditLayerForm } from "~/pages/storyboards/components/EditLayerForm";
 import { SceneTransitionSection } from "~/pages/storyboards/components/SceneTransitionSection";
+import { StoryboardRendersPanel } from "~/pages/storyboards/components/StoryboardRendersPanel";
 import { StoryboardSceneUpsertForm } from "~/pages/storyboards/components/StoryboardSceneUpsertForm";
 import { StoryboardUpsertForm } from "~/pages/storyboards/components/StoryboardUpsertForm";
 import type { SceneTransitionToNext } from "~/pages/storyboards/sceneTransitionTypes";
@@ -18,10 +20,12 @@ export function StoryboardEditorAside({ storyboardId }: StoryboardEditorAsidePro
   const selectedSceneId = useStoryboardsStore((s) => s.selectedSceneId);
   const selectedLayerId = useStoryboardsStore((s) => s.selectedLayerId);
   const sceneCreateModalOpened = useStoryboardsStore((s) => s.sceneCreateModalOpened);
+  const rendersPanelOpened = useStoryboardsStore((s) => s.rendersPanelOpened);
   const editingTransitionScene = useStoryboardsStore((s) => s.editingTransitionScene);
   const updateLoading = useStoryboardsStore((s) => s.updateLoading);
   const saveTransitionLoading = useStoryboardsStore((s) => s.saveTransitionLoading);
   const closeCreateSceneModal = useStoryboardsStore((s) => s.closeCreateSceneModal);
+  const closeRendersPanel = useStoryboardsStore((s) => s.closeRendersPanel);
   const setSelectedLayerId = useStoryboardsStore((s) => s.setSelectedLayerId);
   const updateStoryboard = useStoryboardsStore((s) => s.updateStoryboard);
   const saveEditingTransition = useStoryboardsStore((s) => s.saveEditingTransition);
@@ -48,7 +52,23 @@ export function StoryboardEditorAside({ storyboardId }: StoryboardEditorAsidePro
 
   let panel: React.ReactNode = null;
 
-  if (sceneCreateModalOpened) {
+  if (rendersPanelOpened) {
+    panel = (
+      <>
+        <Group justify="space-between" wrap="nowrap" mb="md">
+          <Title order={5}>Renders</Title>
+          <ActionIcon
+            variant="subtle"
+            aria-label="Close renders"
+            onClick={() => closeRendersPanel()}
+          >
+            <RiCloseLine size={18} />
+          </ActionIcon>
+        </Group>
+        <StoryboardRendersPanel storyboardId={storyboardId} />
+      </>
+    );
+  } else if (sceneCreateModalOpened) {
     panel = (
       <StoryboardSceneUpsertForm
         storyboardId={storyboardId}

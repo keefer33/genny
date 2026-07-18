@@ -629,6 +629,7 @@ const useAppStoreBase = create<AppStoreState>((set, get) => ({
 
   checkApiHealth: async (): Promise<boolean> => {
     try {
+      console.log("endpoint", endpoint);
       const response = await fetch(`${endpoint}/health`, {
         method: "GET",
         headers: {
