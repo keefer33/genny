@@ -12,6 +12,14 @@ FROM node:20-alpine AS build-env
 COPY . /app/
 COPY --from=development-dependencies-env /app/node_modules /app/node_modules
 WORKDIR /app
+# Accept build args for Vite environment variables
+ARG VITE_NODE_ENV
+ARG VITE_API_URL
+ARG VITE_LOCAL_API_URL
+# Set them as env vars for the build
+ENV VITE_NODE_ENV=$VITE_NODE_ENV
+ENV VITE_API_URL=$VITE_API_URL
+ENV VITE_LOCAL_API_URL=$VITE_LOCAL_API_URL
 RUN npm run build
 
 FROM node:20-alpine
@@ -20,3 +28,4 @@ COPY --from=production-dependencies-env /app/node_modules /app/node_modules
 COPY --from=build-env /app/build /app/build
 WORKDIR /app
 CMD ["npm", "run", "start"]
+
