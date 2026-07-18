@@ -43,8 +43,8 @@ export const isTextFile = (filename: string) => {
 
 export const endpoint =
   import.meta.env.VITE_NODE_ENV === "development"
-    ? import.meta.env.VITE_LOCAL_API_URL
-    : import.meta.env.VITE_API_URL;
+    ? import.meta.env.VITE_LOCAL_API_URL || "http://localhost:3001"
+    : import.meta.env.VITE_API_URL || ""; // Empty string = same origin (current domain)
 
 // Global copy to clipboard function
 export const copyToClipboard = async (textToCopy: string | string[]) => {
