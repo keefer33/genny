@@ -12,6 +12,7 @@ import {
   formatCredits,
   type CreditTopUpOption,
 } from "~/lib/tokenUtils";
+import { endpoint } from "~/lib/utils";
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 
@@ -71,20 +72,17 @@ function PaymentForm({
   const handlePaymentSuccess = async (paymentIntent: any) => {
     try {
       const apiKey = useAppStore.getState().getAuthApiKey();
-      const response = await fetch(
-        `${import.meta.env.VITE_NODE_ENV === "development" ? import.meta.env.VITE_LOCAL_API_URL : import.meta.env.VITE_API_URL}/stripe/confirm-payment`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${apiKey || ""}`,
-          },
-          body: JSON.stringify({
-            paymentIntentId: paymentIntent.id,
-            amount: paymentIntent.amount,
-          }),
-        }
-      );
+      const response = await fetch(`${endpoint}/stripe/confirm-payment`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey || ""}`,
+        },
+        body: JSON.stringify({
+          paymentIntentId: paymentIntent.id,
+          amount: paymentIntent.amount,
+        }),
+      });
 
       const result = await response.json();
 

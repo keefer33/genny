@@ -4,6 +4,7 @@ import { RiCloseLine, RiAiGenerateText } from "@remixicon/react";
 import { useState, useRef } from "react";
 import { useFormContext } from "~/lib/ContextForm";
 import useAppStore from "~/lib/stores/appStore";
+import { endpoint } from "~/lib/utils";
 
 const AGENT_MODELS = [
   { value: "anthropic/claude-opus-4.7", label: "Claude Opus 4.7" },
@@ -90,31 +91,23 @@ export function AgentPromptButton({
     try {
       abortControllerRef.current = new AbortController();
 
-      const response = await fetch(
-        `${
-          import.meta.env.VITE_NODE_ENV === "development"
-            ? import.meta.env.VITE_LOCAL_API_URL
-            : import.meta.env.VITE_API_URL
-        }/agents/enhance/prompt`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${getAuthApiKey() || ""}`,
-          },
-          body: JSON.stringify({
-            message,
-            model: selectedModel,
-            generationType,
-            formValues:
-              typeof form.getValues === "function" ? form.getValues() : { ...form.values },
-            ...(typeof promptMaxLength === "number" && promptMaxLength > 0
-              ? { promptMaxLength }
-              : {}),
-          }),
-          signal: abortControllerRef.current.signal,
-        }
-      );
+      const response = await fetch(`${endpoint}/agents/enhance/prompt`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${getAuthApiKey() || ""}`,
+        },
+        body: JSON.stringify({
+          message,
+          model: selectedModel,
+          generationType,
+          formValues: typeof form.getValues === "function" ? form.getValues() : { ...form.values },
+          ...(typeof promptMaxLength === "number" && promptMaxLength > 0
+            ? { promptMaxLength }
+            : {}),
+        }),
+        signal: abortControllerRef.current.signal,
+      });
 
       if (!response.ok) {
         const errorText = await response.text();
