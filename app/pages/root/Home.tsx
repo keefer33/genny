@@ -20,15 +20,19 @@ Generative AI agents and tools  for text, images, video, and more.  Stop imagini
 export default function Home() {
   const { isMobile } = useAppStore();
   return (
-    <Container fluid>
-      <Container size="lg">
-        <Stack gap="0" py={60} justify="center" align="center">
-          <Title order={isMobile ? 1 : 1} w={isMobile ? "100%" : "700px"} ta="center" mb={10}>
-            {heroText}
-          </Title>
-          <Text size="sm" fw={500} ta="center">
-            {heroText2}
-          </Text>
+    <>
+      <Container size="md">
+        <Stack gap="xs">
+          <Stack gap="0" justify="center" align="center">
+            <Title order={isMobile ? 1 : 1} w={isMobile ? "100%" : "700px"} ta="center" mb={10}>
+              {heroText}
+            </Title>
+            <Text size="sm" fw={500} ta="center">
+              {heroText2}
+            </Text>
+          </Stack>
+
+          <video src="https://aifile.link/k1AoRH.mp4" autoPlay loop width="100%" height="100%" />
         </Stack>
       </Container>
       <Container size="md">
@@ -51,6 +55,6 @@ export default function Home() {
         <PromotionCard />
       </Container>
       <Space h={80} />
-    </Container>
+    </>
   );
 }

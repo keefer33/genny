@@ -96,6 +96,7 @@ export function EditLayerForm({ storyboardId, layerId, active, onDeselect }: Edi
   const storyboardScenes = useStoryboardsStore((s) => s.storyboardScenes);
   const saveLayersLoading = useStoryboardsStore((s) => s.saveLayersLoading);
   const deleteStoryboardLayer = useStoryboardsStore((s) => s.deleteStoryboardLayer);
+  const duplicateStoryboardLayer = useStoryboardsStore((s) => s.duplicateStoryboardLayer);
   const changeLayer = useStoryboardsStore((s) => s.changeLayer);
   const saveEditingLayer = useStoryboardsStore((s) => s.saveEditingLayer);
 
@@ -249,6 +250,13 @@ export function EditLayerForm({ storyboardId, layerId, active, onDeselect }: Edi
     pendingLayerRef.current = null;
     await deleteStoryboardLayer(storyboardId, selectedSceneId, layerId);
     onDeselect?.();
+  };
+
+  const handleDuplicate = async () => {
+    if (!selectedSceneId || saveLayersLoading) return;
+    clearSaveTimer();
+    pendingLayerRef.current = null;
+    await duplicateStoryboardLayer(storyboardId, selectedSceneId, layerId);
   };
 
   if (!layer) return null;
@@ -541,15 +549,25 @@ export function EditLayerForm({ storyboardId, layerId, active, onDeselect }: Edi
           ) : null}
         </Card>
         <Group justify="space-between" gap="xs">
-          <Button
-            type="button"
-            variant="light"
-            color="red"
-            disabled={saveLayersLoading}
-            onClick={() => void handleDelete()}
-          >
-            Delete layer
-          </Button>
+          <Group gap="xs">
+            <Button
+              type="button"
+              variant="light"
+              color="red"
+              disabled={saveLayersLoading}
+              onClick={() => void handleDelete()}
+            >
+              Delete layer
+            </Button>
+            <Button
+              type="button"
+              variant="light"
+              disabled={saveLayersLoading}
+              onClick={() => void handleDuplicate()}
+            >
+              Duplicate layer
+            </Button>
+          </Group>
           {onDeselect ? (
             <Button variant="default" onClick={onDeselect} type="button">
               Deselect

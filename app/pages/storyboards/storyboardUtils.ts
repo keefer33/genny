@@ -593,6 +593,21 @@ export function createDefaultSceneLayer(
   };
 }
 
+/** Deep-clone a layer with a new id, nudged position, and " copy" title. */
+export function cloneSceneLayer(layer: SceneLayer, insertIndex: number): SceneLayer {
+  const cloned = structuredClone(layer);
+  const baseTitle = layer.title?.trim() || defaultLayerTitle(insertIndex);
+  const { isDragging: _isDragging, ...rest } = cloned;
+  return {
+    ...rest,
+    id: crypto.randomUUID(),
+    title: `${baseTitle} copy`,
+    sort: insertIndex,
+    left: layer.left,
+    top: layer.top,
+  };
+}
+
 export function sceneFormFromRow(scene: UserStoryboardScene): StoryboardSceneFormValues {
   const background = parseSceneBackground(scene.scene);
   const videoForm = videoPlaybackFormValuesFromOptions(background);

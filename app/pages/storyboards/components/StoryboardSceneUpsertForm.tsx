@@ -84,7 +84,7 @@ export function StoryboardSceneUpsertForm({
   const openTransitionModal = useStoryboardsStore((s) => s.openTransitionModal);
   const setSelectedSceneId = useStoryboardsStore((s) => s.setSelectedSceneId);
 
-  const sceneCount = storyboardScenes.length;
+  const sceneCount = regularStoryboardScenes(storyboardScenes).length;
   const storyboardFps =
     parseStoryboardSettings(selectedStoryboard?.settings).fps ?? DEFAULT_STORYBOARD_FPS;
   const submitting = isEdit ? updateSceneLoading : createSceneLoading;

@@ -106,12 +106,12 @@ export function StoryboardMultiSceneCanvas({
   return (
     <AbsoluteFill>
       <TransitionSeries>{children}</TransitionSeries>
-      {baseLayers.length > 0 && baseSceneId ? (
+      {baseLayers.length > 0 ? (
         <AbsoluteFill style={{ pointerEvents: isBaseSceneSelected ? "auto" : "none" }}>
           {baseLayers.map((layer) => (
             <SceneLayerItem key={layer.id} layer={layer} />
           ))}
-          {!isRendering && isBaseSceneSelected ? (
+          {!isRendering && isBaseSceneSelected && baseSceneId ? (
             <SortedOutlines
               layers={baseLayers}
               selectedLayerId={selectedLayerId}

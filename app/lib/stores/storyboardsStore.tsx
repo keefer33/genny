@@ -6,6 +6,7 @@ import {
   assignLayerSortValues,
   assignSceneSortValues,
   buildScenePayloadFromRow,
+  cloneSceneLayer,
   createDefaultSceneLayer,
   getBaseStoryboardScene,
   isBaseStoryboardScene,
@@ -135,6 +136,11 @@ type StoryboardsState = {
   closeLayerEditor: () => void;
   selectStoryboardLayer: (storyboardId: string, sceneId: string, layerId: string) => void;
   addStoryboardLayer: (storyboardId: string, sceneId: string) => Promise<void>;
+  duplicateStoryboardLayer: (
+    storyboardId: string,
+    sceneId: string,
+    layerId: string
+  ) => Promise<void>;
   deleteStoryboardLayer: (storyboardId: string, sceneId: string, layerId: string) => Promise<void>;
   openStoryboardLayerEditor: (
     storyboardId: string,
@@ -470,6 +476,38 @@ const useStoryboardsStore = create<StoryboardsState>((set, get) => ({
     setSelectedSceneId(sceneId);
     setLayerItems(nextLayers);
     setSelectedLayerId(nextLayers[nextLayers.length - 1]?.id ?? null);
+    await saveStoryboardSceneLayers(storyboardId, sceneId, nextLayers);
+  },
+
+  duplicateStoryboardLayer: async (storyboardId, sceneId, layerId) => {
+    const {
+      selectedSceneId,
+      layerItems,
+      storyboardScenes,
+      saveStoryboardSceneLayers,
+      setSelectedSceneId,
+      setSelectedLayerId,
+      setLayerItems,
+    } = get();
+    if (selectedSceneId && selectedSceneId !== sceneId) {
+      await saveStoryboardSceneLayers(storyboardId, selectedSceneId, layerItems, { silent: true });
+    }
+    const scene = storyboardScenes.find((row) => row.id === sceneId);
+    if (!scene) return;
+    const existingLayers = sceneId === selectedSceneId ? layerItems : parseSceneLayers(scene.scene);
+    const sourceIndex = existingLayers.findIndex((layer) => layer.id === layerId);
+    if (sourceIndex < 0) return;
+    const source = existingLayers[sourceIndex];
+    if (!source) return;
+    const clone = cloneSceneLayer(source, sourceIndex + 1);
+    const nextLayers = [
+      ...existingLayers.slice(0, sourceIndex + 1),
+      clone,
+      ...existingLayers.slice(sourceIndex + 1),
+    ];
+    setSelectedSceneId(sceneId);
+    setLayerItems(nextLayers);
+    setSelectedLayerId(clone.id);
     await saveStoryboardSceneLayers(storyboardId, sceneId, nextLayers);
   },
 
