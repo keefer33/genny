@@ -184,10 +184,7 @@ type StoryboardsState = {
   renderStoryboard: (
     storyboardId: string
   ) => Promise<{ render_id?: string; status?: string } | null>;
-  loadStoryboardRenders: (
-    storyboardId: string,
-    options?: { silent?: boolean }
-  ) => Promise<void>;
+  loadStoryboardRenders: (storyboardId: string, options?: { silent?: boolean }) => Promise<void>;
   deleteStoryboardRender: (storyboardId: string, renderId: string) => Promise<boolean>;
   deleteStoryboardScene: (storyboardId: string, sceneId: string) => Promise<boolean>;
   reorderStoryboardScenes: (storyboardId: string, orderedSceneIds: string[]) => Promise<void>;
@@ -287,8 +284,7 @@ const useStoryboardsStore = create<StoryboardsState>((set, get) => ({
     if (selectedSceneId && selectedSceneId !== scene.id) {
       void saveStoryboardSceneLayers(storyboardId, selectedSceneId, layerItems, { silent: true });
     }
-    const layers =
-      selectedSceneId === scene.id ? layerItems : parseSceneLayers(scene.scene);
+    const layers = selectedSceneId === scene.id ? layerItems : parseSceneLayers(scene.scene);
     set({
       selectedSceneId: scene.id,
       layerItems: layers,
@@ -781,9 +777,7 @@ const useStoryboardsStore = create<StoryboardsState>((set, get) => ({
     const { selectedSceneId, layerItems } = get();
     const existingRow = scenes.find((row) => row.id === sid);
     const layers =
-      selectedSceneId === sid
-        ? layerItems
-        : parseSceneLayers(existingScene ?? existingRow?.scene);
+      selectedSceneId === sid ? layerItems : parseSceneLayers(existingScene ?? existingRow?.scene);
     set({ updateSceneLoading: true, error: null });
     try {
       const data = await authFetchJson<{ scene?: UserStoryboardScene }>(
