@@ -7,10 +7,10 @@ import useAppStore from "~/lib/stores/appStore";
 import { endpoint } from "~/lib/utils";
 
 const AGENT_MODELS = [
-  { value: "anthropic/claude-opus-4.7", label: "Claude Opus 4.7" },
-  { value: "google/gemini-3.1-flash-lite", label: "Gemini 3.1 Flash Lite" },
-  { value: "xai/grok-4.3", label: "Grok 4.3" },
-  { value: "openai/gpt-5.5", label: "GPT-5.5" },
+  { value: "anthropic/claude-opus-4.8", label: "Claude Opus 4.8" },
+  { value: "google/gemini-3.8-flash", label: "Gemini 3.8 Flash" },
+  { value: "xai/grok-4.6", label: "Grok 4.6" },
+  { value: "openai/gpt-5.6-luna", label: "GPT-5.6 Luna" },
 ] as const;
 
 function formatFormValuesForAgent(formValues: Record<string, unknown>): string {
