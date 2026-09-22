@@ -689,23 +689,33 @@ export function isMediaFieldName(
   | "audio_url"
   | "driving_audio"
   | "reference_audios"
+  | "image_url"
+  | "end_image_url"
+  | "reference_image_urls"
+  | "reference_video_urls"
+  | "reference_audio_urls"
   | "image_urls" {
   const normalized = normalizedFieldName(name);
   return (
     normalized === "image" ||
     normalized === "images" ||
+    normalized === "image_url" ||
     normalized === "image_urls" ||
+    normalized === "end_image_url" ||
     normalized === "video" ||
     normalized === "videos" ||
     normalized === "first_frame" ||
     normalized === "last_frame" ||
     normalized === "last_image" ||
     normalized === "reference_images" ||
+    normalized === "reference_image_urls" ||
     normalized === "reference_videos" ||
+    normalized === "reference_video_urls" ||
     normalized === "audio" ||
     normalized === "audio_url" ||
     normalized === "driving_audio" ||
-    normalized === "reference_audios"
+    normalized === "reference_audios" ||
+    normalized === "reference_audio_urls"
   );
 }
 
@@ -731,12 +741,16 @@ export function resolveMediaPickerSettings(
     normalized === "first_frame" ||
     normalized === "last_frame" ||
     normalized === "reference_images" ||
+    normalized === "reference_image_urls" ||
+    normalized === "image_url" ||
+    normalized === "end_image_url" ||
     normalized === "image_urls"
       ? ["image"]
       : normalized === "audio" ||
           normalized === "driving_audio" ||
           normalized === "audio_url" ||
-          normalized === "reference_audios"
+          normalized === "reference_audios" ||
+          normalized === "reference_audio_urls"
         ? ["audio"]
         : ["video"]);
 
