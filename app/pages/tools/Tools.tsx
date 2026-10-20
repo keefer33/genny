@@ -236,12 +236,12 @@ export default function Tools() {
           <Group gap="xs">
             <Button
               component={Link}
-              to="/agents"
+              to="/projects"
               size="compact-sm"
               variant="filled"
               leftSection={<RiArrowLeftLine size={18} />}
             >
-              Agents
+              Projects
             </Button>
 
             <Text size="xl" fw={700}>

@@ -89,7 +89,7 @@ export default function MemberFilesCard({
 
     setDeleting(true);
     try {
-      const success = await deleteFile(file.file_name, file.id, user.user.id);
+      const success = await deleteFile(file.id, user.user.id);
       if (success) {
         // Call the parent's update function to refresh the current page
         if (onFileUpdate) {

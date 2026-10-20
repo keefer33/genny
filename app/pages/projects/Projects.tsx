@@ -1,40 +1,42 @@
 import { Box, Stack, Text, Card, ScrollArea, Container } from "@mantine/core";
 import { useEffect } from "react";
+import { useNavigate, useParams } from "react-router";
 import useAppStore from "~/lib/stores/appStore";
 import { useChatsStore } from "~/lib/stores/chatsStore";
-import AgentsSidebar from "~/pages/agents/components/AgentsSidebar";
-import AgentsMessagesSection from "~/pages/agents/components/AgentsMessagesSection";
+import useProjectsStore, { LS_SELECTED_PROJECT_ID } from "~/lib/stores/projectsStore";
+import ProjectsSidebar from "~/pages/projects/components/ProjectsSidebar";
+import ProjectsMessagesSection from "~/pages/projects/components/ProjectsMessagesSection";
 
 const DESKTOP_FORM_WIDTH = 360;
 const LS_SELECTED_MODEL = "genny:selectedModelName";
 
-export default function Agents() {
+export function meta() {
+  return [{ title: "Projects" }];
+}
+
+export default function Projects() {
   const { isMobile } = useAppStore();
+  const navigate = useNavigate();
+  const { projectId } = useParams<{ projectId?: string }>();
+  const { agentModels, loadAgentModels, selectedModelName, setSelectedModelName } = useChatsStore();
   const {
-    agentModels,
-    loadAgentModels,
-    selectedModelName,
-    setSelectedModelName,
-    hydrateSelectedChatFromStorage,
-  } = useChatsStore();
+    selectProjectById,
+    clearSelectedProject,
+    hydrateSelectedProjectFromStorage,
+    loadProjects,
+  } = useProjectsStore();
 
-  const applyModelSelection = async (modelName: string | null) => {
-    if (!modelName) {
-      setSelectedModelName(null);
-      return;
-    }
-
+  const applyModelSelection = (modelName: string | null) => {
     setSelectedModelName(modelName);
   };
 
   useEffect(() => {
-    loadAgentModels();
+    void loadAgentModels();
     const savedModelName = window.localStorage.getItem(LS_SELECTED_MODEL);
     if (savedModelName) {
       applyModelSelection(savedModelName);
       return;
     }
-
     const textModels = agentModels.filter((m) => m?.model_type === "text");
     if (textModels.length) {
       applyModelSelection(textModels[0].model_name);
@@ -42,10 +44,49 @@ export default function Agents() {
   }, []);
 
   useEffect(() => {
-    void hydrateSelectedChatFromStorage();
-  }, [hydrateSelectedChatFromStorage]);
+    void (async () => {
+      await loadProjects();
+      const id = projectId?.trim();
+      if (id) {
+        const project = await selectProjectById(id);
+        if (!project) {
+          navigate("/projects", { replace: true });
+        }
+        return;
+      }
+
+      const savedId =
+        typeof window !== "undefined" ? window.localStorage.getItem(LS_SELECTED_PROJECT_ID) : null;
+      if (savedId) {
+        await hydrateSelectedProjectFromStorage();
+        const hydrated = useProjectsStore.getState().selectedProject;
+        if (hydrated?.id) {
+          navigate(`/projects/${encodeURIComponent(hydrated.id)}`, { replace: true });
+          return;
+        }
+      }
+      clearSelectedProject();
+    })();
+  }, [projectId]);
 
   const mainHeight = "calc(100vh - 80px)";
+
+  const mainPane = !selectedModelName ? (
+    <Card
+      padding="lg"
+      radius="md"
+      style={{
+        flex: 1,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <Text c="dimmed">Select a model to start building.</Text>
+    </Card>
+  ) : (
+    <ProjectsMessagesSection />
+  );
 
   return (
     <Box
@@ -64,7 +105,6 @@ export default function Agents() {
             flexDirection: "column",
           }}
         >
-          {/* Top: agent + ChatsList — no scroll */}
           <Box
             px="xs"
             style={{
@@ -73,9 +113,8 @@ export default function Agents() {
               overflow: "hidden",
             }}
           >
-            <AgentsSidebar />
+            <ProjectsSidebar />
           </Box>
-          {/* Middle + bottom: messages (scroll) + textarea (fixed) */}
           <Box
             style={{
               flex: 1,
@@ -85,27 +124,11 @@ export default function Agents() {
               flexDirection: "column",
             }}
           >
-            {!selectedModelName ? (
-              <Card
-                padding="lg"
-                radius="md"
-                style={{
-                  flex: 1,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <Text c="dimmed">Select a model to start chatting.</Text>
-              </Card>
-            ) : (
-              <AgentsMessagesSection />
-            )}
+            {mainPane}
           </Box>
         </Box>
       ) : (
         <Container
-          //pl={!isMobile && 0}
           fluid
           h="100%"
           style={{ minHeight: 0, display: "flex", flexDirection: "column" }}
@@ -130,7 +153,7 @@ export default function Agents() {
               }}
             >
               <ScrollArea h={mainHeight} offsetScrollbars scrollbarSize={8}>
-                <AgentsSidebar />
+                <ProjectsSidebar />
               </ScrollArea>
             </Card>
             <Box style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
@@ -139,22 +162,7 @@ export default function Agents() {
                 h={mainHeight}
                 style={{ overflow: "hidden", display: "flex", flexDirection: "column" }}
               >
-                {!selectedModelName ? (
-                  <Card
-                    padding="xs"
-                    radius="md"
-                    style={{
-                      flex: 1,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <Text c="dimmed">Select a model to start chatting.</Text>
-                  </Card>
-                ) : (
-                  <AgentsMessagesSection />
-                )}
+                {mainPane}
               </Stack>
             </Box>
           </Box>

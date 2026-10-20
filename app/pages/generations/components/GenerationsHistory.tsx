@@ -183,8 +183,22 @@ export default function GenerationsHistory({
     openDeleteModal();
   };
 
-  const openFileDetails = (files: unknown) => {
-    setCurrentDetailFiles(files);
+  const openFileDetails = (
+    files: unknown,
+    genModel?: GenerationsHistoryItem["gen_model_id"]
+  ) => {
+    const modelEmbed =
+      genModel && typeof genModel === "object" && !Array.isArray(genModel) ? genModel : null;
+    const enriched = Array.isArray(files)
+      ? files.map((f) => {
+          if (!f || typeof f !== "object") return f;
+          const file = f as Record<string, unknown>;
+          const existing = file.gen_model_id;
+          if (existing && typeof existing === "object") return file;
+          return modelEmbed ? { ...file, gen_model_id: modelEmbed } : file;
+        })
+      : files;
+    setCurrentDetailFiles(enriched);
     openFileDetailModal();
   };
 
@@ -368,11 +382,11 @@ export default function GenerationsHistory({
                                 tabIndex={0}
                                 h="100%"
                                 w="100%"
-                                onClick={() => openFileDetails(row.user_files)}
+                                onClick={() => openFileDetails(row.user_files, row.gen_model_id)}
                                 onKeyDown={(event) => {
                                   if (event.key === "Enter" || event.key === " ") {
                                     event.preventDefault();
-                                    openFileDetails(row.user_files);
+                                    openFileDetails(row.user_files, row.gen_model_id);
                                   }
                                 }}
                                 style={{ cursor: "pointer" }}
@@ -393,11 +407,11 @@ export default function GenerationsHistory({
                           tabIndex={0}
                           h="100%"
                           w="100%"
-                          onClick={() => openFileDetails(row.user_files)}
+                          onClick={() => openFileDetails(row.user_files, row.gen_model_id)}
                           onKeyDown={(event) => {
                             if (event.key === "Enter" || event.key === " ") {
                               event.preventDefault();
-                              openFileDetails(row.user_files);
+                              openFileDetails(row.user_files, row.gen_model_id);
                             }
                           }}
                           style={{ cursor: "pointer" }}
@@ -491,7 +505,7 @@ export default function GenerationsHistory({
                             <Button
                               variant="subtle"
                               size="compact-xs"
-                              onClick={() => openFileDetails(row.user_files)}
+                              onClick={() => openFileDetails(row.user_files, row.gen_model_id)}
                             >
                               View details
                             </Button>

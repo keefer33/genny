@@ -2,6 +2,7 @@ import { ActionIcon, Anchor, Card, Group, Menu, Text, Textarea } from "@mantine/
 import { RiAddLine, RiAttachment2, RiSendPlane2Line } from "@remixicon/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useChatsStore } from "~/lib/stores/chatsStore";
+import useProjectsStore from "~/lib/stores/projectsStore";
 import useAppStore from "~/lib/stores/appStore";
 import AttachmentsModal from "~/pages/agents/components/AttachmentsModal";
 import { ChatVoiceInputButton } from "~/pages/agents/components/ChatVoiceInputButton";
@@ -9,18 +10,19 @@ import { FilePickerModal } from "~/shared/FilePickerModal";
 import type { FileData } from "~/lib/stores/filesFoldersStore";
 import type { ChatAttachment } from "./attachmentsTypes";
 
-const LS_SELECTED_CHAT_ID = "genny:selectedChatId";
-
 export default function ChatComposer() {
   const { isMobile } = useAppStore();
   const [prompt, setPrompt] = useState("");
-  const { runChatLoading, selectedModelName, selectedChat, setSelectedChat, createChat, runChat } =
-    useChatsStore();
+  const { runChatLoading, selectedModelName, selectedChat, runChat } = useChatsStore();
+  const { selectedProject } = useProjectsStore();
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
   const [attachmentsModalOpen, setAttachmentsModalOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const prevRunChatLoadingRef = useRef(runChatLoading);
+
+  const projectReady = Boolean(selectedProject?.chat_id || selectedChat);
+  const composerEnabled = Boolean(selectedModelName && projectReady && !runChatLoading);
 
   const focusTextarea = (delay = 0) => {
     const doFocus = () => textareaRef.current?.focus();
@@ -32,18 +34,16 @@ export default function ChatComposer() {
   };
 
   useEffect(() => {
-    // Focus on initial mount and whenever model selection changes.
-    if (!selectedModelName) return;
+    if (!composerEnabled) return;
     focusTextarea();
-  }, [selectedModelName]);
+  }, [selectedModelName, projectReady]);
 
   useEffect(() => {
-    // Refocus when a run completes.
-    if (prevRunChatLoadingRef.current && !runChatLoading && selectedModelName) {
+    if (prevRunChatLoadingRef.current && !runChatLoading && composerEnabled) {
       focusTextarea();
     }
     prevRunChatLoadingRef.current = runChatLoading;
-  }, [runChatLoading, selectedModelName]);
+  }, [runChatLoading, composerEnabled]);
 
   const onOpenPicker = () => {
     setAttachmentsModalOpen(false);
@@ -66,33 +66,23 @@ export default function ChatComposer() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const input = prompt.trim();
-    if (!input || runChatLoading || !selectedModelName) return;
+    if (!input || runChatLoading || !selectedModelName || !projectReady) return;
 
-    let chat = selectedChat;
-    let justCreated = false;
-    if (!chat) {
-      const title = input.slice(0, 50).trim();
-      const created = await createChat(title);
-      if (created) {
-        justCreated = true;
-        chat = created.id;
-      }
-    }
+    const chat = selectedChat || selectedProject?.chat_id || null;
+    if (!chat) return;
 
-    if (chat) {
-      await runChat(chat, selectedModelName, { systemPrompt: "" }, input, attachments);
-      setAttachments([]);
-      setPrompt("");
-
-      if (justCreated) {
-        setSelectedChat(chat);
-        window.localStorage.setItem(LS_SELECTED_CHAT_ID, chat);
-      }
-      focusTextarea();
-      return true;
-    }
-    return false;
+    await runChat(chat, selectedModelName, { systemPrompt: "" }, input, attachments);
+    setAttachments([]);
+    setPrompt("");
+    focusTextarea();
+    return true;
   };
+
+  const placeholder = !selectedModelName
+    ? "Select a model to start building."
+    : !projectReady
+      ? "Select or create a project to start"
+      : "What can I build for you today?";
 
   return (
     <>
@@ -100,7 +90,7 @@ export default function ChatComposer() {
         <Textarea
           ref={textareaRef}
           w="100%"
-          placeholder="Type your message..."
+          placeholder={placeholder}
           variant="transparent"
           minRows={1}
           maxRows={4}
@@ -113,11 +103,11 @@ export default function ChatComposer() {
               void handleSubmit(e as unknown as React.FormEvent);
             }
           }}
-          disabled={!selectedModelName || runChatLoading}
+          disabled={!composerEnabled}
           rightSection={
             <Group gap={4} wrap="nowrap" justify="flex-end">
               <ChatVoiceInputButton
-                disabled={!selectedModelName || runChatLoading}
+                disabled={!composerEnabled}
                 onTranscript={handleVoiceTranscript}
               />
               <ActionIcon
@@ -125,7 +115,7 @@ export default function ChatComposer() {
                 variant="subtle"
                 size="sm"
                 loading={runChatLoading}
-                disabled={!selectedModelName}
+                disabled={!composerEnabled}
                 aria-label="Send"
               >
                 <RiSendPlane2Line size={18} />
@@ -140,7 +130,7 @@ export default function ChatComposer() {
                 <ActionIcon
                   size="sm"
                   aria-label="Open attachments menu"
-                  disabled={!selectedModelName || runChatLoading}
+                  disabled={!composerEnabled}
                 >
                   <RiAddLine size={20} />
                 </ActionIcon>

@@ -1,16 +1,10 @@
 import { Container, Group, Stack } from "@mantine/core";
 import { Notifications } from "@mantine/notifications";
 import LoginForm from "~/shared/LoginForm";
+import WaitlistForm from "~/shared/WaitlistForm";
 import { PageTitle } from "~/shared/PageTitle";
 import { PromotionCard } from "~/shared/PromotionCard";
-
-// Declare Google types
-declare global {
-  interface Window {
-    google: any;
-    handleSignInWithGoogle: (response: any) => void;
-  }
-}
+import { isWaitlistMode } from "~/lib/utils";
 
 export default function Login() {
   return (
@@ -20,13 +14,17 @@ export default function Login() {
         <Group justify="center" gap="xl">
           <Stack>
             <PageTitle
-              title="Welcome"
-              text="Create or Login to your account to get started"
+              title={isWaitlistMode ? "Join the waitlist" : "Welcome"}
+              text={
+                isWaitlistMode
+                  ? "Genny is in private build. Leave your email and we’ll invite you when we’re ready."
+                  : "Create or Login to your account to get started"
+              }
               settings={{ py: "xs", order: 3 }}
             />
-            <LoginForm />
+            {isWaitlistMode ? <WaitlistForm /> : <LoginForm />}
           </Stack>
-          <PromotionCard />
+          {!isWaitlistMode ? <PromotionCard /> : null}
         </Group>
       </Container>
     </>

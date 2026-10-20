@@ -5,7 +5,7 @@ import { json } from "@codemirror/lang-json";
 import { markdown } from "@codemirror/lang-markdown";
 import { python } from "@codemirror/lang-python";
 import { oneDark } from "@codemirror/theme-one-dark";
-import { ActionIcon, Box, Image, Tooltip } from "@mantine/core";
+import { ActionIcon, Box, Tooltip } from "@mantine/core";
 import { RiCheckLine, RiFileCopyLine } from "@remixicon/react";
 import CodeMirror from "@uiw/react-codemirror";
 import React, { useState } from "react";
@@ -42,6 +42,21 @@ const getLanguageExtension = (language: string) => {
   }
 };
 
+/** Drop text links that repeat a URL already shown as an image, so chat keeps one thumbnail. */
+function omitDuplicateMediaLinks(markdown: string): string {
+  const imageUrls = new Set<string>();
+  for (const match of markdown.matchAll(/!\[[^\]]*\]\(([^)\s]+)\)/g)) {
+    const url = match[1]?.trim();
+    if (url) imageUrls.add(url);
+  }
+  if (imageUrls.size === 0) return markdown;
+  return markdown.replace(
+    /(^|[^!])\[([^\]]*)\]\(([^)\s]+)\)/g,
+    (full, prefix: string, _label: string, url: string) =>
+      imageUrls.has(url.trim()) ? prefix : full
+  );
+}
+
 interface MarkdownRendererProps {
   content: string;
   className?: string;
@@ -57,6 +72,13 @@ export default function MarkdownRenderer({
 }: MarkdownRendererProps) {
   const { themeSettings } = useAppStore();
   const linkColor = themeSettings.colorScheme === "dark" ? "#63b3ed" : "#3182ce";
+  const markdown = omitDuplicateMediaLinks(content);
+
+  const mediaSrc = (value: unknown): string => {
+    if (typeof value === "string") return value.trim();
+    if (Array.isArray(value)) return mediaSrc(value[0]);
+    return "";
+  };
 
   return (
     <Box className={className} style={style}>
@@ -64,11 +86,14 @@ export default function MarkdownRenderer({
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeRaw, rehypeSanitize]}
         components={{
-          img: ({ src, alt }) => (
-            <MarkdownMediaLink href={src} linkColor={linkColor}>
-              {alt ?? "Generated"}
-            </MarkdownMediaLink>
-          ),
+          img: ({ src, alt }) => {
+            const url = mediaSrc(src);
+            return (
+              <MarkdownMediaLink href={url} linkColor={linkColor}>
+                {typeof alt === "string" && alt.trim() ? alt : "Generated"}
+              </MarkdownMediaLink>
+            );
+          },
           code({ className, children, ...props }) {
             const match = /language-(\w+)/.exec(className || "");
             const language = match ? match[1] : "";
@@ -246,9 +271,10 @@ export default function MarkdownRenderer({
             </td>
           ),
           p: ({ children }) => {
-            // Check if children contain block-level elements (like divs) or images
+            // Custom image/media components render cards (divs). A <p> would drop them.
             const hasBlockElements = React.Children.toArray(children).some((child) => {
               if (React.isValidElement(child)) {
+                if (typeof child.type !== "string") return true;
                 return (
                   child.type === "div" ||
                   child.type === "pre" ||
@@ -262,8 +288,7 @@ export default function MarkdownRenderer({
                   child.type === "h4" ||
                   child.type === "h5" ||
                   child.type === "h6" ||
-                  child.type === "img" ||
-                  child.type === Image
+                  child.type === "img"
                 );
               }
               return false;
@@ -398,7 +423,7 @@ export default function MarkdownRenderer({
           br: () => <br />,
         }}
       >
-        {content}
+        {markdown}
       </ReactMarkdown>
     </Box>
   );

@@ -4,6 +4,7 @@ import { Link, Outlet } from "react-router";
 import Logo from "./Logo";
 import { ThemeSwitcher } from "~/shared/ThemeSwitcher";
 import useAppStore from "~/lib/stores/appStore";
+import { isWaitlistMode } from "~/lib/utils";
 
 export default function LandingLayout() {
   const { getUser, themeSettings } = useAppStore();
@@ -46,9 +47,9 @@ export default function LandingLayout() {
                   variant="subtle"
                   size="sm"
                   leftSection={<RiLoginBoxLine size={18} />}
-                  aria-label="Login / Register"
+                  aria-label={isWaitlistMode ? "Join waitlist" : "Login / Register"}
                 >
-                  Login
+                  {isWaitlistMode ? "Join waitlist" : "Login"}
                 </Button>
               )}
             </Group>

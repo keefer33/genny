@@ -126,7 +126,7 @@ export default function MemberFiles() {
       }
 
       const deletePromises = allSelectedFiles.map((file) => {
-        return deleteFile(file.file_name, file.id, user.user.id);
+        return deleteFile(file.id, user.user.id);
       });
 
       const results = await Promise.all(deletePromises);

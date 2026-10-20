@@ -532,6 +532,20 @@ export function evaluateConditions(
   return { setValues, disabledFields, enumFilters };
 }
 
+/** Drop fields a matching `x-conditions` rule disabled, including nested paths under that field. */
+export function omitConditionDisabledFields(
+  values: Record<string, unknown>,
+  disabledFields: Set<string>
+): Record<string, unknown> {
+  if (disabledFields.size === 0) return values;
+  const out: Record<string, unknown> = { ...values };
+  for (const field of disabledFields) {
+    if (!field || field.includes(".")) continue;
+    delete out[field];
+  }
+  return out;
+}
+
 /** Strip UI-only keys (e.g. `__rowKey`) and empty values at every depth, including nested `SchemaObjectArrayField` rows. */
 function sanitizePayloadEntry(value: unknown): unknown {
   if (value == null) return undefined;

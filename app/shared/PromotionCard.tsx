@@ -2,7 +2,7 @@ import { Card, Stack, Text, Title, Box, Button } from "@mantine/core";
 import { useEffect, useState } from "react";
 import { RiSparklingLine } from "@remixicon/react";
 import { Link } from "react-router";
-import { endpoint } from "~/lib/utils";
+import { endpoint, isWaitlistMode } from "~/lib/utils";
 
 interface Promotion {
   id: string;
@@ -93,7 +93,7 @@ export function PromotionCard() {
                 variant="filled"
                 leftSection={<RiSparklingLine size={20} />}
               >
-                Create For Free!
+                {isWaitlistMode ? "Join waitlist" : "Create For Free!"}
               </Button>
             </Stack>
           </Card>

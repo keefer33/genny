@@ -13,8 +13,12 @@ import {
   Card,
   Modal,
   Button,
+  TextInput,
+  Avatar,
 } from "@mantine/core";
 import {
+  RiCheckLine,
+  RiCloseLine,
   RiDeleteBinLine,
   RiDownloadLine,
   RiExternalLinkLine,
@@ -23,6 +27,7 @@ import {
   RiFileTextLine,
   RiFilePdf2Fill,
   RiMusic2Line,
+  RiPencilLine,
   RiPlayLine,
   RiImageLine,
 } from "@remixicon/react";
@@ -37,6 +42,33 @@ import { useDisclosure } from "@mantine/hooks";
 import { Fragment, useEffect, useState, type ReactNode } from "react";
 import useAppStore from "~/lib/stores/appStore";
 import useFilesFoldersStore from "~/lib/stores/filesFoldersStore";
+import type { FileDetailGenModelEmbed } from "./FileDetailModal";
+
+function resolveBrandName(
+  brand: FileDetailGenModelEmbed["brand_name"]
+): string | undefined {
+  if (typeof brand === "string" && brand.trim()) return brand.trim();
+  if (brand && typeof brand === "object" && typeof brand.name === "string" && brand.name.trim()) {
+    return brand.name.trim();
+  }
+  return undefined;
+}
+
+function resolveBrandLogo(
+  brand: FileDetailGenModelEmbed["brand_name"]
+): string | undefined {
+  if (brand && typeof brand === "object" && typeof brand.logo === "string" && brand.logo.trim()) {
+    return brand.logo.trim();
+  }
+  return undefined;
+}
+
+function resolveGenModelEmbed(
+  value: FileDetailsProps["file"]["gen_model_id"]
+): FileDetailGenModelEmbed | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as FileDetailGenModelEmbed;
+}
 
 function resolveFileShareType(fileType: string): "image" | "video" | "audio" | "other" {
   if (fileType.startsWith("image/")) return "image";
@@ -360,10 +392,11 @@ export type FileDetailsProps = {
     user_file_tags?: UserFileTag[];
     generated_info?: unknown;
     upload_type?: string;
+    gen_model_id?: FileDetailGenModelEmbed | string | null;
   };
   onTagsUpdated?: (fileId: string, updatedTags: UserFileTag[]) => void;
-  /** Called after a non-delete file mutation (e.g. switch base look). */
-  onUpdated?: (fileId: string) => void;
+  /** Called after a non-delete file mutation (e.g. rename, switch base look). */
+  onUpdated?: (fileId: string, patch?: { file_name?: string }) => void;
   /** Called after the file row is removed from the API (e.g. close modal, refresh a list). */
   onDeleted?: (fileId: string) => void;
 };
@@ -377,25 +410,28 @@ export function FileDetails({
   const [fileDetail, setFileDetail] = useState(file);
   const [uploadTypeOverride, setUploadTypeOverride] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const [editName, setEditName] = useState(file.file_name);
+  const [renamingSaving, setRenamingSaving] = useState(false);
   const [deleteConfirmOpened, { open: openDeleteConfirm, close: closeDeleteConfirm }] =
     useDisclosure(false);
-  const { isMobile } = useAppStore();
+  const { isMobile, getUser } = useAppStore();
+  const userId = getUser()?.user?.id;
   const deleteUserFileRecord = useFilesFoldersStore((s) => s.deleteUserFileRecord);
+  const updateFileName = useFilesFoldersStore((s) => s.updateFileName);
 
+  // Sync from props when switching files only — parent often keeps a stale file_name
+  // after rename (new object identity), which would otherwise clobber local state.
   useEffect(() => {
     setFileDetail(file);
-  }, [file]);
-
-  useEffect(() => {
+    setEditName(file.file_name);
+    setRenaming(false);
     setUploadTypeOverride(null);
   }, [file.id]);
 
   const uploadType = (uploadTypeOverride ?? fileDetail.upload_type ?? "").trim().toLowerCase();
-  const canDelete = Boolean(
-    fileDetail.id?.trim() &&
-      fileDetail.file_name?.trim() &&
-      uploadType !== "character"
-  );
+  const canDelete = Boolean(fileDetail.id?.trim() && uploadType !== "character");
+  const canRename = Boolean(fileDetail.id?.trim() && userId && uploadType !== "character");
   const isCharacter = uploadType === "character";
 
   const getFileIcon = (size: number = 24) => {
@@ -418,7 +454,7 @@ export function FileDetails({
   };
 
   const getFileTypeBadge = () => {
-    const ext = getFileExtension(file.file_name);
+    const ext = getFileExtension(file.file_path || file.file_name);
     if (file.file_type.startsWith("image/")) {
       return <MediaTypeBadge type="image" size="sm" variant="filled" />;
     }
@@ -474,7 +510,7 @@ export function FileDetails({
     if (!canDelete) return;
 
     setDeleting(true);
-    const ok = await deleteUserFileRecord(fileDetail.file_name, fileDetail.id);
+    const ok = await deleteUserFileRecord(fileDetail.id);
     setDeleting(false);
     closeDeleteConfirm();
 
@@ -482,11 +518,50 @@ export function FileDetails({
     onDeleted?.(fileDetail.id);
   };
 
+  const startRename = () => {
+    if (!canRename) return;
+    setEditName(fileDetail.file_name);
+    setRenaming(true);
+  };
+
+  const cancelRename = () => {
+    setEditName(fileDetail.file_name);
+    setRenaming(false);
+  };
+
+  const saveRename = async () => {
+    if (!canRename || !userId) return;
+    const trimmed = editName.trim();
+    if (!trimmed) return;
+    if (trimmed === fileDetail.file_name.trim()) {
+      setRenaming(false);
+      return;
+    }
+
+    setRenamingSaving(true);
+    const result = await updateFileName(fileDetail.id, trimmed, userId);
+    setRenamingSaving(false);
+    if (!result.success) return;
+
+    const nextName = result.updatedFile?.file_name?.trim() || trimmed;
+    setFileDetail((prev) => ({ ...prev, file_name: nextName }));
+    setEditName(nextName);
+    setRenaming(false);
+    _onUpdated?.(fileDetail.id, { file_name: nextName });
+  };
+
   const generatedInfo = fileDetail.generated_info as { payload?: unknown } | undefined;
   const payload =
     generatedInfo?.payload && typeof generatedInfo.payload === "object"
       ? (generatedInfo.payload as Record<string, unknown>)
       : null;
+
+  const genModel = resolveGenModelEmbed(fileDetail.gen_model_id);
+  const brandName = resolveBrandName(genModel?.brand_name);
+  const brandLogo = resolveBrandLogo(genModel?.brand_name);
+  const modelProduct = genModel?.model_product?.trim() || undefined;
+  const modelVariant = genModel?.model_variant?.trim() || undefined;
+  const hasGenerationModel = Boolean(brandName || modelProduct || modelVariant);
 
   return (
     <>
@@ -579,46 +654,104 @@ export function FileDetails({
           }}
         >
           <Stack gap="xs">
-            <Group gap="xs" justify="space-between" align="flex-start" wrap="nowrap">
-              {isCharacter ? <Badge size="sm">Character</Badge> : null}
-            </Group>
-            <Group justify="space-between" align="flex-start" wrap="nowrap">
-              <Text size="md" fw={600} style={{ minWidth: 0, overflowWrap: "anywhere" }}>
-                {fileDetail.file_name}
-              </Text>
-
-              {/* Action Buttons */}
-              <Group gap="sm">
-                <FileShare
-                  fileUrl={fileDetail.file_path}
-                  fileName={fileDetail.file_name}
-                  fileType={resolveFileShareType(fileDetail.file_type)}
-                  variant="icon"
+            {isCharacter ? (
+              <Group gap="xs">
+                <Badge size="sm">Character</Badge>
+              </Group>
+            ) : null}
+            {renaming ? (
+              <Group gap="xs" wrap="nowrap" align="flex-start">
+                <TextInput
                   size="sm"
+                  value={editName}
+                  onChange={(e) => setEditName(e.currentTarget.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      void saveRename();
+                    }
+                    if (e.key === "Escape") {
+                      e.preventDefault();
+                      cancelRename();
+                    }
+                  }}
+                  disabled={renamingSaving}
+                  style={{ flex: 1, minWidth: 0 }}
+                  autoFocus
+                  aria-label="File display name"
                 />
                 <ActionIcon
                   size="sm"
-                  onClick={() => handleFileDetailDownload(fileDetail)}
                   variant="transparent"
-                  aria-label="Download file"
-                  title="Download file"
+                  color="green"
+                  aria-label="Save name"
+                  title="Save name"
+                  loading={renamingSaving}
+                  onClick={() => void saveRename()}
+                  disabled={!editName.trim()}
                 >
-                  <RiDownloadLine />
+                  <RiCheckLine />
                 </ActionIcon>
-                {canDelete ? (
+                <ActionIcon
+                  size="sm"
+                  variant="transparent"
+                  aria-label="Cancel rename"
+                  title="Cancel"
+                  disabled={renamingSaving}
+                  onClick={cancelRename}
+                >
+                  <RiCloseLine />
+                </ActionIcon>
+              </Group>
+            ) : (
+              <Group gap="xs" wrap="nowrap" align="flex-start">
+                <Text size="md" fw={600} style={{ minWidth: 0, flex: 1, overflowWrap: "anywhere" }}>
+                  {fileDetail.file_name}
+                </Text>
+                {canRename ? (
                   <ActionIcon
                     size="sm"
-                    color="red"
                     variant="transparent"
-                    aria-label="Delete file"
-                    title="Delete file"
-                    loading={deleting}
-                    onClick={openDeleteConfirm}
+                    aria-label="Rename file"
+                    title="Rename"
+                    onClick={startRename}
                   >
-                    <RiDeleteBinLine />
+                    <RiPencilLine size={16} />
                   </ActionIcon>
                 ) : null}
               </Group>
+            )}
+
+            <Group gap="sm" justify="flex-end">
+              <FileShare
+                fileUrl={fileDetail.file_path}
+                fileName={fileDetail.file_name}
+                fileType={resolveFileShareType(fileDetail.file_type)}
+                variant="icon"
+                size="sm"
+              />
+              <ActionIcon
+                size="sm"
+                onClick={() => handleFileDetailDownload(fileDetail)}
+                variant="transparent"
+                aria-label="Download file"
+                title="Download file"
+              >
+                <RiDownloadLine />
+              </ActionIcon>
+              {canDelete ? (
+                <ActionIcon
+                  size="sm"
+                  color="red"
+                  variant="transparent"
+                  aria-label="Delete file"
+                  title="Delete file"
+                  loading={deleting}
+                  onClick={openDeleteConfirm}
+                >
+                  <RiDeleteBinLine />
+                </ActionIcon>
+              ) : null}
             </Group>
             <Group gap="xs">
               {getFileTypeBadge()}
@@ -678,6 +811,31 @@ export function FileDetails({
                   <Table.Th w={120}>File Name</Table.Th>
                   <Table.Td style={{ overflowWrap: "anywhere" }}>{fileDetail.file_name}</Table.Td>
                 </Table.Tr>
+                {hasGenerationModel && brandName ? (
+                  <Table.Tr>
+                    <Table.Th>Brand</Table.Th>
+                    <Table.Td>
+                      <Group gap="xs" wrap="nowrap">
+                        {brandLogo ? <Avatar src={brandLogo} size={20} radius="sm" /> : null}
+                        <Text size="sm" style={{ overflowWrap: "anywhere" }}>
+                          {brandName}
+                        </Text>
+                      </Group>
+                    </Table.Td>
+                  </Table.Tr>
+                ) : null}
+                {modelProduct ? (
+                  <Table.Tr>
+                    <Table.Th>Model</Table.Th>
+                    <Table.Td style={{ overflowWrap: "anywhere" }}>{modelProduct}</Table.Td>
+                  </Table.Tr>
+                ) : null}
+                {modelVariant ? (
+                  <Table.Tr>
+                    <Table.Th>Variant</Table.Th>
+                    <Table.Td style={{ overflowWrap: "anywhere" }}>{modelVariant}</Table.Td>
+                  </Table.Tr>
+                ) : null}
                 <Table.Tr>
                   <Table.Th>Date Created</Table.Th>
                   <Table.Td>{`${dayjs(fileDetail.created_at).format("MM/DD/YYYY h:mm A")}`}</Table.Td>

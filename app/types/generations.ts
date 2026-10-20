@@ -100,6 +100,8 @@ export type GenerationsHistoryItem = {
     file_type?: string | null;
     file_name?: string | null;
     thumbnail_url?: string | null;
+    generated_info?: unknown;
+    gen_model_id?: GenerationsHistoryGenModelEmbed | string | null;
   }>;
   /** Raw vendor polling payload persisted on run rows (includes `error` for failed runs). */
   polling_response?: { error?: string | null; [key: string]: unknown } | null;

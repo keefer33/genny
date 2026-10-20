@@ -89,7 +89,8 @@ export function SchemaNestedFields({
         const hasSingleEnumValue = prop.enum?.length === 1;
         const isConditionDisabled =
           conditionDisabledFields.has(fieldPath) || conditionDisabledFields.has(key);
-        const isFieldReadOnly = prop.readOnly || isConditionDisabled || readOnlyFromParent;
+        if (isConditionDisabled) return null;
+        const isFieldReadOnly = prop.readOnly || readOnlyFromParent;
         const xUiComponent = resolveXUiComponent(prop);
         /** Mantine adds its own * when `required` is set; turn off only when our label already has one. */
         const inputWithAsterisk = showRequiredStarInLabel && isRequired ? false : undefined;

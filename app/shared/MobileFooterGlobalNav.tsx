@@ -1,6 +1,6 @@
 import { Group, SegmentedControl } from "@mantine/core";
 import {
-  RiChatAi2Line,
+  RiBriefcaseLine,
   RiDashboardLine,
   RiHistoryLine,
   RiHomeLine,
@@ -11,11 +11,12 @@ import {
 import { useLocation, useNavigate } from "react-router";
 import type { ComponentType } from "react";
 import useAppStore from "~/lib/stores/appStore";
+import { isWaitlistMode } from "~/lib/utils";
 
 export const MOBILE_GLOBAL_NAV_HEIGHT = 55;
 
 type GlobalNavItem = {
-  key: "agents" | "playground" | "generations" | "dashboard" | "playground" | "characters";
+  key: "projects" | "playground" | "generations" | "dashboard" | "characters";
   label: string;
   icon: ComponentType<{ size?: string | number }>;
   to: string;
@@ -38,11 +39,11 @@ export function MobileFooterGlobalNav() {
       isActive: isLoggedIn ? location.pathname === "/dashboard" : location.pathname === "/",
     },
     {
-      key: "agents",
-      label: "Agents",
-      icon: RiChatAi2Line,
-      to: "/agents",
-      isActive: location.pathname.startsWith("/agents"),
+      key: "projects",
+      label: "Projects",
+      icon: RiBriefcaseLine,
+      to: "/projects",
+      isActive: location.pathname.startsWith("/projects"),
     },
     {
       key: "playground",
@@ -60,7 +61,7 @@ export function MobileFooterGlobalNav() {
     },
     {
       key: "generations",
-      label: isLoggedIn ? "History" : "Login",
+      label: isLoggedIn ? "History" : isWaitlistMode ? "Waitlist" : "Login",
       icon: isLoggedIn ? RiHistoryLine : RiLoginBoxLine,
       to: isLoggedIn ? "/generations" : "/login",
       isActive: isLoggedIn
@@ -75,7 +76,7 @@ export function MobileFooterGlobalNav() {
     (acc, item) => ({ ...acc, [item.key]: item.to }),
     {
       dashboard: "/dashboard",
-      agents: "/agents",
+      projects: "/projects",
       characters: "/characters",
     } as Record<GlobalNavItem["key"], string>
   );

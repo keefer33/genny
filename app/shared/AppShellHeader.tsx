@@ -5,6 +5,7 @@ import { useUserProfileUsageBalanceRealtime } from "~/lib/hooks/useUserRealtimeC
 import Logo from "./Logo";
 import useAppStore from "~/lib/stores/appStore";
 import { CostBadge } from "./CostBadge";
+import { isWaitlistMode } from "~/lib/utils";
 
 interface AppShellHeaderProps {
   mobileOpened: boolean;
@@ -35,9 +36,9 @@ export function AppShellHeader({ mobileOpened, toggleMobile }: AppShellHeaderPro
               variant="subtle"
               size="sm"
               leftSection={<RiLoginBoxLine size={18} />}
-              aria-label="Login / Register"
+              aria-label={isWaitlistMode ? "Join waitlist" : "Login / Register"}
             >
-              Login
+              {isWaitlistMode ? "Join waitlist" : "Login"}
             </Button>
           )}
 

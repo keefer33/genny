@@ -63,6 +63,8 @@ export interface ChatMetadata {
   [key: string]: unknown;
 }
 
+export type ChatScope = "agent" | "project";
+
 export interface ChatRow {
   id: string;
   created_at: string;
@@ -70,6 +72,7 @@ export interface ChatRow {
   user_id: string;
   chat_name: string | null;
   metadata?: ChatMetadata | null;
+  scope?: ChatScope | null;
 }
 
 /** Message row from GET /chats/:id/messages (user_models_chats_messages). */

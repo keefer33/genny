@@ -46,6 +46,8 @@ export const endpoint =
     ? import.meta.env.VITE_LOCAL_API_URL || "http://localhost:3001"
     : import.meta.env.VITE_API_URL || ""; // Empty string = same origin (current domain)
 
+export const isWaitlistMode = import.meta.env.VITE_NODE_ENV !== "development";
+
 // Global copy to clipboard function
 export const copyToClipboard = async (textToCopy: string | string[]) => {
   try {

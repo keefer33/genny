@@ -117,6 +117,7 @@ function SortableRegularSceneCard({
         transform: CSS.Transform.toString(transform),
         transition: sortableTransition,
         opacity: isDragging ? 0.65 : 1,
+        border: "1px solid var(--mantine-color-gray-8)",
       }}
     >
       <Stack gap="xs">
@@ -124,7 +125,7 @@ function SortableRegularSceneCard({
           justify="space-between"
           wrap="nowrap"
           gap="xs"
-          p={2}
+          //p={2}
           style={{
             cursor: "pointer",
             backgroundColor: isSelected
@@ -133,7 +134,7 @@ function SortableRegularSceneCard({
           }}
           onClick={() => selectStoryboardScene(storyboardId, scene.id)}
         >
-          <Group gap="xs" wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
+          <Group gap="xs" wrap="nowrap" style={{ flex: 1, minWidth: 0 }} bg="gray.8">
             <SortableDragHandle listeners={listeners} attributes={attributes} />
             <Text size="sm" style={{ flex: 1, minWidth: 0 }} lineClamp={1}>
               {scene.title?.trim() || `Scene ${index + 1}`}
@@ -177,7 +178,7 @@ export function StoryboardSceneList({ storyboardId }: StoryboardSceneListProps) 
 
   return (
     <ScrollArea h="100%" type="auto">
-      <Stack gap="xs" p="xs">
+      <Stack gap="xl" p="xs">
         {baseScene ? (
           <BaseSceneCard
             storyboardId={storyboardId}

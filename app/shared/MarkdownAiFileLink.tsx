@@ -1,7 +1,8 @@
-import { Card, Center, Loader, Stack } from "@mantine/core";
+import { Box, Card, Center, Loader } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useEffect, useState } from "react";
 import { HistoryPreviewWithBadge } from "~/pages/generations/components/HistoryPreviewWithBadge";
+import { MediaTypeBadge } from "~/shared/MediaTypeBadge";
 import {
   buildMinimalUserFile,
   fetchUserFileByPath,
@@ -35,6 +36,9 @@ function asUserFileRecord(
       : {}),
     ...(raw.generated_info ? { generated_info: raw.generated_info } : {}),
     ...(typeof raw.character_id === "string" ? { character_id: raw.character_id } : {}),
+    ...(raw.gen_model_id != null
+      ? { gen_model_id: raw.gen_model_id as FileDetailModalFileItem["gen_model_id"] }
+      : {}),
   };
 }
 
@@ -98,12 +102,39 @@ export function MarkdownAiFileLink({ url, label }: MarkdownAiFileLinkProps) {
           if (canOpenDetail) openPreview();
         }}
       >
-        <Stack gap="xs">
-          <HistoryPreviewWithBadge
-            url={previewUrl}
-            file_type={fileType}
-            upload_type={file?.upload_type}
-          />
+        <Box pos="relative">
+          {fileType.startsWith("audio/") ? (
+            <Box h={96}>
+              <HistoryPreviewWithBadge
+                url={previewUrl}
+                file_type={fileType}
+                upload_type={file?.upload_type}
+              />
+            </Box>
+          ) : (
+            <>
+              <img
+                src={previewUrl}
+                alt={label || "Generated file"}
+                style={{
+                  display: "block",
+                  width: "100%",
+                  height: "auto",
+                  //maxHeight: 280,
+                  //objectFit: "contain",
+                }}
+              />
+              <MediaTypeBadge
+                size="sm"
+                variant="filled"
+                file_type={fileType}
+                pos="absolute"
+                top={6}
+                left={6}
+                style={{ zIndex: 2, textTransform: "none", pointerEvents: "none" }}
+              />
+            </>
+          )}
           {metadataLoading ? (
             <Center
               pos="absolute"
@@ -119,11 +150,19 @@ export function MarkdownAiFileLink({ url, label }: MarkdownAiFileLinkProps) {
               <Loader size="xs" color="white" />
             </Center>
           ) : null}
-        </Stack>
+        </Box>
       </Card>
 
       {canOpenDetail && previewOpen ? (
-        <FileDetailModal opened={previewOpen} onClose={closePreview} file={file} />
+        <FileDetailModal
+          opened={previewOpen}
+          onClose={closePreview}
+          file={file}
+          onFileUpdated={(fileId, patch) => {
+            if (file.id !== fileId || !patch?.file_name?.trim()) return;
+            setFile((prev) => ({ ...prev, file_name: patch.file_name!.trim() }));
+          }}
+        />
       ) : null}
     </>
   );

@@ -21,14 +21,15 @@ import {
   RiVideoAiLine,
   RiVoiceAiLine,
   RiMicLine,
-  RiChatAi2Line,
   RiTeamLine,
   RiAiGenerate2,
   RiFilmLine,
+  RiBriefcaseLine,
 } from "@remixicon/react";
 import { NavLink, useLocation } from "react-router";
 import useAppStore from "~/lib/stores/appStore";
 import { CurrentBalance } from "./CurrentBalance";
+import { isWaitlistMode } from "~/lib/utils";
 
 interface NavbarProps {
   toggleMobile: () => void;
@@ -53,10 +54,11 @@ export function Navbar({ toggleMobile, collapsed }: NavbarProps) {
       matchPrefix: "/dashboard",
     },
     {
-      to: "/agents",
-      icon: RiChatAi2Line,
-      label: "Agents",
-      description: "Agents",
+      to: "/projects",
+      icon: RiBriefcaseLine,
+      label: "Projects",
+      description: "What can I build for you today?",
+      matchPrefix: "/projects",
     },
     {
       to: "generate",
@@ -98,8 +100,8 @@ export function Navbar({ toggleMobile, collapsed }: NavbarProps) {
           {
             to: "/login",
             icon: RiLoginBoxLine,
-            label: "Sign In",
-            description: "Sign in to your account",
+            label: isWaitlistMode ? "Join waitlist" : "Sign In",
+            description: isWaitlistMode ? "Join the waitlist" : "Sign in to your account",
           },
         ]
       : []),

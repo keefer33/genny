@@ -54,8 +54,8 @@ export default function MessagesContent({
   const messageList = (
     <Stack gap="md" p="md" pb="xl">
       {visibleMessages.length === 0 && !shouldShowStreamingAssistant && (
-        <Text size="sm" c="dimmed">
-          Send a message to start. Pick a model and optionally add a system prompt.
+        <Text size="lg" c="dimmed" ta="center" py="xl">
+          What can I build for you today?
         </Text>
       )}
       {renderedMessages}

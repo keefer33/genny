@@ -108,12 +108,12 @@ export default function ToolkitDetail() {
       <Button
         variant="filled"
         component={Link}
-        to="/agents"
+        to="/projects"
         size="compact-sm"
         justify="flex-start"
         w="fit-content"
       >
-        Agents
+        Projects
       </Button>
     </Group>
   );

@@ -1,6 +1,6 @@
 import { Modal, ActionIcon, Button, Tabs, Scroller } from "@mantine/core";
 import { RiEyeLine } from "@remixicon/react";
-import type { MouseEvent, ReactNode } from "react";
+import { useEffect, useMemo, useState, type MouseEvent, type ReactNode } from "react";
 import { FileDetails } from "./FileDetails";
 import { useDisclosure } from "@mantine/hooks";
 
@@ -18,6 +18,18 @@ interface UserFileTag {
   user_tags: UserTag;
 }
 
+/** Catalog model embed from `user_files.gen_model_id` (when present). */
+export type FileDetailGenModelEmbed = {
+  id?: string;
+  model_name?: string | null;
+  brand_name?:
+    | string
+    | null
+    | { name?: string | null; logo?: string | null; slug?: string | null };
+  model_product?: string | null;
+  model_variant?: string | null;
+};
+
 export interface FileDetailModalFileItem {
   id: string;
   character_id?: string;
@@ -30,6 +42,8 @@ export interface FileDetailModalFileItem {
   thumbnail_url?: string;
   generated_info?: unknown;
   upload_type?: string;
+  /** Embedded gen model used to create the file, when applicable. */
+  gen_model_id?: FileDetailGenModelEmbed | string | null;
 }
 
 export type FileDetailModalFile = Array<
@@ -52,11 +66,29 @@ type FileDetailModalProps = {
   onDownload?: () => void;
   onEdit?: () => void;
   onTagsUpdated?: (fileId: string, updatedTags: any) => void;
-  /** Called after a non-delete file mutation (e.g. switch base look). */
-  onFileUpdated?: (fileId: string) => void;
+  /** Called after a non-delete file mutation (e.g. rename, switch base look). */
+  onFileUpdated?: (fileId: string, patch?: { file_name?: string }) => void;
   /** Called after a file is deleted from {@link FileDetails} (refresh lists, close modal). */
   onFileDeleted?: (fileId: string) => void;
 };
+
+function normalizeModalFiles(file: FileDetailModalFileInput): FileDetailModalFileItem[] {
+  const rawFiles = Array.isArray(file) ? file : file ? [file] : [];
+  return rawFiles.filter(Boolean).map((f, index) => ({
+    id: f.id,
+    file_name: f.file_name?.trim() || `File ${index + 1}`,
+    file_path: f.file_path ?? "",
+    file_size: f.file_size ?? 0,
+    file_type: f.file_type ?? "",
+    created_at: f.created_at ?? "",
+    user_file_tags: f.user_file_tags,
+    thumbnail_url: f.thumbnail_url,
+    generated_info: f.generated_info,
+    upload_type: f.upload_type,
+    character_id: f.character_id,
+    gen_model_id: f.gen_model_id,
+  }));
+}
 
 /** Eye control for file tiles — opens {@link FileDetailModal} (place inside a `position: relative` preview). */
 export function FileCardViewDetailsButton({
@@ -97,25 +129,33 @@ export default function FileDetailModal({
 }: FileDetailModalProps) {
   const [internalOpened, { open: openFileDetailModal, close: closeFileDetailModal }] =
     useDisclosure(false);
-  const rawFiles = Array.isArray(file) ? file : file ? [file] : [];
-  const files: FileDetailModalFileItem[] = rawFiles.filter(Boolean).map((f, index) => ({
-    id: f.id,
-    file_name: f.file_name?.trim() || `File ${index + 1}`,
-    file_path: f.file_path ?? "",
-    file_size: f.file_size ?? 0,
-    file_type: f.file_type ?? "",
-    created_at: f.created_at ?? "",
-    user_file_tags: f.user_file_tags,
-    thumbnail_url: f.thumbnail_url,
-    generated_info: f.generated_info,
-    upload_type: f.upload_type,
-    character_id: f.character_id,
-  }));
-  const firstFileId = files[0]?.id ?? "file-0";
   const fileDetailOpened = opened ?? internalOpened;
   const closeDetails = onClose ?? closeFileDetailModal;
   const openDetails = () => openFileDetailModal();
   const shouldRenderTrigger = opened == null;
+
+  const propFiles = useMemo(() => normalizeModalFiles(file), [file]);
+  const propFileIds = propFiles.map((f) => f.id).join(",");
+  const [files, setFiles] = useState<FileDetailModalFileItem[]>(propFiles);
+
+  // Resync when the modal opens or the set of file ids changes — not on every
+  // parent re-render with a stale file_name after rename.
+  useEffect(() => {
+    if (!fileDetailOpened) return;
+    setFiles(normalizeModalFiles(file));
+  }, [fileDetailOpened, propFileIds]);
+
+  const firstFileId = files[0]?.id ?? "file-0";
+
+  const handleUpdated = (fileId: string, patch?: { file_name?: string }) => {
+    if (patch?.file_name?.trim()) {
+      const nextName = patch.file_name.trim();
+      setFiles((prev) =>
+        prev.map((f) => (f.id === fileId ? { ...f, file_name: nextName } : f))
+      );
+    }
+    onFileUpdated?.(fileId, patch);
+  };
 
   return (
     <>
@@ -151,7 +191,6 @@ export default function FileDetailModal({
       <Modal
         opened={fileDetailOpened}
         onClose={closeDetails}
-        //title={file.file_name}
         fullScreen
         styles={{
           body: { padding: 0 },
@@ -164,7 +203,7 @@ export default function FileDetailModal({
             <FileDetails
               file={files[0]}
               onTagsUpdated={onTagsUpdated}
-              onUpdated={onFileUpdated}
+              onUpdated={handleUpdated}
               onDeleted={onFileDeleted}
             />
           ) : null
@@ -184,7 +223,7 @@ export default function FileDetailModal({
                 <FileDetails
                   file={f}
                   onTagsUpdated={onTagsUpdated}
-                  onUpdated={onFileUpdated}
+                  onUpdated={handleUpdated}
                   onDeleted={onFileDeleted}
                 />
               </Tabs.Panel>

@@ -1,151 +1,148 @@
 import {
-  Button,
+  ActionIcon,
   Card,
   Group,
   Loader,
   Stack,
   Text,
   TextInput,
-  ActionIcon,
   useMantineTheme,
 } from "@mantine/core";
 import {
   RiAddLine,
   RiArrowRightLine,
-  RiChatSmile2Line,
+  RiBriefcaseLine,
   RiCheckLine,
   RiCloseLine,
   RiDeleteBinLine,
   RiPencilLine,
 } from "@remixicon/react";
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router";
 import useAppStore from "~/lib/stores/appStore";
-import { useChatsStore, type ChatRow } from "~/lib/stores/chatsStore";
+import useProjectsStore from "~/lib/stores/projectsStore";
+import { displayProjectName, type UserProject } from "~/pages/projects/projectUtils";
 import { formatDate } from "~/lib/utils";
 
-export default function ChatsList() {
+export default function ProjectsList() {
   const theme = useMantineTheme();
   const themeColor = useAppStore((s) => s.themeSettings.themeColor);
+  const navigate = useNavigate();
   const [listEditMode, setListEditMode] = useState(false);
   const {
-    chats,
-    chatsLoading,
-    selectedChat,
-    editingChatId,
+    projects,
+    projectsLoading,
+    selectedProject,
+    editingProjectId,
     editingTitle,
-    deletingAllChats,
     setEditingTitle,
-    startEditChat,
-    cancelEditChat,
-    saveEditedChatTitle,
-    selectChatByRow,
-    deleteChatFromList,
-    deleteAllChatsFromList,
-    clearSelectedChat,
-  } = useChatsStore();
+    startEditProject,
+    cancelEditProject,
+    saveEditedProjectTitle,
+    selectProject,
+    deleteProject,
+    beginCreateProject,
+  } = useProjectsStore();
 
   const exitListEditMode = () => {
     setListEditMode(false);
-    cancelEditChat();
+    cancelEditProject();
   };
 
   const toggleListEditMode = () => {
     setListEditMode((prev) => {
-      if (prev) cancelEditChat();
+      if (prev) cancelEditProject();
       return !prev;
     });
   };
 
-  const handleDeleteChat = async (id: string) => {
-    await deleteChatFromList(id);
+  const orderedProjects = useMemo(() => {
+    if (!selectedProject) return projects;
+    const current = projects.find((p) => p.id === selectedProject.id);
+    if (!current) return projects;
+    const rest = projects.filter((p) => p.id !== selectedProject.id);
+    return [current, ...rest];
+  }, [projects, selectedProject]);
+
+  const openProject = async (project: UserProject) => {
+    exitListEditMode();
+    await selectProject(project);
+    navigate(`/projects/${encodeURIComponent(project.id)}`);
   };
 
-  /** Active chat first; remaining chats keep list order. */
-  const orderedChats = useMemo(() => {
-    if (!selectedChat) return chats;
-    const current = chats.find((c) => c.id === selectedChat);
-    if (!current) return chats;
-    const rest = chats.filter((c) => c.id !== selectedChat);
-    return [current, ...rest];
-  }, [chats, selectedChat]);
+  const startNewProject = () => {
+    exitListEditMode();
+    beginCreateProject();
+  };
+
+  const showListActions = Boolean(selectedProject) && projects.length > 0;
 
   return (
     <>
       <Stack gap="xs" py="xs">
         <Group gap="xs" align="center" style={{ minWidth: 0 }} wrap="nowrap">
-          <RiChatSmile2Line size={24} color={theme.colors[themeColor][7]} />
+          <RiBriefcaseLine size={24} color={theme.colors[themeColor][7]} />
           <Text size="xl" fw={700}>
-            Chats
+            Projects
           </Text>
         </Group>
-        <Group justify="flex-end" gap="xs" wrap="nowrap" style={{ flexShrink: 0 }}>
-          {listEditMode && chats.length > 1 ? (
-            <Button
-              variant="subtle"
-              color="red"
-              size="compact-sm"
-              leftSection={<RiDeleteBinLine size={16} />}
-              onClick={deleteAllChatsFromList}
-              loading={deletingAllChats}
+        {showListActions ? (
+          <Group justify="flex-end" gap="xs" wrap="nowrap" style={{ flexShrink: 0 }}>
+            <ActionIcon
+              variant={listEditMode ? "filled" : "subtle"}
+              color={themeColor}
+              size="lg"
+              radius="md"
+              aria-label={listEditMode ? "Done editing project list" : "Edit project list"}
+              aria-pressed={listEditMode}
+              onClick={toggleListEditMode}
             >
-              Delete all chats
-            </Button>
-          ) : null}
-          <ActionIcon
-            variant={listEditMode ? "filled" : "subtle"}
-            color={themeColor}
-            size="lg"
-            radius="md"
-            aria-label={listEditMode ? "Done editing chat list" : "Edit chat list"}
-            aria-pressed={listEditMode}
-            onClick={toggleListEditMode}
-          >
-            <RiPencilLine size={20} />
-          </ActionIcon>
-          <ActionIcon
-            variant="light"
-            color={themeColor}
-            size="lg"
-            radius="md"
-            aria-label="New chat"
-            onClick={() => {
-              exitListEditMode();
-              clearSelectedChat();
-            }}
-          >
-            <RiAddLine size={20} />
-          </ActionIcon>
-        </Group>
+              <RiPencilLine size={20} />
+            </ActionIcon>
+            <ActionIcon
+              variant="light"
+              color={themeColor}
+              size="lg"
+              radius="md"
+              aria-label="New project"
+              onClick={startNewProject}
+            >
+              <RiAddLine size={20} />
+            </ActionIcon>
+          </Group>
+        ) : null}
       </Stack>
 
-      {chatsLoading ? (
+      {projectsLoading ? (
         <Group justify="center">
           <Loader size="sm" />
         </Group>
       ) : (
         <Stack gap="xl">
-          {chats.length === 0 && (
+          {projects.length === 0 && (
             <Text size="sm" c="dimmed" ta="center" py="md">
-              No chats yet. Use New chat to create one.
+              No projects yet. Create one in the panel to get started.
             </Text>
           )}
-          {orderedChats.map((chat) => (
-            <ChatListRow
-              key={chat.id}
-              chat={chat}
+          {orderedProjects.map((project) => (
+            <ProjectListRow
+              key={project.id}
+              project={project}
               listEditMode={listEditMode}
-              isCurrentChat={chat.id === selectedChat}
-              isEditing={editingChatId === chat.id}
+              isCurrent={project.id === selectedProject?.id}
+              isEditing={editingProjectId === project.id}
               editingTitle={editingTitle}
-              onOpenChat={() => {
-                exitListEditMode();
-                void selectChatByRow(chat);
-              }}
+              onOpen={() => void openProject(project)}
               setEditingTitle={setEditingTitle}
-              startEditChat={startEditChat}
-              cancelEditChat={cancelEditChat}
-              saveEditedChatTitle={saveEditedChatTitle}
-              deleteChatFromList={handleDeleteChat}
+              startEditProject={startEditProject}
+              cancelEditProject={cancelEditProject}
+              saveEditedProjectTitle={saveEditedProjectTitle}
+              deleteProject={async (id) => {
+                const ok = await deleteProject(id);
+                if (ok && selectedProject?.id === id) {
+                  navigate("/projects");
+                }
+              }}
             />
           ))}
         </Stack>
@@ -154,30 +151,30 @@ export default function ChatsList() {
   );
 }
 
-function ChatListRow({
-  chat,
+function ProjectListRow({
+  project,
   listEditMode,
-  isCurrentChat,
+  isCurrent,
   isEditing,
   editingTitle,
-  onOpenChat,
+  onOpen,
   setEditingTitle,
-  startEditChat,
-  cancelEditChat,
-  saveEditedChatTitle,
-  deleteChatFromList,
+  startEditProject,
+  cancelEditProject,
+  saveEditedProjectTitle,
+  deleteProject,
 }: {
-  chat: ChatRow;
+  project: UserProject;
   listEditMode: boolean;
-  isCurrentChat: boolean;
+  isCurrent: boolean;
   isEditing: boolean;
   editingTitle: string;
-  onOpenChat: () => void;
+  onOpen: () => void;
   setEditingTitle: (t: string) => void;
-  startEditChat: (c: ChatRow) => void;
-  cancelEditChat: () => void;
-  saveEditedChatTitle: () => Promise<void>;
-  deleteChatFromList: (id: string) => Promise<void>;
+  startEditProject: (p: UserProject) => void;
+  cancelEditProject: () => void;
+  saveEditedProjectTitle: () => Promise<void>;
+  deleteProject: (id: string) => Promise<void>;
 }) {
   const theme = useMantineTheme();
   const colorSchemeSetting = useAppStore((s) => s.themeSettings.colorScheme);
@@ -187,7 +184,8 @@ function ChatListRow({
     (colorSchemeSetting === "auto" &&
       (typeof window === "undefined" || window.matchMedia("(prefers-color-scheme: dark)").matches));
   const rowHighlight = isDarkUi ? theme.colors.dark[8] : theme.colors.gray[2];
-  const backgroundColor = isCurrentChat ? rowHighlight : "transparent";
+  const backgroundColor = isCurrent ? rowHighlight : "transparent";
+  const label = displayProjectName(project);
 
   return (
     <Card
@@ -198,7 +196,7 @@ function ChatListRow({
         backgroundColor,
       }}
       onClick={() => {
-        if (!listEditMode && !isEditing) onOpenChat();
+        if (!listEditMode && !isEditing) onOpen();
       }}
     >
       <Group justify="space-between" wrap="nowrap" gap="xs">
@@ -212,9 +210,9 @@ function ChatListRow({
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault();
-                    void saveEditedChatTitle();
+                    void saveEditedProjectTitle();
                   } else if (e.key === "Escape") {
-                    cancelEditChat();
+                    cancelEditProject();
                   }
                 }}
                 onClick={(e) => e.stopPropagation()}
@@ -226,10 +224,10 @@ function ChatListRow({
                 size="sm"
                 variant="subtle"
                 color="green"
-                aria-label="Save chat name"
+                aria-label="Save project name"
                 onClick={(e) => {
                   e.stopPropagation();
-                  void saveEditedChatTitle();
+                  void saveEditedProjectTitle();
                 }}
               >
                 <RiCheckLine size={14} />
@@ -241,16 +239,23 @@ function ChatListRow({
                 aria-label="Cancel edit"
                 onClick={(e) => {
                   e.stopPropagation();
-                  cancelEditChat();
+                  cancelEditProject();
                 }}
               >
                 <RiCloseLine size={14} />
               </ActionIcon>
             </Group>
           ) : (
-            <Text size="sm" truncate>
-              {chat.chat_name || formatDate(chat.updated_at)}
-            </Text>
+            <Stack gap={0} style={{ minWidth: 0 }}>
+              <Text size="sm" truncate>
+                {label}
+              </Text>
+              {project.updated_at ? (
+                <Text size="xs" c="dimmed">
+                  {formatDate(project.updated_at)}
+                </Text>
+              ) : null}
+            </Stack>
           )}
         </Group>
         {showActionButtons && (
@@ -260,9 +265,9 @@ function ChatListRow({
               size="md"
               onClick={(e) => {
                 e.stopPropagation();
-                startEditChat(chat);
+                startEditProject(project);
               }}
-              aria-label="Edit chat name"
+              aria-label="Edit project name"
             >
               <RiPencilLine size={20} />
             </ActionIcon>
@@ -272,23 +277,23 @@ function ChatListRow({
               size="md"
               onClick={(e) => {
                 e.stopPropagation();
-                void deleteChatFromList(chat.id);
+                void deleteProject(project.id);
               }}
-              aria-label="Delete chat"
+              aria-label="Delete project"
             >
               <RiDeleteBinLine size={20} />
             </ActionIcon>
-            {!isCurrentChat ? (
+            {!isCurrent ? (
               <ActionIcon
                 variant="subtle"
                 size="md"
                 color="blue"
                 onClick={(e) => {
                   e.stopPropagation();
-                  onOpenChat();
+                  onOpen();
                 }}
-                aria-label="Open chat"
-                title="Open chat"
+                aria-label="Open project"
+                title="Open project"
               >
                 <RiArrowRightLine size={20} />
               </ActionIcon>

@@ -18,7 +18,6 @@ export default [
     route("/account/support/:ticketId", "pages/account/SupportTicket.tsx"),
     route("/tools", "pages/tools/Tools.tsx"),
     route("/tools/:slug", "pages/tools/ToolkitDetail.tsx"),
-    route("/agents", "pages/agents/Agents.tsx"),
     route("/files", "pages/files/MemberFiles.tsx"),
     route("/characters", "pages/characters/Characters.tsx"),
     layout("pages/characters/CharacterLayout.tsx", [
@@ -38,6 +37,8 @@ export default [
       route("/generate/:generation_type/*", "pages/generate/GenerateModel.tsx"),
     ]),
     route("/storyboards", "pages/storyboards/Storyboards.tsx"),
+    route("/projects", "pages/projects/Projects.tsx"),
+    route("/projects/:projectId", "pages/projects/ProjectWorkspace.tsx"),
   ]),
   layout("pages/storyboards/StoryboardEditorLayout.tsx", [
     route("/storyboards/:storyboardId", "pages/storyboards/Storyboard.tsx"),

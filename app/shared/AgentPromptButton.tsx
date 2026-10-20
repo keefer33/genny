@@ -1,17 +1,24 @@
 import { Button, Loader, Modal, Select, Textarea, Group, Stack } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { RiCloseLine, RiAiGenerateText } from "@remixicon/react";
-import { useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { useFormContext } from "~/lib/ContextForm";
 import useAppStore from "~/lib/stores/appStore";
+import { useChatsStore, type AgentModel } from "~/lib/stores/chatsStore";
 import { endpoint } from "~/lib/utils";
 
-const AGENT_MODELS = [
-  { value: "anthropic/claude-opus-4.8", label: "Claude Opus 4.8" },
-  { value: "google/gemini-3.8-flash", label: "Gemini 3.8 Flash" },
-  { value: "xai/grok-4.6", label: "Grok 4.6" },
-  { value: "openai/gpt-5.6-luna", label: "GPT-5.6 Luna" },
-] as const;
+function gatewayModelId(model: AgentModel): string | null {
+  const schema = model.api_id?.schema;
+  if (!schema || typeof schema !== "object") return null;
+  const id = (schema as { model?: unknown }).model;
+  return typeof id === "string" && id.trim() ? id.trim() : null;
+}
+
+function modelSelectLabel(model: AgentModel): string {
+  const name = model.model_name?.trim() || "Agent model";
+  const brand = model.brand_name?.name?.trim();
+  return brand ? `${brand} — ${name}` : name;
+}
 
 function formatFormValuesForAgent(formValues: Record<string, unknown>): string {
   if (!formValues || typeof formValues !== "object") return "";
@@ -62,11 +69,49 @@ export function AgentPromptButton({
 }: AgentPromptButtonProps) {
   const [opened, setOpened] = useState(false);
   const [message, setMessage] = useState("");
-  const [selectedModel, setSelectedModel] = useState<string | null>(AGENT_MODELS[0].value);
+  const [selectedModel, setSelectedModel] = useState<string | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [modelsLoading, setModelsLoading] = useState(false);
   const form = useFormContext();
   const abortControllerRef = useRef<AbortController | null>(null);
   const { getAuthApiKey } = useAppStore();
+  const agentModels = useChatsStore((s) => s.agentModels);
+  const loadAgentModels = useChatsStore((s) => s.loadAgentModels);
+
+  const modelOptions = useMemo(() => {
+    return agentModels
+      .filter((m) => {
+        const type = (m.model_type ?? "").trim().toLowerCase();
+        return !type || type === "text";
+      })
+      .map((m) => {
+        const value = gatewayModelId(m);
+        if (!value) return null;
+        return { value, label: modelSelectLabel(m) };
+      })
+      .filter((opt): opt is { value: string; label: string } => opt != null);
+  }, [agentModels]);
+
+  useEffect(() => {
+    if (!opened) return;
+    if (agentModels.length > 0) return;
+    let cancelled = false;
+    setModelsLoading(true);
+    void loadAgentModels().finally(() => {
+      if (!cancelled) setModelsLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [opened, agentModels.length, loadAgentModels]);
+
+  useEffect(() => {
+    if (!opened || modelOptions.length === 0) return;
+    setSelectedModel((prev) => {
+      if (prev && modelOptions.some((o) => o.value === prev)) return prev;
+      return modelOptions[0].value;
+    });
+  }, [opened, modelOptions]);
 
   const openModal = () => {
     const formValues = typeof form.getValues === "function" ? form.getValues() : { ...form.values };
@@ -77,8 +122,11 @@ export function AgentPromptButton({
       ? `Enhance the following text for a ${generationType} using the following parameters:${paramsBlock}\n\n--- Text to enhance ---\n${currentPrompt}`
       : `Create a random ${generationType} using the following parameters:${paramsBlock}`;
     setMessage(initialMessage);
-    setSelectedModel(AGENT_MODELS[0].value);
     setOpened(true);
+    if (agentModels.length === 0) {
+      setModelsLoading(true);
+      void loadAgentModels().finally(() => setModelsLoading(false));
+    }
   };
 
   const sendToAgent = async () => {
@@ -190,10 +238,13 @@ export function AgentPromptButton({
         <Stack gap="md">
           <Select
             label="Model"
-            data={AGENT_MODELS.map((m) => ({ value: m.value, label: m.label }))}
+            data={modelOptions}
             value={selectedModel}
             onChange={(v) => setSelectedModel(v)}
             allowDeselect={false}
+            searchable
+            nothingFoundMessage={modelsLoading ? "Loading models…" : "No agent models available"}
+            disabled={modelsLoading || modelOptions.length === 0}
           />
           <Textarea
             label="Message to agent"
@@ -209,7 +260,7 @@ export function AgentPromptButton({
               size="sm"
               variant="filled"
               onClick={sendToAgent}
-              disabled={!message.trim() || !selectedModel}
+              disabled={!message.trim() || !selectedModel || modelOptions.length === 0}
             >
               Send
             </Button>

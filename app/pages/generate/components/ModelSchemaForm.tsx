@@ -23,6 +23,7 @@ import {
   collectDeepFormSchemaErrors,
   evaluateConditions,
   isCostIgnoredFieldKey,
+  omitConditionDisabledFields,
   orderedPropertyKeys,
   parseFunctionSchema,
   sanitizePayload,
@@ -85,17 +86,31 @@ export default function ModelSchemaForm({
     },
   });
 
+  const conditionState = useMemo(
+    () => evaluateConditions(functionSchema, form.values as Record<string, unknown>),
+    [functionSchema, form.values]
+  );
+
+  const activeValues = useMemo(
+    () =>
+      omitConditionDisabledFields(
+        form.values as Record<string, unknown>,
+        conditionState.disabledFields
+      ),
+    [form.values, conditionState.disabledFields]
+  );
+
   const costDriverSnapshot = useMemo(() => {
     const fs = functionSchema;
     if (!fs?.properties) return "";
-    const v = form.values as Record<string, unknown>;
     const partial: Record<string, unknown> = {};
     for (const key of orderedPropertyKeys(fs)) {
       if (isCostIgnoredFieldKey(key)) continue;
-      partial[key] = v[key];
+      if (!(key in activeValues)) continue;
+      partial[key] = activeValues[key];
     }
     return JSON.stringify(sanitizePayload(partial));
-  }, [form.values, functionSchema]);
+  }, [activeValues, functionSchema]);
 
   useEffect(() => {
     if (!selectedModel?.id) return;
@@ -118,16 +133,12 @@ export default function ModelSchemaForm({
     const timeoutId = setTimeout(() => {
       void calculateGenerateCost({
         modelId: selectedModel.id,
-        payload: sanitizePayload(form.values as Record<string, unknown>),
+        payload: sanitizePayload(activeValues),
       }).catch(() => undefined);
     }, 250);
     return () => clearTimeout(timeoutId);
-  }, [costDriverSnapshot, selectedModel?.id, calculateGenerateCost]);
+  }, [costDriverSnapshot, selectedModel?.id, calculateGenerateCost, activeValues]);
 
-  const conditionState = useMemo(
-    () => evaluateConditions(functionSchema, form.values as Record<string, unknown>),
-    [functionSchema, form.values]
-  );
   const conditionSetValuesKey = useMemo(
     () => JSON.stringify(conditionState.setValues),
     [conditionState.setValues]
@@ -184,7 +195,12 @@ export default function ModelSchemaForm({
     try {
       const run = await generateFromGenModel({
         id: selectedModel.id,
-        payload: sanitizePayload(values),
+        payload: sanitizePayload(
+          omitConditionDisabledFields(
+            values as Record<string, unknown>,
+            evaluateConditions(functionSchema, values as Record<string, unknown>).disabledFields
+          )
+        ),
       });
       showNotification({
         title: "Success",
