@@ -44,8 +44,8 @@ export function isAiFileLinkUrl(url: string | null | undefined): boolean {
   const value = url?.trim() ?? "";
   if (!value) return false;
   try {
-    return new URL(value).hostname.includes("aifile.link");
+    return new URL(value).hostname.includes("file.genny.bot");
   } catch {
-    return value.includes("aifile.link");
+    return value.includes("file.genny.bot");
   }
 }

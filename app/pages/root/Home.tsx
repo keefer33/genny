@@ -32,7 +32,7 @@ export default function Home() {
             </Text>
           </Stack>
 
-          <video src="https://aifile.link/k1AoRH.mp4" autoPlay loop width="100%" height="100%" />
+          <video src="https://file.genny.bot/k1AoRH.mp4" autoPlay loop width="100%" height="100%" />
         </Stack>
       </Container>
       <Container size="md">

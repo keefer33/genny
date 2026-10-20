@@ -27,7 +27,12 @@ export default function Logo({
     <Link to="/" style={{ textDecoration: "none", color: "inherit" }}>
       <Group gap="0" align="center">
         <Box>
-          <Image src="https://aifile.link/LI1miK.png" alt="Genny Bot" width={size} height={size} />
+          <Image
+            src="https://file.genny.bot/LI1miK.png"
+            alt="Genny Bot"
+            width={size}
+            height={size}
+          />
         </Box>
         <Group gap={0} align="baseline">
           <Text

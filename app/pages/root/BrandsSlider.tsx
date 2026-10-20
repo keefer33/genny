@@ -12,7 +12,7 @@ const BRANDS = [
     slug: "google",
     config: null,
     description: null,
-    logo: "https://aifile.link/Zwgl8A.avif",
+    logo: "https://file.genny.bot/Zwgl8A.avif",
   },
   {
     idx: 1,
@@ -21,7 +21,7 @@ const BRANDS = [
     slug: "flux",
     config: null,
     description: null,
-    logo: "https://aifile.link/3EUcK3.avif",
+    logo: "https://file.genny.bot/3EUcK3.avif",
   },
   {
     idx: 2,
@@ -30,7 +30,7 @@ const BRANDS = [
     slug: "alibaba",
     config: null,
     description: null,
-    logo: "https://aifile.link/cWz7Ux.avif",
+    logo: "https://file.genny.bot/cWz7Ux.avif",
   },
   {
     idx: 3,
@@ -39,7 +39,7 @@ const BRANDS = [
     slug: "grok",
     config: null,
     description: null,
-    logo: "https://aifile.link/d4NE0Q.avif",
+    logo: "https://file.genny.bot/d4NE0Q.avif",
   },
   {
     idx: 4,
@@ -48,7 +48,7 @@ const BRANDS = [
     slug: "kling",
     config: null,
     description: null,
-    logo: "https://aifile.link/U9VDXi.jpg",
+    logo: "https://file.genny.bot/U9VDXi.jpg",
   },
   {
     idx: 5,
@@ -57,7 +57,7 @@ const BRANDS = [
     slug: "anthropic",
     config: null,
     description: null,
-    logo: "https://aifile.link/CxDwzL.avif",
+    logo: "https://file.genny.bot/CxDwzL.avif",
   },
   {
     idx: 6,
@@ -66,7 +66,7 @@ const BRANDS = [
     slug: "minimax",
     config: null,
     description: null,
-    logo: "https://aifile.link/xeOAmW.avif",
+    logo: "https://file.genny.bot/xeOAmW.avif",
   },
   {
     idx: 7,
@@ -75,7 +75,7 @@ const BRANDS = [
     slug: "vidu",
     config: null,
     description: null,
-    logo: "https://aifile.link/eLiyoy.jpg",
+    logo: "https://file.genny.bot/eLiyoy.jpg",
   },
   {
     idx: 8,
@@ -84,7 +84,7 @@ const BRANDS = [
     slug: "bytedance",
     config: null,
     description: null,
-    logo: "https://aifile.link/bws8xQ.png",
+    logo: "https://file.genny.bot/bws8xQ.png",
   },
   {
     idx: 9,
@@ -93,7 +93,7 @@ const BRANDS = [
     slug: "zai",
     config: null,
     description: null,
-    logo: "https://aifile.link/QC3ovh.avif",
+    logo: "https://file.genny.bot/QC3ovh.avif",
   },
   {
     idx: 10,
@@ -102,7 +102,7 @@ const BRANDS = [
     slug: "ltx",
     config: null,
     description: null,
-    logo: "https://aifile.link/4FRXtG.png",
+    logo: "https://file.genny.bot/4FRXtG.png",
   },
   {
     idx: 11,
@@ -111,7 +111,7 @@ const BRANDS = [
     slug: "moonshot",
     config: null,
     description: null,
-    logo: "https://aifile.link/WN3rJd.avif",
+    logo: "https://file.genny.bot/WN3rJd.avif",
   },
   {
     idx: 12,
@@ -120,7 +120,7 @@ const BRANDS = [
     slug: "openai",
     config: null,
     description: null,
-    logo: "https://aifile.link/7HRmoD.avif",
+    logo: "https://file.genny.bot/7HRmoD.avif",
   },
   {
     idx: 14,
@@ -129,7 +129,7 @@ const BRANDS = [
     slug: "deepseek",
     config: null,
     description: null,
-    logo: "https://aifile.link/wOz5Cs.avif",
+    logo: "https://file.genny.bot/wOz5Cs.avif",
   },
 ];
 
